@@ -6,4 +6,84 @@
 
 ---
 
-_Aucune version planifiée pour l'instant. Lance `/version-start 0.1.0` pour démarrer la première version — la skill te guidera pour définir les items et les ajoutera ici._
+**Cible** : bascule en production (v1.0.0) **avant le 15 décembre 2026**. Les versions 0.x sont des étapes de développement internes.
+
+---
+
+## v0.1.0 — Domaine AC056
+
+Objectif : le domaine pur `shared/domain/ac056` lit, contrôle et réécrit les fichiers AC056 à l'identique de Lazarus. C'est le risque le plus dangereux du projet (divergence silencieuse), et tout le reste en dépend.
+
+- Corpus de référence : fichiers AC056 réels (VEOS en UTF-8 et rejets en ANSI) avec leur sortie Lazarus, rangés dans un dossier protégé sur `P:`, jamais dans le dépôt.
+- Entités 000 à 800 en largeur fixe : positions, longueurs, valeurs autorisées (cahier des charges IGA 1.27, `uac056.pas`, `utypes.pas`).
+- Lecteur et écrivain AC056.
+- Règles de contrôle (`ucontrole.pas`) et codes de rejet `ERRxxx` avec leur description (`urejetsdescription.pas`).
+- Jeu de caractères AC056 autorisé, ASCII uniquement : `0`-`9`, `A`-`Z`, espace, `-`, `'`, `/`, `.`, ainsi que `a`-`z`, `_` et `@` pour la validation des e-mails (hypothèse de travail). Tout octet hors de ce jeu (accent, caractère multi-octets venu de VEOS) est signalé en erreur sur son champ, sans décaler les champs suivants. Tests avec un caractère interdit à différentes positions.
+- Fichier VEOS enregistré sans modification identique à l'octet près : CRLF ou LF, BOM UTF-8, saut de ligne final, espaces de bourrage, ligne vide finale. Test de non-régression par SHA-256 sur le corpus réel.
+- Fichiers AC056 mal formés (vide, tronqué, longueur de ligne incorrecte, entité hors 000 à 800, ordre inattendu, en-tête 000 ou pied absent) : erreurs localisées par numéro de ligne, et le reste du fichier reste consultable. Mesurer le chargement sur le plus gros fichier réel.
+- Rejets MSP en ANSI (Windows-1252), dont les messages peuvent contenir des accents : décodage en Windows-1252 sans confusion avec l'UTF-8, et signalement d'un fichier dont l'encodage ne correspond pas à son origine.
+
+## v0.2.0 — Socle applicatif
+
+Objectif : configuration, stockage, journal, paramètres et premier installeur. L'installeur est testé dès cette version sur un vrai poste du service.
+
+- Adapter `config` : mode `recette`/`prod` (`FLUSSI_ENV`, `%ProgramData%\Flussi\config.json`, surcharges dans `%APPDATA%\Flussi\`), mode affiché dans le titre, bandeau Recette.
+- `config.json` absent, partiel ou illisible, ou `FLUSSI_ENV` vide ou invalide : l'application refuse de démarrer avec un message clair, sans repli sur `prod`.
+- Adapter `stockage` : emplacements logiques `in`, `out`, `journal` vers des dossiers configurables.
+- `P:` indisponible ou instable (non monté, déconnecté, verrou OneDrive `EBUSY`/`EPERM`, copies de conflit `*-NOMPOSTE*`) : vérification des trois dossiers au démarrage, signalement du dossier inaccessible et courte nouvelle tentative en cas de verrou. Jamais d'échec silencieux ni d'écrasement.
+- Module `Journal` : arborescence de Lazarus conservée (`Journal\AAAA\MM\`, mois de `01` à `12`), un fichier par session, sans index commun. Nom `AAAAMMJJ-HHMMSS.txt` suffixé du compte Windows (ex. `20261002-141425-c.mathevon.txt`), écrit en ajout seul. Consultation de l'historique en parcourant les dossiers.
+- Module `Parametres` : mode actif, dossiers de travail.
+- Secrets techniques jamais saisis par les utilisateurs : l'administrateur les renseigne une fois après le déploiement (mots de passe FTP IGA et SFTP MSP au clavier, clé `.ppk` FileZilla importée par un sélecteur de fichier, convertie avec PuTTYgen si elle est au format PPK v3). Stockage chiffré choisi à l'implémentation, jamais affiché, utilisable par les utilisateurs du service. Pas de procédure de rotation.
+- Instance unique : un second lancement remet au premier plan la fenêtre déjà ouverte.
+- Version de l'application visible dans l'interface et inscrite dans chaque fichier de session du journal.
+- Premier installeur NSIS, testé tôt sur un poste pilote avec un compte standard (installation, premier lancement, mise à jour) : l'installeur non signé, déployé par Intune, est-il bloqué par Defender ou par une règle ASR ? En cas de blocage, aucun achat : installation manuelle sur les postes, en confirmant l'alerte SmartScreen éventuelle.
+
+## v0.3.0 — Écran AC056
+
+Objectif : le service peut charger, contrôler et corriger un fichier AC056 local. C'est l'écran qui décidera de l'acceptation, face à la grille de Lazarus.
+
+- Chargement d'un fichier issu de VEOS (UTF-8) ou de rejet (ANSI).
+- Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle à la sortie d'un champ et marquage des erreurs.
+- Modification et enregistrement, seulement si le fichier ne contient plus d'erreur.
+- Rejets rattachés : message par ligne et explication `ERRxxx`.
+- Liste récapitulative des erreurs (ligne, entité, champ, message ou `ERRxxx`). Un clic ouvre directement le champ concerné, et des raccourcis clavier passent à l'erreur suivante ou précédente. Objectif : corriger quinze erreurs au moins aussi vite que dans Lazarus.
+
+## v0.4.0 — IGA et VEOS
+
+Objectif : lancer l'export dans VEOS et récupérer le fichier AC056 sur le FTP IGA.
+
+- Adapter `ftp-iga` et module `Iga` : liste des fichiers AC056 du dossier `APIVIA`, téléchargement vers IN.
+- Avertissement « fichier non du jour » conservé (parité Lazarus) : l'utilisateur peut choisir n'importe quel fichier sur le FTP IGA. Le message reste utile malgré la surveillance après lancement et l'anti-doublon.
+- FTP IGA (workflow lancé habituellement entre 17 h et 18 h 30, parfois en rattrapage le lendemain matin) : un fichier pas encore apparu ou en cours d'écriture n'est téléchargé qu'une fois sa taille stable. Plusieurs fichiers le même jour (cas rare, contenus distincts) sont tous listés et traitables, sans sélection automatique du dernier.
+- Adapter `veos` et module `Veos` : saisie des identifiants personnels, pilotage de la fenêtre cachée, lancement d'`EXPORT_APIVIA`.
+- Succès du lancement VEOS = fait observé : après le déclenchement d'`EXPORT_APIVIA`, Flussi surveille le FTP IGA jusqu'à l'apparition du fichier du jour (délai configurable). Sinon, échec explicite qui renvoie à la procédure manuelle (couvre MFA, SSO, page de connexion modifiée).
+- Mode « fenêtre visible » pour le pilotage VEOS, activable par l'utilisateur ou en repli automatique quand le pilotage caché échoue : diagnostic, saisie d'un code MFA, lancement manuel du workflow.
+- Erreurs de connexion VEOS et FTP IGA différenciées : cause probable (identifiants, hôte injoignable, port fermé, certificat TLS du proxy, délai) et action conseillée, au lieu d'un « échec de connexion » générique.
+
+## v0.5.0 — MSP
+
+Objectif : déposer l'AC056 chez MSP et récupérer les rejets.
+
+- Adapter `sftp-msp` : connexion sur le port 10022 (mot de passe et clé), garde-fou hôte/mode testé dans les deux sens (aucun dépôt vers `mft.macif.fr` en recette, aucun vers `mft-hp.macif.fr` en prod).
+- Module `Msp` : dépôt dans `/Depot_AMM_NAS` avec listing de vérification, liste et téléchargement des rejets de `/Retrait` vers OUT, empreinte SHA-256 de chaque dépôt tracée dans le journal.
+- Anti-doublon avant le dépôt : l'empreinte SHA-256 du fichier est comparée à celles des dépôts du journal. Si elle est connue, avertissement bloquant (date et auteur du dépôt précédent), et dépôt possible seulement après confirmation explicite.
+- Dépôt SFTP interrompu : les tailles distante et locale sont comparées après le dépôt. En cas d'écart, le dépôt est signalé incomplet et n'est pas tracé comme réussi. Refus d'écraser un fichier du même nom dans `/Depot_AMM_NAS`.
+- Rattachement automatique de chaque rejet de `/Retrait` à son dépôt d'origine dans le journal (par le nom, la date ou l'empreinte). L'historique affiche l'état de chaque dépôt : en attente de rejet, sans rejet, ou rejeté avec N lignes.
+- Erreurs de connexion SFTP MSP différenciées : cause probable (identifiants, hôte injoignable, port fermé, clé refusée, délai) et action conseillée, au lieu d'une erreur brute de `ssh2-sftp-client`.
+
+## v0.6.0 — Parcours complet et recette
+
+Objectif : le cycle complet tourne de bout en bout en mode recette, et le service administratif le teste.
+
+- Enchaînement VEOS → IGA → AC056 → MSP → rejets en mode recette, sans intervention manuelle.
+- Bouton « Tester les connexions » dans Paramètres : FTP IGA, SFTP MSP (hôte, port 10022, mot de passe, clé), page VEOS, lecture et écriture dans IN, OUT et Journal, avec un résultat clair pour chaque point.
+- Recette avec le service administratif et correction des écarts relevés.
+
+## v1.0.0 — Mise en production
+
+Objectif : Flussi remplace Lazarus en production, avant le 15 décembre 2026.
+
+- `config.json` de production déployé par Intune, avec `FLUSSI_ENV` explicite.
+- Déploiement Intune (ou installation manuelle si l'installeur est bloqué).
+- Contrôles de conformité AC056 : tout fichier écrit par Flussi est rechargé dans Lazarus et passe ses contrôles sans erreur ; un fichier VEOS enregistré sans modification reste identique à l'octet près sur le corpus.
+- Critère de validation de Flussi : l'acceptation par les utilisateurs du service administratif. Elle déclenche le renommage du dossier Lazarus sur `P:` (`flussi_old`), conservé quelques semaines comme solution de repli, puis supprimé.
