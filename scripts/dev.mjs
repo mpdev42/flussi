@@ -9,8 +9,13 @@
  * variable de process.env avant de spawner electron-vite.
  */
 import { spawn } from 'child_process';
+import { createRequire } from 'module';
 
 delete process.env.ELECTRON_RUN_AS_NODE;
+
+// Electron 44+ télécharge son binaire au premier require('electron') ; electron-vite 5
+// lit path.txt directement et échoue (« Electron uninstall ») tant que ce n'est pas fait.
+createRequire(import.meta.url)('electron');
 
 // Commande passée en string unique pour éviter DEP0190 (args tableau + shell:true)
 const proc = spawn('electron-vite dev', [], {

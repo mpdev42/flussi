@@ -28,8 +28,9 @@ export default defineConfig({
       outDir: 'out/preload',
       rollupOptions: {
         output: {
+          // .cjs et non .js : Electron 44 (Node 24) applique "type": "module" au preload
           format: 'cjs',
-          entryFileNames: 'index.js',
+          entryFileNames: 'index.cjs',
         },
       },
     },

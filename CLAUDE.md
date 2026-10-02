@@ -76,7 +76,7 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 - **Adapter `veos`** : VEOS n'expose pas d'API de lancement de workflow. Le pilotage de la page web est isolé ici, pour pouvoir être remplacé si IGA ouvre un accès par l'API.
 - **Secrets** : ils ne transitent jamais vers le renderer.
 - **Alias d'import** : `@` pointe vers `src/renderer/src` (renderer uniquement), `@shared` pointe vers `src/shared` (main, preload, renderer, tests). Déclarés dans `electron.vite.config.ts`, `tsconfig.json` et `vitest.config.ts`.
-- **Build** : main émis en CJS (`out/main/index.cjs`), preload émis en CJS (`out/preload/index.js`), malgré `"type": "module"` dans `package.json`. Ne pas retirer les blocs `rollupOptions` de `electron.vite.config.ts` (voir pièges §7.1 et §7.2 de `.claude/templates/template-electron.md`).
+- **Build** : main et preload émis en CJS avec l'extension `.cjs` (`out/main/index.cjs`, `out/preload/index.cjs`), malgré `"type": "module"` dans `package.json`. L'extension `.cjs` est indispensable : Electron 44 (Node 24) applique `"type": "module"` à un preload en `.js` et le charge comme module ES, ce qui casse `require` et laisse `window.api` à `undefined`. Ne pas retirer les blocs `rollupOptions` de `electron.vite.config.ts` (voir pièges §7.1 et §7.2 de `.claude/templates/template-electron.md`).
 
 ### Déploiement
 
