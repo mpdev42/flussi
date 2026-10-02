@@ -1,0 +1,9 @@
+# Prettier 3 lit aussi .gitignore (sorties de build, artefacts de test)
+
+# Sources gérées par les skills : ne pas reformater
+.claude/
+docs/
+design/
+DESIGN.md
+
+package-lock.json

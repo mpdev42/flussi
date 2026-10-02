@@ -1,0 +1,24 @@
+# Dépendances
+node_modules/
+
+# Build et packaging
+out/
+dist/
+release/
+.vite-cache/
+
+# Logs
+*.log
+
+# Environnement local (contient des secrets)
+.env
+.env.*
+!.env.example
+
+# Playwright
+e2e/qa-runs/
+test-results/
+playwright-report/
+
+# Claude Code — réglages personnels
+.claude/settings.local.json

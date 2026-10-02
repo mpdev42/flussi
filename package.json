@@ -1,0 +1,53 @@
+{
+  "name": "flussi",
+  "version": "0.1.0",
+  "description": "Logiciel d'échange de fichiers entre notre logiciel de gestion métier VEOS et notre partenaire MSP",
+  "private": true,
+  "main": "out/main/index.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "test": "vitest run",
+    "test:e2e": "node scripts/e2e.mjs",
+    "build": "electron-vite build",
+    "package": "electron-vite build && electron-builder --win nsis",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.49.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^2.6.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/ui": "^5.0.3",
+    "autoprefixer": "^10.6.1",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "jsdom": "^30.1.1",
+    "postcss": "^8.5.28",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^3.4.19",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.3"
+  }
+}

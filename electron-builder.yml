@@ -1,0 +1,20 @@
+# À compléter : remplacer PLACEHOLDER-ORGANISATION par l'identifiant de l'organisation
+appId: com.PLACEHOLDER-ORGANISATION.flussi
+productName: Flussi
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - resources/**
+  - package.json
+win:
+  target:
+    - nsis
+# Installation par machine, silencieuse avec /S (déploiement Intune en application Win32)
+nsis:
+  oneClick: true
+  perMachine: true
+  artifactName: ${productName}-${version}-setup.${ext}
+# Mises à jour poussées par Intune : pas de publication ni d'electron-updater
+publish: null
