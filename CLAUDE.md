@@ -175,6 +175,8 @@ e2e/
 scripts/
   dev.mjs                       wrapper npm run dev (neutralise ELECTRON_RUN_AS_NODE)
   e2e.mjs                       wrapper npm run test:e2e (idem)
+  claude-format.mjs             hook Claude Code : formate avec Prettier chaque fichier modifié
+.vscode/                        formatage à l'enregistrement, extensions recommandées
 resources/                      ressources embarquées dans le paquet
 build/                          ressources de build electron-builder (icône…)
 design/                         sources de design (à produire)
@@ -195,11 +197,13 @@ npm run typecheck     # Vérification des types — tsc --noEmit
 npm run lint          # Lint check — eslint .
 npm run lint:fix      # Lint fix auto — eslint . --fix
 npm run format        # Formatter — prettier --write .
+npm run format:check  # Vérification du formatage, sans écriture — prettier --check .
 ```
 
 - Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, jamais par `npx playwright test` directement. Le wrapper `scripts/e2e.mjs` rebuild l'application (les specs lancent `out/`, pas les sources) et neutralise `ELECTRON_RUN_AS_NODE`, posée par VS Code et Claude Code. Arguments transmis à Playwright : `npm run test:e2e -- <spec> --reporter=list`.
 - Les tests unitaires vivent à côté du code (`src/**/*.test.ts`). Vitest ignore le dossier `e2e/`.
 - ESLint et Prettier ignorent `.claude/`, `docs/` et `design/` (sources gérées par les skills).
+- Fins de ligne LF partout (`.gitattributes` : `* text=auto eol=lf`), cohérentes avec Prettier.
 
 ---
 
@@ -208,7 +212,7 @@ npm run format        # Formatter — prettier --write .
 - **Langue du code** : FR — commentaires, messages d'erreur internes et vocabulaire métier en français (sans accents dans les identifiants : `beneficiaire`, `evenement`, `rejet`). Les termes techniques imposés par l'écosystème restent en anglais (`services`, `adapters`, `hooks`, `handler`).
 - **Langue de l'interface** : FR
 - **Nommage** : camelCase pour les variables et fonctions, PascalCase pour les types et composants React, SCREAMING_SNAKE_CASE pour les constantes, kebab-case pour les fichiers hors composants, canaux IPC au format `module:action`. Pas de préfixes hongrois hérités de Lazarus (`s_`, `i_`, `b_`).
-- **Style** : ESLint (flat config, typescript-eslint, react-hooks, react-refresh) + Prettier (`semi`, `singleQuote`, `trailingComma: all`), TypeScript strict
+- **Style** : ESLint (flat config, typescript-eslint, react-hooks, react-refresh) + Prettier (`semi`, `singleQuote`, `trailingComma: all`, `printWidth: 100`), TypeScript strict
 - **Principes** : KISS, DRY, YAGNI, SOLID, parité fonctionnelle avec Lazarus en v1.0 (toute divergence de comportement est explicite et validée)
 
 ---
@@ -235,6 +239,18 @@ npm run format        # Formatter — prettier --write .
 Tant que `DESIGN.md` et `design/patterns/` n'existent pas, les agents UI travaillent sans guide visuel et produisent des composants par défaut. Préviens-moi si tu lances un travail UI avant que le design soit produit.
 
 **Convention de format à venir** : `design/handoff/` contiendra des atomes au format `.html` + `.css` + `.jsx` (plusieurs représentations utiles à `component-agent`). `design/patterns/` contiendra des patterns au format `.tsx` self-contained uniquement (composition complète previewable, instanciée par `feature-agent`).
+
+---
+
+## Autonomie et permissions de Claude Code
+
+Les règles sont dans `.claude/settings.json` (versionné), en double `Bash(...)` et `PowerShell(...)` : les règles d'un outil ne s'appliquent pas à l'autre. Les agents héritent des règles `allow` et `deny`.
+
+- **Sans demande** : modifications de fichiers du projet (mode `acceptEdits`), scripts de qualité (`npm test`, `npm run test:e2e`, `build`, `typecheck`, `lint`, `format`, `format:check`), git local (`status`, `diff`, `log`, `add`, `commit`, création de branche), lecture GitHub, listage de fichiers.
+- **Avec demande** : `npm install`, `npm run dev`, `npm run package`, `git push`, toute suppression, toute commande mentionnant `.ssh`, et tout ce qui n'est pas listé.
+- **Refusé** : lecture ou modification de `.env` (outil ou shell), `npm publish`, `npx playwright test` en direct, `git push --force`, `gh repo delete` et `gh repo edit`.
+- **Habitudes** : une commande simple par appel (pas de script PowerShell sur une ligne avec variables ou boucles), les outils Read, Grep et Glob plutôt que le shell pour lire des fichiers, les scripts npm plutôt que les outils appelés directement. Ne jamais citer `.env` dans une commande shell, même dans un message de commit.
+- **Formatage automatique** : le hook `scripts/claude-format.mjs` formate avec Prettier chaque fichier modifié par Edit ou Write. Après une modification, relire le fichier avant d'en modifier la même zone.
 
 ---
 

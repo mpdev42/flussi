@@ -155,6 +155,7 @@ npm run typecheck     # Vérification des types — tsc --noEmit
 npm run lint          # Lint check — eslint .
 npm run lint:fix      # Lint fix auto — eslint . --fix
 npm run format        # Formatter — prettier --write .
+npm run format:check  # Vérification du formatage, sans écriture — prettier --check .
 ```
 
 ---
@@ -164,7 +165,7 @@ npm run format        # Formatter — prettier --write .
 - **Langue du code** : FR — commentaires, messages d'erreur internes et vocabulaire métier en français (sans accents dans les identifiants : `beneficiaire`, `evenement`, `rejet`). Les termes techniques imposés par l'écosystème restent en anglais (`services`, `adapters`, `hooks`, `handler`).
 - **Langue de l'interface** : FR
 - **Nommage** : camelCase pour les variables et fonctions, PascalCase pour les types et composants React, SCREAMING_SNAKE_CASE pour les constantes, kebab-case pour les fichiers hors composants, canaux IPC au format `module:action`. Pas de préfixes hongrois hérités de Lazarus (`s_`, `i_`, `b_`).
-- **Style** : ESLint (flat config, typescript-eslint, react-hooks, react-refresh) + Prettier (`semi`, `singleQuote`, `trailingComma: all`), TypeScript strict
+- **Style** : ESLint (flat config, typescript-eslint, react-hooks, react-refresh) + Prettier (`semi`, `singleQuote`, `trailingComma: all`, `printWidth: 100`), TypeScript strict
 - **Principes** : KISS, DRY, YAGNI, SOLID, parité fonctionnelle avec Lazarus en v1.0 (toute divergence de comportement est explicite et validée)
 
 ---

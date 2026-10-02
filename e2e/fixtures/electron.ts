@@ -1,8 +1,4 @@
-import {
-  _electron,
-  type ElectronApplication,
-  type Page,
-} from '@playwright/test';
+import { _electron, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'node:path';
 
 const MAIN_ENTRY = path.resolve(process.cwd(), 'out/main/index.cjs');

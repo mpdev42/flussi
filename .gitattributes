@@ -1,0 +1,3 @@
+# Fins de ligne LF dans le dépôt et dans la copie de travail, quel que soit core.autocrlf :
+# cohérent avec Prettier (endOfLine: lf) et sans avertissements LF/CRLF sous Windows
+* text=auto eol=lf

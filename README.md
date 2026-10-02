@@ -14,6 +14,7 @@ npm run typecheck     # Vérification des types — tsc --noEmit
 npm run lint          # Lint check — eslint .
 npm run lint:fix      # Lint fix auto — eslint . --fix
 npm run format        # Formatter — prettier --write .
+npm run format:check  # Vérification du formatage, sans écriture — prettier --check .
 ```
 
 Les tests e2e se lancent uniquement depuis la racine du projet, via `npm run test:e2e`, qui rebuild l'application avant de lancer Playwright.

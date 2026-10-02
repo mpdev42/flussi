@@ -9,9 +9,7 @@ test("smoke — l'app démarre et ouvre une fenêtre", async () => {
   expect(title).toBeTruthy();
 
   // Le pont IPC est exposé : window.api est défini côté renderer
-  const apiExposed = await page.evaluate(
-    () => typeof window.api !== 'undefined',
-  );
+  const apiExposed = await page.evaluate(() => typeof window.api !== 'undefined');
   expect(apiExposed).toBe(true);
 
   // Le handler IPC `app:ping` répond `pong`
