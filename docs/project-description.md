@@ -185,15 +185,11 @@ Liste des modules ou entités principales du projet :
 
 ## Design
 
-### Cas 3 — Interface présente, design à produire plus tard
+### Cas 2 — Design produit
 
-- **État** : à faire
-- **Plan** : produire dans cet ordre :
-  1. `DESIGN.md` via `/design-system-bootstrap` (tokens fondamentaux).
-  2. `design/patterns/` via `/design-patterns-bootstrap` (patterns d'écran réutilisables — `list+form` en priorité pour l'écran AC056).
-  3. Au cas par cas, `design/handoff/{ecran}.tsx` via `/design-screen-prompt` pour les écrans sur-mesure qui sortent des patterns standards.
-
-> Recommandation : produire au minimum `DESIGN.md` et les patterns liste et formulaire avant le premier item d'interface.
+- **État** : produit. Tokens matérialisés via `/design-system-adapt`, références dans `DESIGN.md`, `design/handoff/` et `design/patterns/`.
+- **Charte** : mode clair uniquement, ton sobre et corporate. Bleu clair de la marque (C100 M30 J0 N5) pour les actions, bleu foncé (C100 M80 J0 N45) pour l'identité, violet réservé à l'environnement Recette. Polices IBM Plex Sans et IBM Plex Mono.
+- **Plan restant** : au cas par cas, `design/handoff/{ecran}.tsx` via `/design-screen-prompt` pour les écrans sur-mesure qui sortent des patterns standards.
 
 ---
 

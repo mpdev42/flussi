@@ -230,15 +230,22 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 
 ## Design
 
-- **État** : à faire
-- **Plan** : produire dans cet ordre :
-  1. `DESIGN.md` + composants atomiques `design/handoff/` via `/design-system-bootstrap` (tokens fondamentaux + atomes Button/Input/Card/Modal au format `.html`/`.css`/`.jsx`).
-  2. Patterns d'écran composites `design/patterns/` via `/design-patterns-bootstrap` (list, form, list+form, au format `.tsx` self-contained). `list+form` en priorité pour l'écran AC056.
-  3. Au cas par cas, écrans sur-mesure `design/handoff/{ecran}.tsx` via `/design-screen-prompt` pour les items marqués `Pattern: custom` dans `version-{X}.md`.
+- **État** : produit. Tokens matérialisés via `/design-system-adapt`, références dans `DESIGN.md`, `design/handoff/` et `design/patterns/`.
+- **Charte** : mode clair uniquement, ton sobre et corporate. Bleu clair de la marque (C100 M30 J0 N5, `blue-500` `#0077BD`) pour les actions, bleu foncé (C100 M80 J0 N45, `navy-700` `#13295B`) pour l'identité. Violet réservé à l'environnement Recette. Polices IBM Plex Sans et IBM Plex Mono (paquets `@fontsource`, importés dans `index.css`).
+- **Plan restant** : au cas par cas, écrans sur-mesure `design/handoff/{ecran}.tsx` via `/design-screen-prompt` pour les items marqués `Pattern: custom` dans `version-{X}.md`.
 
-Tant que `DESIGN.md` et `design/patterns/` n'existent pas, les agents UI travaillent sans guide visuel et produisent des composants par défaut. Préviens-moi si tu lances un travail UI avant que le design soit produit.
+**Sources de référence** :
 
-**Convention de format à venir** : `design/handoff/` contiendra des atomes au format `.html` + `.css` + `.jsx` (plusieurs représentations utiles à `component-agent`). `design/patterns/` contiendra des patterns au format `.tsx` self-contained uniquement (composition complète previewable, instanciée par `feature-agent`).
+- `DESIGN.md` : source de vérité des tokens (couleurs, typographie, espacements, ombres, mouvement) et des règles d'usage (marquage des erreurs, bandeau Recette, badges, boutons). Ne pas le modifier depuis l'adaptation.
+- `design/handoff/` : composants atomiques au format `.tsx` avec classes `.fl-*`. Référence visuelle uniquement, jamais importés par l'application.
+- `design/patterns/` : patterns d'écran `list`, `form` et `list+form` au format `.tsx` self-contained (composition complète previewable, instanciée par `feature-agent`). `list+form` en priorité pour l'écran AC056.
+
+**Composants de l'application** (`src/renderer/src/components/ui/`) :
+
+- Installés par la CLI shadcn : `button`, `input`, `textarea`, `checkbox`, `radio-group`, `switch`, `card`, `dialog`, `alert-dialog`, `alert`, `badge`, `tooltip`, `skeleton`.
+- Stubs maison de la charte : `field` (render prop câblant id, aide et erreur vers le contrôle), `select` (`<select>` natif), `spinner`, `operation-progress`, `status-badge` (`StatusBadge`, `EnvironmentBadge`, `CountBadge`), `environment-banner`, `data-list`, `confirm-dialog`.
+- Les composants shadcn gardent leurs valeurs par défaut (par exemple hauteur de bouton `h-9` au lieu de `h-control-md`, pas de style d'erreur sur `aria-invalid`). Écart accepté et validé. Ne pas les corriger sans demande.
+- `src/renderer/src/lib/utils.ts` : `cn` s'appuie sur `extendTailwindMerge`. Tout nouveau token Tailwind de tailles de police, d'ombres, de hauteurs, de largeurs, de z-index, de durées ou de courbes doit y être déclaré, sinon `tailwind-merge` supprime la classe sans prévenir.
 
 ---
 
