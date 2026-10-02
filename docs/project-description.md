@@ -10,7 +10,8 @@ Logiciel d'échange de fichiers entre notre logiciel de gestion métier VEOS et 
 
 - **Utilisateurs réels** : Le service administratif.
 - **Problème à résoudre** : Porter vers Electron l'application Lazarus qui génère un fichier et l'envoie à un partenaire. Le portage seul n'apporte rien à l'utilisateur. On en profite pour définir avec lui les améliorations à apporter.
-- **Version minimale (v0.1)** : Portage complet des fonctions existantes : récupération du fichier auprès de VEOS, chargement et contrôle avant envoi, envoi chez MSP, récupération et contrôle des fichiers de rejet mis à disposition par MSP, lecture des logs, chargement d'un fichier pour contrôle.
+- **Version livrée (v1.0)** : Portage complet des fonctions existantes : récupération du fichier auprès de VEOS, chargement et contrôle avant envoi, envoi chez MSP, récupération et contrôle des fichiers de rejet mis à disposition par MSP, lecture des logs, chargement d'un fichier pour contrôle.
+- **Versions intermédiaires** : les versions 0.1, 0.2… sont des étapes de développement internes, pas des livraisons aux utilisateurs.
 - **Hors scope** : Aucune exclusion : toutes les fonctions sont construites dans la première version.
 - **Critère de succès à 3 mois** : L'application est en production, validée par le service administratif, et Lazarus est arrêtée (voir Notes).
 - **Outil existant** : L'application Lazarus actuelle couvre le besoin. Elle sera abandonnée au profit d'Electron, désormais utilisé pour développer les applications.
@@ -120,15 +121,15 @@ VEOS_WORKFLOW_EXPORT_ID=
 # IGA — FTP
 IGA_FTP_HOST=
 IGA_FTP_USER=
-IGA_FTP_PASSWORD=
+IGA_FTP_PASSWORD=             # dev uniquement
 IGA_FTP_DOSSIER=
 
 # MSP — SFTP
 MSP_SFTP_HOST=
 MSP_SFTP_PORT=
 MSP_SFTP_USER=
-MSP_SFTP_PASSWORD=
-MSP_SFTP_CLE_PRIVEE_CHEMIN=
+MSP_SFTP_PASSWORD=            # dev uniquement
+MSP_SFTP_CLE_PRIVEE_CHEMIN=   # dev uniquement
 MSP_SFTP_DOSSIER_DEPOT=
 MSP_SFTP_DOSSIER_RETRAIT=
 ```
@@ -136,7 +137,7 @@ MSP_SFTP_DOSSIER_RETRAIT=
 > **Sources selon le contexte (mêmes noms partout)** :
 > - **Dev** : `.env` (ignoré par git).
 > - **Application installée, paramètres non secrets** : valeurs par défaut du mode dans le code, surchargées par `%ProgramData%\Flussi\config.json` (déployé par Intune, en lecture seule pour les utilisateurs), puis par les surcharges de l'écran Paramètres, enregistrées dans le profil de l'utilisateur (`%APPDATA%\Flussi\`).
-> - **Application installée, secrets** (`*_PASSWORD`, clé privée) : `safeStorage` d'Electron (DPAPI, propre à chaque utilisateur), saisis une fois dans l'écran Paramètres. Jamais intégrés au paquet.
+> - **Application installée, secrets** (`*_PASSWORD`, clé privée) : saisis une fois par l'administrateur après le déploiement (la clé `.ppk` est importée par un sélecteur de fichier), stockés chiffrés et utilisables par tous les utilisateurs du poste. Le mécanisme est choisi à l'implémentation. Jamais saisis par les utilisateurs, jamais affichés, jamais intégrés au paquet.
 > - **Cible à terme** : Azure Key Vault, au moment de la bascule Graph/SharePoint.
 >
 > Les identifiants VEOS sont personnels et saisis à chaque lancement : ils ne figurent pas ici.
@@ -178,8 +179,8 @@ Liste des modules ou entités principales du projet :
 - `Iga` : liste des fichiers AC056 sur le FTP IGA, avertissement si le fichier n'est pas du jour, téléchargement vers le dossier IN.
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT.
 - `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 800, lecteur, écrivain, règles de contrôle).
-- `Journal` : écriture du journal de session dans le stockage partagé (une entrée d'index par session, avec date et utilisateur Windows), consultation de l'historique.
-- `Parametres` : mode actif, dossiers de travail (surcharge de `config.json`, enregistrée dans `%APPDATA%\Flussi\` : `%ProgramData%\Flussi\config.json` reste en lecture seule), saisie et mise à jour des secrets dans `safeStorage`.
+- `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, rangé dans `Journal\AAAA\MM\`, sans index commun), consultation de l'historique.
+- `Parametres` : mode actif, dossiers de travail (surcharge de `config.json`, enregistrée dans `%APPDATA%\Flussi\` : `%ProgramData%\Flussi\config.json` reste en lecture seule), saisie des secrets par l'administrateur.
 
 ---
 
