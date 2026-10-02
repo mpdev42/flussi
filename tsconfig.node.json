@@ -4,6 +4,10 @@
     "lib": ["ES2022"],
     "types": ["node"]
   },
-  "include": ["electron.vite.config.ts", "vitest.config.ts", "playwright.config.ts"],
+  "include": [
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
   "exclude": []
 }

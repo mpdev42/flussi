@@ -21,6 +21,11 @@
       "@shared/*": ["./src/shared/*"]
     }
   },
-  "include": ["src/**/*", "electron.vite.config.ts", "vitest.config.ts", "playwright.config.ts"],
+  "include": [
+    "src/**/*",
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
   "exclude": ["e2e", "node_modules", "out", "dist", "release"]
 }

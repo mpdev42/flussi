@@ -31,15 +31,15 @@ Projet **Flussi** — logiciel d'échange de fichiers AC056 entre notre logiciel
 
 ## Stack technique
 
-| Layer      | Technology |
-|------------|------------|
-| Runtime    | Node.js (embarqué par Electron) + Electron |
-| Framework  | React + TypeScript (strict) |
-| UI         | Tailwind CSS + shadcn/ui |
-| DB         | Aucune (fichiers sur le stockage partagé ; SQLite exclu sur un dossier SharePoint synchronisé) |
-| Build      | electron-vite + electron-builder (NSIS, pour Intune) |
-| Tests      | Vitest (unitaires) + Playwright (e2e Electron) |
-| Quality    | ESLint + Prettier + zod (validation de la configuration et des échanges IPC) |
+| Layer     | Technology                                                                                     |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| Runtime   | Node.js (embarqué par Electron) + Electron                                                     |
+| Framework | React + TypeScript (strict)                                                                    |
+| UI        | Tailwind CSS + shadcn/ui                                                                       |
+| DB        | Aucune (fichiers sur le stockage partagé ; SQLite exclu sur un dossier SharePoint synchronisé) |
+| Build     | electron-vite + electron-builder (NSIS, pour Intune)                                           |
+| Tests     | Vitest (unitaires) + Playwright (e2e Electron)                                                 |
+| Quality   | ESLint + Prettier + zod (validation de la configuration et des échanges IPC)                   |
 
 > Les bibliothèques de transfert et d'encodage (`basic-ftp`, `ssh2-sftp-client`, gestion ANSI/UTF-8) seront ajoutées par les items concernés, pas au bootstrap.
 
@@ -91,10 +91,10 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 
 ## Modes de fonctionnement
 
-| Mode       | Description |
-|------------|-------------|
-| `recette`  | VEOS de recette (`rec-veos.iga.fr`), SFTP MSP de recette (`mft-hp.macif.fr`, compte de recette), dossiers de travail locaux configurables. Mode par défaut avec `npm run dev`. |
-| `prod`     | VEOS de production (`prod-veos.iga.fr`), SFTP MSP de production (`mft.macif.fr`, compte de production), dossiers de travail sur `P:\…\Transferts\` (IN, OUT, Journal). Mode par défaut de l'application installée. |
+| Mode      | Description                                                                                                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `recette` | VEOS de recette (`rec-veos.iga.fr`), SFTP MSP de recette (`mft-hp.macif.fr`, compte de recette), dossiers de travail locaux configurables. Mode par défaut avec `npm run dev`.                                     |
+| `prod`    | VEOS de production (`prod-veos.iga.fr`), SFTP MSP de production (`mft.macif.fr`, compte de production), dossiers de travail sur `P:\…\Transferts\` (IN, OUT, Journal). Mode par défaut de l'application installée. |
 
 - **Sélection** : par configuration (variable `FLUSSI_ENV`, surchargeable dans `%ProgramData%\Flussi\config.json`), jamais par l'emplacement de l'exécutable.
 - **Repère visible** : le mode est affiché dans le titre de la fenêtre, avec un bandeau de couleur en recette.
@@ -106,12 +106,12 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 
 ## Services externes
 
-| Service | Usage | Accès |
-|---------|-------|-------|
-| VEOS (IGA) | Lancer le workflow d'export vers MSP (`EXPORT_APIVIA` côté VEOS) | Interface web pilotée : fenêtre Chromium cachée, identifiants VEOS personnels de l'utilisateur (saisis à chaque fois, jamais stockés), puis URL de lancement du workflow. L'API REST VEOS (`/rs/rsExtranet2`) n'expose pas de lancement de workflow. |
-| IGA, FTP externe | Lister les fichiers AC056 du dossier `APIVIA`, contrôler leur date, les télécharger vers IN | FTP, compte technique (`basic-ftp` pressenti) |
-| MSP (ex-APIVIA), serveur de transfert MACIF | Déposer l'AC056 dans `/Depot_AMM_NAS`, lister, récupérer les rejets dans `/Retrait` vers OUT | SFTP sur le port 10022, compte technique + mot de passe + clé privée (`ssh2-sftp-client` pressenti) |
-| SharePoint, par le lecteur `P:` | Dossiers de travail IN, OUT et Journal partagé | Système de fichiers (lecteur réseau) en v1.0. Microsoft Graph après la v1.0, derrière l'adapter `stockage`. |
+| Service                                     | Usage                                                                                        | Accès                                                                                                                                                                                                                                                |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| VEOS (IGA)                                  | Lancer le workflow d'export vers MSP (`EXPORT_APIVIA` côté VEOS)                             | Interface web pilotée : fenêtre Chromium cachée, identifiants VEOS personnels de l'utilisateur (saisis à chaque fois, jamais stockés), puis URL de lancement du workflow. L'API REST VEOS (`/rs/rsExtranet2`) n'expose pas de lancement de workflow. |
+| IGA, FTP externe                            | Lister les fichiers AC056 du dossier `APIVIA`, contrôler leur date, les télécharger vers IN  | FTP, compte technique (`basic-ftp` pressenti)                                                                                                                                                                                                        |
+| MSP (ex-APIVIA), serveur de transfert MACIF | Déposer l'AC056 dans `/Depot_AMM_NAS`, lister, récupérer les rejets dans `/Retrait` vers OUT | SFTP sur le port 10022, compte technique + mot de passe + clé privée (`ssh2-sftp-client` pressenti)                                                                                                                                                  |
+| SharePoint, par le lecteur `P:`             | Dossiers de travail IN, OUT et Journal partagé                                               | Système de fichiers (lecteur réseau) en v1.0. Microsoft Graph après la v1.0, derrière l'adapter `stockage`.                                                                                                                                          |
 
 > MSP est le nouveau nom d'APIVIA. Le nom MSP est utilisé dans tout le code. Les noms côté IGA et VEOS (`APIVIA`, `EXPORT_APIVIA`) restent inchangés.
 
@@ -121,13 +121,13 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 
 Référence : `.env.example`.
 
-| Groupe | Variables |
-|--------|-----------|
-| Environnement | `FLUSSI_ENV` |
-| Stockage (dossiers de travail — `P:` en v1.0) | `STOCKAGE_DOSSIER_TRAVAIL`, `STOCKAGE_DOSSIER_IN`, `STOCKAGE_DOSSIER_OUT`, `STOCKAGE_DOSSIER_JOURNAL` |
-| VEOS (IGA) | `VEOS_URL`, `VEOS_WORKFLOW_EXPORT_ID` |
-| IGA — FTP | `IGA_FTP_HOST`, `IGA_FTP_USER`, `IGA_FTP_PASSWORD`, `IGA_FTP_DOSSIER` |
-| MSP — SFTP | `MSP_SFTP_HOST`, `MSP_SFTP_PORT`, `MSP_SFTP_USER`, `MSP_SFTP_PASSWORD`, `MSP_SFTP_CLE_PRIVEE_CHEMIN`, `MSP_SFTP_DOSSIER_DEPOT`, `MSP_SFTP_DOSSIER_RETRAIT` |
+| Groupe                                        | Variables                                                                                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Environnement                                 | `FLUSSI_ENV`                                                                                                                                               |
+| Stockage (dossiers de travail — `P:` en v1.0) | `STOCKAGE_DOSSIER_TRAVAIL`, `STOCKAGE_DOSSIER_IN`, `STOCKAGE_DOSSIER_OUT`, `STOCKAGE_DOSSIER_JOURNAL`                                                      |
+| VEOS (IGA)                                    | `VEOS_URL`, `VEOS_WORKFLOW_EXPORT_ID`                                                                                                                      |
+| IGA — FTP                                     | `IGA_FTP_HOST`, `IGA_FTP_USER`, `IGA_FTP_PASSWORD`, `IGA_FTP_DOSSIER`                                                                                      |
+| MSP — SFTP                                    | `MSP_SFTP_HOST`, `MSP_SFTP_PORT`, `MSP_SFTP_USER`, `MSP_SFTP_PASSWORD`, `MSP_SFTP_CLE_PRIVEE_CHEMIN`, `MSP_SFTP_DOSSIER_DEPOT`, `MSP_SFTP_DOSSIER_RETRAIT` |
 
 **Sources selon le contexte (mêmes noms partout)** :
 
@@ -188,7 +188,7 @@ docs/                           roadmap, backlog, description, pre-mortem
 ```bash
 npm run dev           # Lancer en dev — electron-vite dev (encapsulé par scripts/dev.mjs)
 npm test              # Tests unitaires — vitest run
-npm run test:e2e      # Tests e2e Playwright — après npm run build (encapsulé par scripts/e2e.mjs)
+npm run test:e2e      # Tests e2e Playwright — build puis playwright test (encapsulé par scripts/e2e.mjs)
 npm run build         # Build production — electron-vite build
 npm run package       # Installeur Windows NSIS pour Intune — electron-vite build && electron-builder --win nsis
 npm run typecheck     # Vérification des types — tsc --noEmit
@@ -197,7 +197,7 @@ npm run lint:fix      # Lint fix auto — eslint . --fix
 npm run format        # Formatter — prettier --write .
 ```
 
-- Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, après au moins un `npm run build`.
+- Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, jamais par `npx playwright test` directement. Le wrapper `scripts/e2e.mjs` rebuild l'application (les specs lancent `out/`, pas les sources) et neutralise `ELECTRON_RUN_AS_NODE`, posée par VS Code et Claude Code. Arguments transmis à Playwright : `npm run test:e2e -- <spec> --reporter=list`.
 - Les tests unitaires vivent à côté du code (`src/**/*.test.ts`). Vitest ignore le dossier `e2e/`.
 - ESLint et Prettier ignorent `.claude/`, `docs/` et `design/` (sources gérées par les skills).
 

@@ -1,5 +1,4 @@
-# À compléter : remplacer PLACEHOLDER-ORGANISATION par l'identifiant de l'organisation
-appId: com.PLACEHOLDER-ORGANISATION.flussi
+appId: com.math-prevaris.flussi
 productName: Flussi
 directories:
   output: release

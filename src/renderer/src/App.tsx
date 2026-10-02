@@ -18,7 +18,9 @@ function App() {
       >
         Tester la chaîne IPC
       </button>
-      {reponse && <p className="text-muted-foreground">Réponse du main : {reponse}</p>}
+      {reponse && (
+        <p className="text-muted-foreground">Réponse du main : {reponse}</p>
+      )}
     </main>
   );
 }
