@@ -1,0 +1,53 @@
+import { alpha, date, num, zoneNonDecrite } from './champs';
+import { entete, RANG_MODIFIABLE } from './entete';
+import type { DescriptionEntite } from './types';
+
+export const ENTITE_700: DescriptionEntite = {
+  code: '700',
+  brute: false,
+  champs: [
+    ...entete(RANG_MODIFIABLE),
+    alpha('indicActionGarantie', 26, 1),
+    alpha('codeAssureur', 27, 9, { trim: true, affiche: true, maxLength: 9 }),
+    alpha('codeProduit', 36, 10, { trim: true, affiche: true, maxLength: 10 }),
+    alpha('codeGarantie', 46, 10, { trim: true, affiche: true, maxLength: 10 }),
+    alpha('codeConditionVente', 56, 6, { trim: true, affiche: true, maxLength: 6 }),
+    alpha('codeVersionTarifaire', 62, 10),
+    date('ancienneteGarantieSouscr', 72, 8, { affiche: true }),
+    date('finEnfantACharge', 80, 8),
+    num('reservesMedicale', 88, 1),
+    num('reservesAutres', 89, 1),
+    date('dateNaissanceDerogee', 90, 8),
+    alpha('numExterne', 98, 15),
+    alpha('sexeDeroge', 113, 1),
+    alpha('typeAssureDeroge', 114, 6),
+    alpha('cspDeroge', 120, 4),
+    alpha('categorieSocialeDeroge', 124, 12),
+    num('coefMigration', 136, 14),
+    alpha('codeAssureurGarantieRemp', 150, 9),
+    alpha('codeGarantieRemp', 159, 10),
+    // maxLength 2 pour une longueur de 1 : écart de Lazarus conservé tel quel.
+    num('appliquerStageCv', 169, 1, { affiche: true, maxLength: 2 }),
+    date('dateFinStage1', 170, 8, { affiche: true }),
+    alpha('codeStage1', 178, 6, { affiche: true, maxLength: 6 }),
+    date('dateFinStage2', 184, 8),
+    alpha('codeStage2', 192, 6),
+    date('dateFinStage3', 198, 8),
+    alpha('codeStage3', 206, 6),
+    date('dateFinStage4', 212, 8),
+    alpha('codeStage4', 220, 6),
+    date('dateFinStage5', 226, 8),
+    alpha('codeStage5', 234, 6),
+    // Trim + bourrage '0' : Lazarus réécrit un type blanc en zéro.
+    num('typeGarantieAssemblee', 240, 1, { trim: true, affiche: true, maxLength: 1 }),
+    num('numProduitGroupeAssures', 241, 5),
+    num('numGarantieGroupeAssures', 246, 5),
+    alpha('zoneBanalisee', 251, 16),
+    alpha('zoneReserveeMnh', 267, 16),
+    num('idfsysPeriodeConditionVente', 283, 8),
+    num('idfsysVersionTarifaire', 291, 8),
+    alpha('codeOperationCommerciale', 299, 6),
+    num('idfsysOperationCommerciale', 305, 8),
+    zoneNonDecrite(313),
+  ],
+};
