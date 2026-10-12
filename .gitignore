@@ -22,3 +22,13 @@ playwright-report/
 
 # Claude Code — réglages personnels
 .claude/settings.local.json
+
+# Sources Lazarus : uconstantes.pas contient des mots de passe en clair, jamais dans le dépôt
+uconstantes*.pas
+
+# Données AC056 réelles (corpus sur P: uniquement, jamais dans le dépôt)
+MATH_*.txt
+AC056COUR_REJ_*
+
+# Visual Studio Code
+flussi.code-workspace

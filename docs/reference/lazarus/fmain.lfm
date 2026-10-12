@@ -1,0 +1,4350 @@
+object frmMain: TfrmMain
+  Left = 454
+  Height = 807
+  Top = 103
+  Width = 1276
+  BorderIcons = [biSystemMenu, biMinimize]
+  BorderStyle = bsSingle
+  Caption = 'Flussi'
+  ClientHeight = 807
+  ClientWidth = 1276
+  OnClose = FormClose
+  OnCloseQuery = FormCloseQuery
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnShow = FormShow
+  Position = poDesktopCenter
+  LCLVersion = '3.6.0.0'
+  object pcEvenements: TPageControl
+    Left = 8
+    Height = 718
+    Top = 80
+    Width = 672
+    ActivePage = tsBeneficiaires
+    Images = ilMain
+    TabIndex = 1
+    TabOrder = 7
+    OnChange = pcEvenementsChange
+    object tsEvenementsListe: TTabSheet
+      Caption = 'Evènements'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEvenementsListeShow
+      object sgEvenements: TStringGrid
+        Left = 10
+        Height = 660
+        Top = 22
+        Width = 334
+        AutoEdit = False
+        MouseWheelOption = mwGrid
+        Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRowSelect, goSmoothScroll]
+        TabOrder = 0
+        TitleFont.Style = [fsBold]
+        OnClick = sgEvenementsClick
+        ColWidths = (
+          19
+          64
+          88
+          68
+          73
+        )
+        Cells = (
+          4
+          1
+          0
+          'N° dossier'
+          2
+          0
+          'N° évènement'
+          3
+          0
+          'N° contrat'
+          4
+          0
+          'Evènement'
+        )
+      end
+    end
+    object tsBeneficiaires: TTabSheet
+      Caption = 'Bénéficiaires'
+      ClientHeight = 690
+      ClientWidth = 664
+      object pcBeneficiaires: TPageControl
+        Left = 0
+        Height = 690
+        Top = 0
+        Width = 664
+        ActivePage = tsVariablesSouscription
+        Align = alClient
+        Images = ilMain
+        TabIndex = 7
+        TabOrder = 0
+        OnChange = pcBeneficiairesChange
+        object tsBeneficiairesListe: TTabSheet
+          Caption = 'Bénéficiaires'
+          ClientHeight = 662
+          ClientWidth = 656
+          object sgBeneficiaires: TStringGrid
+            Left = 10
+            Height = 652
+            Top = 2
+            Width = 494
+            AutoEdit = False
+            MouseWheelOption = mwGrid
+            Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRowSelect, goSmoothScroll]
+            TabOrder = 0
+            TitleFont.Style = [fsBold]
+            OnClick = sgBeneficiairesClick
+            ColWidths = (
+              19
+              64
+              38
+              187
+              164
+            )
+            Cells = (
+              4
+              1
+              0
+              'Lien'
+              2
+              0
+              'Rang'
+              3
+              0
+              'Nom'
+              4
+              0
+              'Prénom'
+            )
+          end
+        end
+        object tsGaranties: TTabSheet
+          Caption = 'Garanties'
+          ClientHeight = 662
+          ClientWidth = 656
+          object pcGaranties: TPageControl
+            Left = 0
+            Height = 662
+            Top = 0
+            Width = 656
+            ActivePage = tsGarantiesListe
+            Align = alClient
+            Images = ilMain
+            TabIndex = 0
+            TabOrder = 0
+            object tsGarantiesListe: TTabSheet
+              Caption = 'Garanties'
+              ClientHeight = 634
+              ClientWidth = 648
+              object sgGaranties: TStringGrid
+                Left = 8
+                Height = 612
+                Top = 16
+                Width = 390
+                AutoEdit = False
+                ColCount = 4
+                MouseWheelOption = mwGrid
+                Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRowSelect, goSmoothScroll]
+                TabOrder = 0
+                TitleFont.Style = [fsBold]
+                OnClick = sgGarantiesClick
+                ColWidths = (
+                  19
+                  64
+                  142
+                  140
+                )
+                Cells = (
+                  3
+                  1
+                  0
+                  'Assureur'
+                  2
+                  0
+                  'Produit'
+                  3
+                  0
+                  'Garantie'
+                )
+              end
+            end
+            object tsEntite700: TTabSheet
+              Caption = '700'
+              ClientHeight = 634
+              ClientWidth = 648
+              OnShow = tsEntite700Show
+              object lbl700RangBeneficiaire: TLabel
+                Left = 9
+                Height = 15
+                Top = 8
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Rang bénéficiaire :'
+              end
+              object lbl700CodeAssureur: TLabel
+                Left = 9
+                Height = 15
+                Top = 40
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code assureur :'
+              end
+              object lbl700CodeProduit: TLabel
+                Left = 9
+                Height = 15
+                Top = 72
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code produit :'
+              end
+              object lbl700CodeGarantie: TLabel
+                Left = 9
+                Height = 15
+                Top = 104
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code garantie :'
+              end
+              object lbl700CodeConditionVente: TLabel
+                Left = 9
+                Height = 15
+                Top = 136
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code condition vente :'
+              end
+              object lbl700TypeGarantie: TLabel
+                Left = 9
+                Height = 15
+                Top = 296
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Type garantie :'
+              end
+              object lbl700Erreur: TLabel
+                Left = 9
+                Height = 15
+                Top = 328
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Erreur :'
+              end
+              object edt700RangBeneficiaire: TEdit
+                Left = 178
+                Height = 23
+                Top = 8
+                Width = 32
+                MaxLength = 2
+                TabOrder = 0
+                Text = 'ed'
+                OnExit = edt700RangBeneficiaireExit
+              end
+              object edt700CodeAssureur: TEdit
+                Left = 178
+                Height = 23
+                Top = 40
+                Width = 80
+                MaxLength = 9
+                TabOrder = 1
+                Text = 'edt700Cod'
+              end
+              object edt700CodeProduit: TEdit
+                Left = 178
+                Height = 23
+                Top = 72
+                Width = 80
+                MaxLength = 10
+                TabOrder = 2
+                Text = 'edt700Code'
+              end
+              object edt700CodeGarantie: TEdit
+                Left = 178
+                Height = 23
+                Top = 104
+                Width = 80
+                MaxLength = 10
+                TabOrder = 3
+                Text = 'edt700Code'
+              end
+              object edt700CodeConditionVente: TEdit
+                Left = 178
+                Height = 23
+                Top = 136
+                Width = 56
+                MaxLength = 6
+                TabOrder = 4
+                Text = 'edt700'
+              end
+              object edt700TypeGarantie: TEdit
+                Left = 177
+                Height = 23
+                Top = 296
+                Width = 22
+                MaxLength = 1
+                TabOrder = 5
+                Text = 'e'
+              end
+              object lbl700ErreurValeur: TLabel
+                Left = 177
+                Height = 30
+                Top = 328
+                Width = 470
+                AutoSize = False
+                Caption = 'lbl700ErreurValeur'
+                WordWrap = True
+              end
+              object lbl700ErreurDescription: TLabel
+                Left = 177
+                Height = 120
+                Top = 365
+                Width = 470
+                AutoSize = False
+                Caption = 'lbl700ErreurDescription'
+                WordWrap = True
+              end
+              object lbl700DateAncienneteGarantie: TLabel
+                Left = 9
+                Height = 15
+                Top = 168
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Date ancienneté garantie :'
+              end
+              object dtp700DateAncienneteGarantie: TDateTimePicker
+                Left = 178
+                Height = 23
+                Top = 168
+                Width = 83
+                CenturyFrom = 1941
+                MaxDate = 2958465
+                MinDate = -53780
+                TabOrder = 6
+                TrailingSeparator = False
+                TextForNullDate = ' '
+                LeadingZeros = True
+                Kind = dtkDate
+                TimeFormat = tf24
+                TimeDisplay = tdHMS
+                DateMode = dmComboBox
+                Date = 44595
+                Time = 0.468714201386319
+                UseDefaultSeparators = True
+                HideDateTimeParts = []
+                MonthNames = 'Long'
+              end
+              object lbl700DerogerDateStage: TLabel
+                Left = 9
+                Height = 15
+                Top = 200
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Déroger à la date de stage :'
+              end
+              object lbl700DateFinStage: TLabel
+                Left = 9
+                Height = 15
+                Top = 232
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Date de fin de stage :'
+              end
+              object lbl700CodeStage: TLabel
+                Left = 9
+                Height = 15
+                Top = 264
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code stage :'
+              end
+              object edt700DerogerDateStage: TEdit
+                Left = 178
+                Height = 23
+                Top = 200
+                Width = 32
+                MaxLength = 2
+                TabOrder = 7
+                Text = 'ed'
+              end
+              object dtp700DateFinStage: TDateTimePicker
+                Left = 178
+                Height = 23
+                Top = 232
+                Width = 83
+                CenturyFrom = 1941
+                MaxDate = 2958465
+                MinDate = -53780
+                TabOrder = 8
+                TrailingSeparator = False
+                TextForNullDate = ' '
+                LeadingZeros = True
+                Kind = dtkDate
+                TimeFormat = tf24
+                TimeDisplay = tdHMS
+                DateMode = dmComboBox
+                Date = 44595
+                Time = 0.468714201386319
+                UseDefaultSeparators = True
+                HideDateTimeParts = []
+                MonthNames = 'Long'
+              end
+              object edt700CodeStage: TEdit
+                Left = 178
+                Height = 23
+                Top = 264
+                Width = 56
+                MaxLength = 6
+                TabOrder = 9
+                Text = 'edt700'
+              end
+            end
+          end
+        end
+        object tsEntite400: TTabSheet
+          Caption = '400'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsEntite400Show
+          object lbl400RangBeneficiaire: TLabel
+            Left = 8
+            Height = 15
+            Top = 72
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang bénéficiaire :'
+          end
+          object lbl400RangPersonne: TLabel
+            Left = 8
+            Height = 15
+            Top = 104
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang personne :'
+          end
+          object lbl400TypeAssure: TLabel
+            Left = 8
+            Height = 15
+            Top = 136
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Type assuré :'
+          end
+          object lbl400CodePaysTarifaire: TLabel
+            Left = 8
+            Height = 15
+            Top = 168
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Pays tarifaire :'
+          end
+          object lbl400CodeDepartementTarifaire: TLabel
+            Left = 8
+            Height = 15
+            Top = 200
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Département tarifaire :'
+          end
+          object lbl400SituationFamille: TLabel
+            Left = 8
+            Height = 15
+            Top = 232
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Situation de famille :'
+          end
+          object lbl400CodeSexe: TLabel
+            Left = 8
+            Height = 15
+            Top = 264
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Sexe :'
+          end
+          object lbl400DateNaissance: TLabel
+            Left = 8
+            Height = 15
+            Top = 296
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Date de naissance :'
+          end
+          object lbl400CategorieSociale: TLabel
+            Left = 8
+            Height = 15
+            Top = 328
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Catégorie sociale :'
+          end
+          object lbl400CodeInsee: TLabel
+            Left = 8
+            Height = 15
+            Top = 360
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Code INSEE :'
+          end
+          object lbl400CleInsee: TLabel
+            Left = 8
+            Height = 15
+            Top = 392
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Clé INSEE'
+          end
+          object lbl400Erreur: TLabel
+            Left = 8
+            Height = 15
+            Top = 432
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Erreur :'
+          end
+          object edt400RangBeneficiaire: TEdit
+            Left = 178
+            Height = 23
+            Top = 72
+            Width = 32
+            MaxLength = 2
+            TabOrder = 0
+            Text = 'ed'
+            OnExit = edt400RangBeneficiaireExit
+          end
+          object edt400RangPersonne: TEdit
+            Left = 178
+            Height = 23
+            Top = 104
+            Width = 32
+            MaxLength = 2
+            TabOrder = 1
+            Text = 'ed'
+            OnExit = edt400RangPersonneExit
+          end
+          object cbb400TypeAssure: TComboBox
+            Left = 178
+            Height = 23
+            Top = 136
+            Width = 158
+            DropDownCount = 5
+            ItemHeight = 15
+            Items.Strings = (
+              'ASCEND - Ascendant'
+              'ASSPRI - Assuré principal'
+              'AUTRE - Autre personne'
+              'CONJOI - Conjoint'
+              'ENFANT - Enfant'
+            )
+            Style = csDropDownList
+            TabOrder = 2
+          end
+          object cbb400CodePaysTarifaire: TComboBox
+            Left = 178
+            Height = 23
+            Top = 168
+            Width = 214
+            ItemHeight = 15
+            Items.Strings = (
+              'AFG - Afghanistan'
+              'ZAF - Afrique Du Sud'
+              'ALB - Albanie'
+              'DZA - Algerie'
+              'DEU - Allemagne'
+              'AND - Andorre'
+              'AGO - Angola'
+              'AIA - Anguilla'
+              'ATA - Antarctique'
+              'ATG - Antigua Et Barbuda'
+              'SAU - Arabie Saoudite'
+              'ARG - Argentine'
+              'ARM - Armenie'
+              'ABW - Aruba'
+              'AUS - Australie'
+              'AUT - Autriche'
+              'AZE - Azerbaidjan'
+              'BHS - Bahamas'
+              'BHR - Bahrein'
+              'BGD - Bangladesh'
+              'BRB - Barbade'
+              'BLR - Belarus'
+              'BEL - Belgique'
+              'BLZ - Belize'
+              'DEN - Benin'
+              'BMU - Bermudes'
+              'BTN - Bhoutan'
+              'BOL - Bolivie'
+              'DES - Bonaire Saint Eustache Et Saba'
+              'BIH - Bosnie Herzegovine'
+              'BWA - Botswana'
+              'BRA - Bresil'
+              'BRN - Brunei'
+              'BGE - Bulgarie'
+              'BFA - Burkina Faso'
+              'BDI - Burundi'
+              'KHM - Cambodge'
+              'CMR - Cameroun'
+              'CAN - Canada'
+              'CPV - Cap Vert'
+              'CHL - Chili'
+              'CHN - Chine'
+              'CYP - Chypre'
+              'COL - Colombie'
+              'COM - Comores'
+              'COG - Congo'
+              'CRI - Costa Rica'
+              'CIV - Cote D Ivoire'
+              'HRV - Croatie'
+              'CUB - Cuba'
+              'CUW - Curacao'
+              'DNK - Danemark'
+              'DJI - Djibouti'
+              'DMA - Dominique'
+              'EGY - Egypte'
+              'SLV - El Salvador'
+              'ARE - Emirats Arabes Unis'
+              'ECU - Equateur'
+              'ERI - Erythree'
+              'ESP - Espagne'
+              'EST - Estonie'
+              'USA - Etats Unis'
+              'ETH - Ethiopie'
+              'YUG - Etranger'
+              'DJI - Fidji'
+              'FIN - Finlande'
+              'FRA - France'
+              'GAB - Gabon'
+              'GMB - Gambie'
+              'GEO - Georgie'
+              'SGS - Georgie Du Sud'
+              'GHA - Ghana'
+              'GIB - Gibraltar'
+              'GRC - Grece'
+              'GRD - Grenade'
+              'GRL - Groenland'
+              'GUM - Guam'
+              'GTM - Guatemala'
+              'GGY - Guernesey'
+              'GIN - Guinee'
+              'GNB - Guinee Bissau'
+              'GNQ - Guinee Equat'
+              'GUY - Guyane'
+              'HTI - Haiti'
+              'HMD - Heard Mcdonald'
+              'HND - Honduras'
+              'HKG - Hong Kong'
+              'HUN - Hongrie'
+              'BVT - Ile Bouvet'
+              'IMN - Ile De Man'
+              'NFK - Ile Norfolk'
+              'ALA - Iles Aland'
+              'CYM - Iles Caimanes'
+              'CXR - Iles Christmas'
+              'CCK - Iles Cocos'
+              'COK - Iles Cook'
+              'FLK - Iles Falkland'
+              'FRO - Iles Feroes'
+              'MNP - Iles Mariannes'
+              'MHL - Iles Marshall'
+              'UMI - Iles Mineures'
+              'SLB - Iles Salomon'
+              'VGB - Iles Vierges Gb'
+              'VIR - Iles Vierges Us'
+              'IND - Inde'
+              'IDN - Indonesie'
+              'IRQ - Iraq'
+              'IRL - Irlande'
+              'ISL - Islande'
+              'ISR - Israel'
+              'ITA - Italie'
+              'JAM - Jamaique'
+              'JPN - Japon'
+              'JEY - Jersey'
+              'JOR - Jordanie'
+              'KAZ - Kazakstan'
+              'KEN - Kenya'
+              'KGZ - Kirghizistan'
+              'KIR - Kiribati'
+              'KWT - Koweit'
+              'LAO - Laos'
+              'LSO - Lesotho'
+              'LVA - Lettonie'
+              'LBN - Liban'
+              'LBR - Liberia'
+              'LBY - Libye'
+              'LIE - Liechtenstein'
+              'LTU - Lituanie'
+              'LUX - Luxembourg'
+              'MAC - Macao'
+              'MKD - Macedoine'
+              'MDG - Madagascar'
+              'MYS - Malaisie'
+              'MWI - Malawi'
+              'MDV - Maldives'
+              'MLI - Mali'
+              'MLT - Malte'
+              'MAR - Maroc'
+              'MUS - Maurice'
+              'MRT - Mauritanie'
+              'MEX - Mexique'
+              'FSM - Micronesie'
+              'MDA - Moldavie'
+              'MCO - Monaco'
+              'MNG - Mongolie'
+              'MNE - Montenegro'
+              'MSR - Montserrat'
+              'MOZ - Mozambique'
+              'MMR - Myanmar'
+              'NAM - Namibie'
+              'NRU - Nauru'
+              'NPL - Nepal'
+              'NIC - Nicaragua'
+              'NER - Niger'
+              'NGA - Nigeria'
+              'NIU - Nioue'
+              'NZL - Nle Zelande'
+              'NOR - Norvege'
+              'IOT - Ocean Indien'
+              'OMN - Oman'
+              'UGA - Ouganda'
+              'UZB - Ouzbekistan'
+              'PAK - Pakistan'
+              'PLW - Palaos'
+              'PSE - Palestine'
+              'PAN - Panama'
+              'PNG - Papouasie'
+              'PRY - Paraguay'
+              'NLD - Pays Bas'
+              'ZZZ - Pays Inconnu'
+              'PER - Perou'
+              'PHL - Philippines'
+              'PCN - Pitcaim'
+              'POL - Pologne'
+              'PRI - Porto Rico'
+              'PRT - Portugal'
+              'QAT - Qatar'
+              'CAF - Rep Centrafic'
+              'KOR - Rep De Coree'
+              'COD - Rep Demo Congo'
+              'DOM - Rep Dominicaine'
+              'PRK - Rep Pop Coree'
+              'CZE - Rep Tcheque'
+              'IRN - Republique Islamique D Iran'
+              'ROU - Roumanie'
+              'GBR - Royaume Uni'
+              'RUS - Russie'
+              'RWA - Rwanda'
+              'ESH - Sahara Occident'
+              'WSM - Samoa  '
+              'ASM - Samoa Americaines'
+              'STP - Sao Tome Ppe'
+              'SEN - Senegal'
+              'SRB - Serbie'
+              'SYC - Seychelles'
+              'SLE - Sierra Leone'
+              'SGP - Singapour'
+              'SVK - Slovaquie'
+              'SVN - Slovenie'
+              'SOM - Somalie'
+              'SDN - Soudan'
+              'SSD - Soudan Du Sud'
+              'LKA - Sri Lanka'
+              'KNA - St Kiits Nevi'
+              'SMR - St Martin'
+              'SXM - St Martin (Nld)'
+              'VCT - St Vincent'
+              'SHN - Ste Helen'
+              'LCA - Ste Lucie'
+              'SWE - Suede'
+              'CHE - Suisse'
+              'SUR - Suriname'
+              'SJM - Svalbard'
+              'SWZ - Swaziland'
+              'SYR - Syrie'
+              'TJK - Tadjikistan'
+              'THA - Tahilande'
+              'TWN - Taiwan'
+              'TZA - Tanzanie'
+              'TCD - Tchad'
+              'TLS - Timor Leste'
+              'TGO - Togo'
+              'TKL - Tokelau'
+              'TON - Tonga'
+              'TTO - Trinite Tobago'
+              'TKM - Tukmenistan'
+              'TUN - Tunisie'
+              'TCA - Turks Caiques'
+              'TUR - Turquie'
+              'TUV - Tuvalu'
+              'UKR - Ukraine'
+              'URY - Uruguay'
+              'VUT - Vanuatu'
+              'VAT - Vatican'
+              'VEN - Venezuela'
+              'VNM - Vietnam'
+              'YEM - Yemen'
+              'ZMB - Zambie'
+              'ZWE - Zimbabwe'
+            )
+            Style = csDropDownList
+            TabOrder = 3
+          end
+          object cbb400DepartementTarifaire: TComboBox
+            Left = 178
+            Height = 23
+            Top = 200
+            Width = 262
+            ItemHeight = 15
+            Items.Strings = (
+              '01 - Ain'
+              '02 - Aisne'
+              '03 - Allier'
+              '04 - Alpes-de-haute-provence'
+              '05 - Hautes-alpes'
+              '06 - Alpes-maritimes'
+              '07 - Ardeche'
+              '08 - Ardennes'
+              '09 - Ariege'
+              '10 - Aube'
+              '11 - Aude'
+              '12 - Aveyron'
+              '13 - Bouches-du-rhone'
+              '14 - Calvados'
+              '15 - Cantal'
+              '16 - Charente'
+              '17 - Charente-maritime'
+              '18 - Cher'
+              '19 - Correze'
+              '20 - Corse'
+              '21 - Cote-d or'
+              '22 - Cotes-d armor'
+              '23 - Creuse'
+              '24 - Dordogne'
+              '25 - Doubs'
+              '26 - Drome'
+              '27 - Eure'
+              '28 - Eure-et-loir'
+              '29 - Finistere'
+              '30 - Gard'
+              '31 - Haute-garonne'
+              '32 - Gers'
+              '33 - Gironde'
+              '34 - Herault'
+              '35 - Ille-et-vilaine'
+              '36 - Indre'
+              '37 - Indre-et-loire'
+              '38 - Isere'
+              '39 - Jura'
+              '40 - Landes'
+              '41 - Loir-et-cher'
+              '42 - Loire'
+              '43 - Haute-loire'
+              '44 - Loire-atlantique'
+              '45 - Loiret'
+              '46 - Lot'
+              '47 - Lot-et-garonne'
+              '48 - Lozere'
+              '49 - Maine-et-loire'
+              '50 - Manche'
+              '51 - Marne'
+              '52 - Haute-marne'
+              '53 - Mayenne'
+              '54 - Meurthe-et-moselle'
+              '55 - Meuse'
+              '56 - Morbihan'
+              '57 - Moselle'
+              '58 - Nievre'
+              '59 - Nord'
+              '60 - Oise'
+              '61 - Orne'
+              '62 - Pas-de-calais'
+              '63 - Puy-de-dome'
+              '64 - Pyrenees-atlantiques'
+              '65 - Hautes-pyrenees'
+              '66 - Pyrenees-orientales'
+              '67 - Bas-rhin'
+              '68 - Haut-rhin'
+              '69 - Rhone'
+              '70 - Haute-saone'
+              '71 - Saone-et-loire'
+              '72 - Sarthe'
+              '73 - Savoie'
+              '74 - Haute-savoie'
+              '75 - Paris'
+              '76 - Seine-maritime'
+              '77 - Seine-et-marne'
+              '78 - Yvelines'
+              '79 - Deux-sevres'
+              '80 - Somme'
+              '81 - Tarn'
+              '82 - Tarn-et-garonne'
+              '83 - Var'
+              '84 - Vaucluse'
+              '85 - Vendee'
+              '86 - Vienne'
+              '87 - Haute-vienne'
+              '88 - Vosges'
+              '89 - Yonne'
+              '90 - Territoire-de-belfort'
+              '91 - Essonne'
+              '92 - Hauts-de-seine'
+              '93 - Seine-st-denis'
+              '94 - Val-de-marne'
+              '95 - Val-d oise'
+              '71 - Guadeloupe'
+              '72 - Martinique'
+              '73 - Guyane'
+              '74 - Reunion'
+              '75 - St-pierre-et-miquelon'
+              '76 - Mayotte'
+              '77 - Saint-barthelemy'
+              '78 - Saint-martin'
+              '80 - Monaco'
+              '84 - Terres australes et antarctiques francaises'
+              '86 - Wallis et futuna'
+              '87 - Polynesie francaise'
+              '88 - Nouvelle caledonie'
+              '89 - Ile de clipperton'
+              '99 - Departement hors france'
+            )
+            Style = csDropDownList
+            TabOrder = 4
+          end
+          object cbb400SituationFamille: TComboBox
+            Left = 178
+            Height = 23
+            Top = 232
+            Width = 100
+            ItemHeight = 15
+            Items.Strings = (
+              ''
+              'C - Célibataire'
+              'D - Divorcé(e)'
+              'M - Marié(e)'
+              'P - PACS'
+              'S - Séparé(e)'
+              'U - Concubin'
+              'V - Veuf'
+            )
+            Style = csDropDownList
+            TabOrder = 5
+          end
+          object cbb400CodeSexe: TComboBox
+            Left = 178
+            Height = 23
+            Top = 264
+            Width = 100
+            ItemHeight = 15
+            Items.Strings = (
+              'F - Féminin'
+              'M - Masculin'
+            )
+            Style = csDropDownList
+            TabOrder = 6
+          end
+          object dtp400DateNaissance: TDateTimePicker
+            Left = 178
+            Height = 23
+            Top = 296
+            Width = 83
+            CenturyFrom = 1941
+            MaxDate = 2958465
+            MinDate = -53780
+            TabOrder = 7
+            TrailingSeparator = False
+            TextForNullDate = 'NULL'
+            LeadingZeros = True
+            Kind = dtkDate
+            TimeFormat = tf24
+            TimeDisplay = tdHMS
+            DateMode = dmComboBox
+            Date = 44595
+            Time = 0.468714201386319
+            UseDefaultSeparators = True
+            HideDateTimeParts = []
+            MonthNames = 'Long'
+          end
+          object cbb400CategorieSociale: TComboBox
+            Left = 178
+            Height = 23
+            Top = 328
+            Width = 368
+            ItemHeight = 15
+            ItemIndex = 5
+            Items.Strings = (
+              'ALSMOS - Alsace-Moselle'
+              'APP - Apprenti'
+              'ARTISAN - Artisan TNS'
+              'COMMERCANT - Commerçant TNS'
+              'CJTCOLLAB - Conjoint collaborateur'
+              'CREATEUR ENT - Créateur d''entreprise (RG + Loi Madelin < 1 an)'
+              'DNS - Dirigeant non salarié'
+              'DIRSAL - Dirigeant salarié'
+              'ETU - Etudiant'
+              'FRS - Frontalier de la Suisse'
+              'MSA - MSA'
+              'CRPCEN - Notaire'
+              'PROFLIB - Profession libérale TNS'
+              'RGLM - Régime général avec loi Madelin'
+              'SALARIE - Salarié'
+              'SNCF - SNCF'
+              'TNS - TNS'
+            )
+            Style = csDropDownList
+            TabOrder = 8
+            Text = 'CREATEUR ENT - Créateur d''entreprise (RG + Loi Madelin < 1 an)'
+          end
+          object edt400CodeInsee: TEdit
+            Left = 178
+            Height = 23
+            Top = 360
+            Width = 118
+            MaxLength = 13
+            TabOrder = 9
+            Text = 'edt400CodeIns'
+          end
+          object edt400CleInsee: TEdit
+            Left = 178
+            Height = 23
+            Top = 392
+            Width = 32
+            MaxLength = 2
+            TabOrder = 10
+            Text = 'ed'
+          end
+          object lbl400ErreurValeur: TLabel
+            Left = 178
+            Height = 30
+            Top = 424
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl400ErreurValeur'
+            WordWrap = True
+          end
+          object lbl400Titre: TLabel
+            Left = 8
+            Height = 17
+            Top = 8
+            Width = 153
+            Caption = 'Identification de l’assuré'
+            Font.CharSet = ANSI_CHARSET
+            Font.Height = -13
+            Font.Pitch = fpVariable
+            Font.Quality = fqDraft
+            Font.Style = [fsBold]
+            ParentFont = False
+          end
+          object lbl400ErreurDescription: TLabel
+            Left = 178
+            Height = 120
+            Top = 462
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl400ErreurDescription'
+            WordWrap = True
+          end
+          object lbl400DateAncienneteAssure: TLabel
+            Left = 8
+            Height = 15
+            Top = 40
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Date ancienneté assuré :'
+          end
+          object dtp400DateAncienneteAssure: TDateTimePicker
+            Left = 178
+            Height = 23
+            Top = 40
+            Width = 83
+            CenturyFrom = 1941
+            MaxDate = 2958465
+            MinDate = -53780
+            TabOrder = 11
+            TrailingSeparator = False
+            TextForNullDate = ' '
+            LeadingZeros = True
+            Kind = dtkDate
+            TimeFormat = tf24
+            TimeDisplay = tdHMS
+            DateMode = dmComboBox
+            Date = 44595
+            Time = 0.468714201386319
+            UseDefaultSeparators = True
+            HideDateTimeParts = []
+            MonthNames = 'Long'
+          end
+        end
+        object tsEntite405: TTabSheet
+          Caption = '405'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsEntite405Show
+          object lbl405RangBeneficiaire: TLabel
+            Left = 9
+            Height = 15
+            Top = 40
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang bénéficiaire :'
+          end
+          object lbl405CodeCivilite: TLabel
+            Left = 9
+            Height = 15
+            Top = 72
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Civilité :'
+          end
+          object lbl405Nom: TLabel
+            Left = 9
+            Height = 15
+            Top = 104
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Nom :'
+          end
+          object lbl405Prenom: TLabel
+            Left = 8
+            Height = 15
+            Top = 136
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Prénom :'
+          end
+          object lbl405NumeroInsee: TLabel
+            Left = 9
+            Height = 15
+            Top = 168
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Numéro INSEE :'
+          end
+          object lbl405NomJeuneFille: TLabel
+            Left = 9
+            Height = 15
+            Top = 200
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Nom de jeune fille :'
+          end
+          object lbl405Erreur: TLabel
+            Left = 9
+            Height = 15
+            Top = 232
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Erreur :'
+          end
+          object edt405RangBeneficiaire: TEdit
+            Left = 178
+            Height = 23
+            Top = 40
+            Width = 32
+            MaxLength = 2
+            TabOrder = 0
+            Text = 'Be'
+            OnExit = edt405RangBeneficiaireExit
+          end
+          object cbb405CodeCivilite: TComboBox
+            Left = 178
+            Height = 23
+            Top = 72
+            Width = 110
+            DropDownCount = 2
+            ItemHeight = 15
+            Items.Strings = (
+              'M - Monsieur'
+              'MME - Madame'
+            )
+            Style = csDropDownList
+            TabOrder = 1
+          end
+          object edt405Nom: TEdit
+            Left = 178
+            Height = 23
+            Top = 104
+            Width = 294
+            MaxLength = 50
+            TabOrder = 2
+            Text = 'edt405Nom'
+            OnExit = edt405NomExit
+          end
+          object edt405Prenom: TEdit
+            Left = 178
+            Height = 23
+            Top = 136
+            Width = 158
+            MaxLength = 20
+            TabOrder = 3
+            Text = 'edt405Prenom'
+            OnExit = edt405PrenomExit
+          end
+          object edt405NumeroInsee: TEdit
+            Left = 178
+            Height = 23
+            Top = 168
+            Width = 94
+            MaxLength = 13
+            TabOrder = 4
+            Text = 'edt405NumeroI'
+            OnExit = edt405NumeroInseeExit
+          end
+          object edt405NomJeuneFille: TEdit
+            Left = 178
+            Height = 23
+            Top = 200
+            Width = 294
+            MaxLength = 50
+            TabOrder = 5
+            Text = 'edt405NomJeuneFille'
+            OnExit = edt405NomJeuneFilleExit
+          end
+          object lbl405ErreurValeur: TLabel
+            Left = 178
+            Height = 30
+            Top = 232
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl405ErreurValeur'
+            WordWrap = True
+          end
+          object lbl405Titre: TLabel
+            Left = 8
+            Height = 17
+            Top = 8
+            Width = 100
+            Caption = 'Nom de l’assuré'
+            Font.CharSet = ANSI_CHARSET
+            Font.Height = -13
+            Font.Pitch = fpVariable
+            Font.Quality = fqDraft
+            Font.Style = [fsBold]
+            ParentFont = False
+          end
+          object lbl405ErreurDescription: TLabel
+            Left = 178
+            Height = 120
+            Top = 270
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl405ErreurDescription'
+            WordWrap = True
+          end
+        end
+        object tsEntite410: TTabSheet
+          Caption = '410'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsEntite410Show
+          object lbl410RangBeneficiaire: TLabel
+            Left = 9
+            Height = 15
+            Top = 40
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang bénéficiaire :'
+          end
+          object lbl410DateNaissance: TLabel
+            Left = 9
+            Height = 15
+            Top = 72
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Date de naissance :'
+          end
+          object lbl410RangNaissance: TLabel
+            Left = 9
+            Height = 15
+            Top = 104
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang de naissance :'
+          end
+          object lbl410NumeroRo: TLabel
+            Left = 9
+            Height = 15
+            Top = 136
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Numéro RO :'
+          end
+          object lbl410CleRo: TLabel
+            Left = 9
+            Height = 15
+            Top = 168
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Clé RO :'
+          end
+          object lbl410CodeGrandRegime: TLabel
+            Left = 9
+            Height = 15
+            Top = 200
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Code grand régime :'
+          end
+          object lbl410CodeCaisse: TLabel
+            Left = 9
+            Height = 15
+            Top = 232
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Code caisse :'
+          end
+          object lbl410CodeCentrePaiement: TLabel
+            Left = 9
+            Height = 15
+            Top = 264
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Code centre de paiement :'
+          end
+          object lbl410Erreur: TLabel
+            Left = 9
+            Height = 15
+            Top = 296
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Erreur :'
+          end
+          object edt410RangBeneficiaire: TEdit
+            Left = 178
+            Height = 23
+            Top = 40
+            Width = 32
+            MaxLength = 2
+            TabOrder = 0
+            Text = 'ed'
+            OnExit = edt410RangBeneficiaireExit
+          end
+          object edt410RangNaissance: TEdit
+            Left = 178
+            Height = 23
+            Top = 104
+            Width = 32
+            MaxLength = 2
+            TabOrder = 2
+            Text = 'ed'
+          end
+          object edt410NumeroRo: TEdit
+            Left = 178
+            Height = 23
+            Top = 136
+            Width = 152
+            MaxLength = 13
+            TabOrder = 3
+            Text = 'edt410NumeroR'
+          end
+          object edt410CleRo: TEdit
+            Left = 178
+            Height = 23
+            Top = 168
+            Width = 32
+            MaxLength = 2
+            TabOrder = 4
+            Text = 'ed'
+          end
+          object edt410CodeGrandRegime: TEdit
+            Left = 178
+            Height = 23
+            Top = 200
+            Width = 30
+            MaxLength = 2
+            TabOrder = 5
+            Text = 'ed'
+          end
+          object edt410CodeCaisse: TEdit
+            Left = 178
+            Height = 23
+            Top = 232
+            Width = 38
+            MaxLength = 3
+            TabOrder = 6
+            Text = 'edt'
+          end
+          object edt410CodeCentrePaiement: TEdit
+            Left = 178
+            Height = 23
+            Top = 264
+            Width = 46
+            MaxLength = 4
+            TabOrder = 7
+            Text = 'edt4'
+          end
+          object dtp410DateNaissance: TDateTimePicker
+            Left = 178
+            Height = 23
+            Top = 72
+            Width = 83
+            CenturyFrom = 1941
+            MaxDate = 2958465
+            MinDate = -53780
+            TabOrder = 1
+            TrailingSeparator = False
+            TextForNullDate = 'NULL'
+            LeadingZeros = True
+            Kind = dtkDate
+            TimeFormat = tf24
+            TimeDisplay = tdHMS
+            DateMode = dmComboBox
+            Date = 44595
+            Time = 0.585553506942233
+            UseDefaultSeparators = True
+            HideDateTimeParts = []
+            MonthNames = 'Long'
+          end
+          object lbl410ErreurValeur: TLabel
+            Left = 178
+            Height = 30
+            Top = 296
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl410ErreurValeur'
+            WordWrap = True
+          end
+          object lbl410Titre: TLabel
+            Left = 8
+            Height = 17
+            Top = 8
+            Width = 172
+            Caption = 'Informations RO de l’assuré'
+            Font.CharSet = ANSI_CHARSET
+            Font.Height = -13
+            Font.Pitch = fpVariable
+            Font.Quality = fqDraft
+            Font.Style = [fsBold]
+            ParentFont = False
+          end
+          object lbl410ErreurDescription: TLabel
+            Left = 178
+            Height = 120
+            Top = 334
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl410ErreurDescription'
+            WordWrap = True
+          end
+        end
+        object tsEntite411: TTabSheet
+          Caption = '411'
+        end
+        object tsCriteres: TTabSheet
+          Caption = 'Critères'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsCriteresShow
+          object pcCriteres: TPageControl
+            Left = 0
+            Height = 662
+            Top = 0
+            Width = 656
+            ActivePage = tsCriteresListe
+            Align = alClient
+            Images = ilMain
+            TabIndex = 0
+            TabOrder = 0
+            object tsCriteresListe: TTabSheet
+              Caption = 'Critères'
+              ClientHeight = 634
+              ClientWidth = 648
+              object sgCriteres: TStringGrid
+                Left = 8
+                Height = 614
+                Top = 0
+                Width = 229
+                AutoEdit = False
+                ColCount = 3
+                MouseWheelOption = mwGrid
+                Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRowSelect, goSmoothScroll]
+                TabOrder = 0
+                TitleFont.Style = [fsBold]
+                OnClick = sgCriteresClick
+                ColWidths = (
+                  19
+                  64
+                  142
+                )
+                Cells = (
+                  2
+                  1
+                  0
+                  'Critère'
+                  2
+                  0
+                  'Valeur'
+                )
+              end
+            end
+            object tsEntite485: TTabSheet
+              Caption = '485'
+              ClientHeight = 634
+              ClientWidth = 648
+              OnShow = tsEntite485Show
+              object lbl485Code: TLabel
+                Left = 8
+                Height = 15
+                Top = 72
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code :'
+              end
+              object edt485Code: TEdit
+                Left = 177
+                Height = 23
+                Top = 72
+                Width = 78
+                MaxLength = 6
+                TabOrder = 1
+                Text = 'edt485'
+              end
+              object lbl485Valeur: TLabel
+                Left = 8
+                Height = 15
+                Top = 104
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code assureur :'
+              end
+              object edt485Valeur: TEdit
+                Left = 177
+                Height = 23
+                Top = 104
+                Width = 80
+                MaxLength = 9
+                TabOrder = 2
+                Text = 'edt485Val'
+              end
+              object lbl485RangBeneficiaire: TLabel
+                Left = 9
+                Height = 15
+                Top = 40
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Rang bénéficiaire :'
+              end
+              object edt485RangBeneficiaire: TEdit
+                Left = 177
+                Height = 23
+                Top = 40
+                Width = 32
+                MaxLength = 2
+                TabOrder = 0
+                Text = 'ed'
+                OnExit = edt485RangBeneficiaireExit
+              end
+              object lbl485Titre: TLabel
+                Left = 8
+                Height = 17
+                Top = 8
+                Width = 41
+                Caption = 'Critère'
+                Font.CharSet = ANSI_CHARSET
+                Font.Height = -13
+                Font.Pitch = fpVariable
+                Font.Quality = fqDraft
+                Font.Style = [fsBold]
+                ParentFont = False
+              end
+            end
+          end
+        end
+        object tsVariablesSouscription: TTabSheet
+          Caption = 'Variables souscription'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsVariablesSouscriptionShow
+          object pcVariablesSouscription: TPageControl
+            Left = 0
+            Height = 662
+            Top = 0
+            Width = 656
+            ActivePage = tsVariablesSouscriptionListe
+            Align = alClient
+            Images = ilMain
+            TabIndex = 0
+            TabOrder = 0
+            object tsVariablesSouscriptionListe: TTabSheet
+              Caption = 'Variables souscription'
+              ClientHeight = 634
+              ClientWidth = 648
+              object sgVariablesSouscription: TStringGrid
+                Left = 8
+                Height = 612
+                Top = 0
+                Width = 229
+                AutoEdit = False
+                ColCount = 3
+                MouseWheelOption = mwGrid
+                Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRowSelect, goSmoothScroll]
+                TabOrder = 0
+                TitleFont.Style = [fsBold]
+                OnClick = sgVariablesSouscriptionClick
+                ColWidths = (
+                  19
+                  64
+                  142
+                )
+                Cells = (
+                  2
+                  1
+                  0
+                  'Code'
+                  2
+                  0
+                  'Valeur'
+                )
+              end
+            end
+            object tsEntite490: TTabSheet
+              Caption = '490'
+              ClientHeight = 634
+              ClientWidth = 648
+              OnShow = tsEntite490Show
+              object lbl490Code: TLabel
+                Left = 0
+                Height = 15
+                Top = 72
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code :'
+              end
+              object edt490Code: TEdit
+                Left = 169
+                Height = 23
+                Top = 72
+                Width = 78
+                MaxLength = 6
+                TabOrder = 1
+                Text = 'edt490'
+              end
+              object lbl490Valeur: TLabel
+                Left = 0
+                Height = 15
+                Top = 104
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Code assureur :'
+              end
+              object edt490Valeur: TEdit
+                Left = 169
+                Height = 23
+                Top = 104
+                Width = 80
+                MaxLength = 9
+                TabOrder = 2
+                Text = 'edt490Val'
+              end
+              object lbl490Titre: TLabel
+                Left = 8
+                Height = 17
+                Top = 8
+                Width = 119
+                Caption = 'Valeur souscription'
+                Font.CharSet = ANSI_CHARSET
+                Font.Height = -13
+                Font.Pitch = fpVariable
+                Font.Quality = fqDraft
+                Font.Style = [fsBold]
+                ParentFont = False
+              end
+              object lbl490RangBeneficiaire: TLabel
+                Left = 9
+                Height = 15
+                Top = 40
+                Width = 156
+                Alignment = taRightJustify
+                AutoSize = False
+                Caption = 'Rang bénéficiaire :'
+              end
+              object edt490RangBeneficiaire: TEdit
+                Left = 178
+                Height = 23
+                Top = 40
+                Width = 32
+                MaxLength = 2
+                TabOrder = 0
+                Text = 'ed'
+                OnExit = edt490RangBeneficiaireExit
+              end
+            end
+          end
+        end
+        object tsEntite800: TTabSheet
+          Caption = '800'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsEntite800Show
+          object lbl800RangBeneficiaire: TLabel
+            Left = 9
+            Height = 15
+            Top = 40
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang bénéficiaire :'
+          end
+          object lbl800RangPersonne: TLabel
+            Left = 9
+            Height = 15
+            Top = 72
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Rang personne :'
+          end
+          object lbl800ReferenceExterne: TLabel
+            Left = 9
+            Height = 15
+            Top = 104
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Référence externe :'
+          end
+          object lbl800Erreur: TLabel
+            Left = 9
+            Height = 15
+            Top = 136
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Erreur :'
+          end
+          object lbl800ErreurValeur: TLabel
+            Left = 178
+            Height = 30
+            Top = 136
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl800ErreurValeur'
+            WordWrap = True
+          end
+          object edt800RangPersonne: TEdit
+            Left = 178
+            Height = 23
+            Top = 72
+            Width = 32
+            MaxLength = 2
+            TabOrder = 0
+            Text = 'ed'
+            OnExit = edt800RangPersonneExit
+          end
+          object edt800ReferenceExterne: TEdit
+            Left = 178
+            Height = 23
+            Top = 104
+            Width = 198
+            MaxLength = 30
+            TabOrder = 1
+            Text = 'edt800ReferenceExterne'
+          end
+          object edt800RangBeneficiaire: TEdit
+            Left = 178
+            Height = 23
+            Top = 40
+            Width = 32
+            MaxLength = 2
+            TabOrder = 2
+            Text = 'ed'
+            OnExit = edt800RangBeneficiaireExit
+          end
+          object lbl800Titre: TLabel
+            Left = 8
+            Height = 17
+            Top = 8
+            Width = 222
+            Caption = 'Références externes d’une personne'
+            Font.CharSet = ANSI_CHARSET
+            Font.Height = -13
+            Font.Pitch = fpVariable
+            Font.Quality = fqDraft
+            Font.Style = [fsBold]
+            ParentFont = False
+          end
+          object lbl800ErreurDescription: TLabel
+            Left = 178
+            Height = 120
+            Top = 173
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl800ErreurDescription'
+            WordWrap = True
+          end
+        end
+      end
+    end
+    object tsEntite001: TTabSheet
+      Caption = '001'
+      Enabled = False
+    end
+    object tsEntite100: TTabSheet
+      Caption = '100'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite100Show
+      object lbl100TypeContrat: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Type de contrat :'
+      end
+      object lbl100NumContratIndiv: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'N° contrat :'
+      end
+      object lbl100NumContratColl: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'N° contrat collectif :'
+      end
+      object lbl100CodeGroupeAssures: TLabel
+        Left = 8
+        Height = 15
+        Top = 136
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Groupe d''assurés :'
+      end
+      object lbl100CodeEntiteRatt: TLabel
+        Left = 8
+        Height = 15
+        Top = 168
+        Width = 157
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code entité de rattachement :'
+      end
+      object lbl100DateEffetActe: TLabel
+        Left = 8
+        Height = 15
+        Top = 200
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Date d''effet de l''acte'
+      end
+      object lbl100DateEffetCotisation: TLabel
+        Left = 8
+        Height = 15
+        Top = 232
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Date d''effet de cotisation'
+      end
+      object lbl100DateVente: TLabel
+        Left = 8
+        Height = 15
+        Top = 264
+        Width = 157
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Date de vente :'
+      end
+      object lbl100DateDemande: TLabel
+        Left = 8
+        Height = 15
+        Top = 296
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Date de demande :'
+      end
+      object lbl100CodeOffre: TLabel
+        Left = 8
+        Height = 15
+        Top = 328
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code l''offre :'
+      end
+      object lbl100CodeReseau: TLabel
+        Left = 8
+        Height = 15
+        Top = 360
+        Width = 157
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code du réseau :'
+      end
+      object lbl100EcheancePrinc: TLabel
+        Left = 8
+        Height = 15
+        Top = 392
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Echéance principale :'
+      end
+      object lbl100GroupeGestion: TLabel
+        Left = 8
+        Height = 15
+        Top = 424
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Groupe de gestion :'
+      end
+      object lbl100CentreGestion: TLabel
+        Left = 8
+        Height = 15
+        Top = 456
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Centre de gestion :'
+      end
+      object lbl100CodeContexte: TLabel
+        Left = 8
+        Height = 15
+        Top = 488
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code contexte :'
+      end
+      object cbb100TypeContrat: TComboBox
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 262
+        DropDownCount = 4
+        ItemHeight = 15
+        Items.Strings = (
+          '2 - Adhésion individuel à un contrat collectif'
+          '1 - Contrat individuel'
+        )
+        Style = csDropDownList
+        TabOrder = 0
+      end
+      object edt100NumContratIndiv: TEdit
+        Left = 178
+        Height = 23
+        Top = 72
+        Width = 142
+        MaxLength = 15
+        TabOrder = 1
+        Text = 'edt100NumContra'
+      end
+      object edt100NumContratColl: TEdit
+        Left = 178
+        Height = 23
+        Top = 104
+        Width = 142
+        MaxLength = 15
+        TabOrder = 2
+        Text = 'edt100NumContra'
+      end
+      object edt100CodeGroupeAssures: TEdit
+        Left = 178
+        Height = 23
+        Top = 136
+        Width = 64
+        MaxLength = 6
+        TabOrder = 3
+        Text = 'edt100'
+      end
+      object edt100CodeEntiteRatt: TEdit
+        Left = 178
+        Height = 23
+        Top = 168
+        Width = 94
+        MaxLength = 9
+        TabOrder = 4
+        Text = 'edt100Cod'
+      end
+      object dtp100DateEffetActe: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 200
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 5
+        TrailingSeparator = False
+        TextForNullDate = 'NULL'
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44593
+        Time = 0.476174652780173
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+      object dtp100DateEffetCotisation: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 232
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 6
+        TrailingSeparator = False
+        TextForNullDate = 'NULL'
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44593
+        Time = 0.636299525460345
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+      object dtp100DateVente: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 264
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 7
+        TrailingSeparator = False
+        TextForNullDate = 'NULL'
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44593
+        Time = 0.636328796295857
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+      object dtp100DateDemande: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 296
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 8
+        TrailingSeparator = False
+        TextForNullDate = 'NULL'
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44593
+        Time = 0.636352337962308
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+      object edt100CodeOffre: TEdit
+        Left = 178
+        Height = 23
+        Top = 328
+        Width = 94
+        TabOrder = 9
+        Text = 'edt100CodeOffre'
+      end
+      object edt100CodeReseau: TEdit
+        Left = 178
+        Height = 23
+        Top = 360
+        Width = 94
+        TabOrder = 10
+        Text = 'edt100CodeReseau'
+      end
+      object edt100EcheancePrinc: TEdit
+        Left = 178
+        Height = 23
+        Top = 392
+        Width = 40
+        MaxLength = 4
+        TabOrder = 11
+        Text = 'edt1'
+      end
+      object edt100GroupeGestion: TEdit
+        Left = 178
+        Height = 23
+        Top = 424
+        Width = 64
+        MaxLength = 9
+        TabOrder = 12
+        Text = 'edt100Gro'
+      end
+      object edt100CentreGestion: TEdit
+        Left = 178
+        Height = 23
+        Top = 456
+        Width = 64
+        MaxLength = 9
+        TabOrder = 13
+        Text = 'edt100Cen'
+      end
+      object cbb100CodeContexte: TComboBox
+        Left = 178
+        Height = 23
+        Top = 488
+        Width = 262
+        ItemHeight = 15
+        Items.Strings = (
+          'CONJ - Adjonction conjoint'
+          'ENF - Adjonction enfant'
+          'NVNE - Adjonction nouveau-né'
+          'COUR - Affaire nouvelle'
+          'ADR3 - Changement d’adresse avec chgt département (pour produits avec zonier)'
+          'CAD - Changement d’adresse sans chgt département'
+          'CODA - Changement d’apporteur'
+          'AUGT - Changement de garantie augmentation'
+          'DIGT - Changement de garantie diminution'
+          'PROD - Changement de garantie tarif'
+          'DSTP - Déstoppage'
+          'MADL - Envoi informations Loi Madelin'
+          'CCS - Modification bénéficiaire catégorie sociale'
+          'NAIS - Modification bénéficiaire date de naissance'
+          'FANP - Modification bénéficiaire nom, prénom et nom de jeune fille'
+          'RO - Modification bénéficiaire RO (numéro, caisse)'
+          'TEL - Modification communications'
+          'RIBP - Modification de RIB'
+          'CENT - Radiation contrat obligatoire'
+          'CASS - Radiation dans les délais statutaires'
+          'RDC2 - Radiation décès conjoint'
+          'RDC1 - Radiation décès enfant'
+          'IPC - Radiation immatriculation personnelle conjoint'
+          'IPE - Radiation immatriculation personnelle enfant'
+          'ACRA - Réactivation bénéficiaire'
+          'ACRC - Réactivation famille'
+          'CI - Renouvellement ACS'
+          'CMU - Résiliation famille CMU'
+          'CENT - Résiliation famille contrat obligatoire'
+          'OFF - Résiliation famille contrat remplacé par un autre contrat'
+          'CASS - Résiliation famille dans les délais statutaires'
+          'DC - Résiliation famille décès assuré'
+          'OFF - Résiliation famille fin de portabilité'
+          'IMPE - Résiliation famille immatriculation personnelle assuré'
+          'NPAY - Résiliation famille non-paiement'
+          'SAEF - Sans effet'
+          'FDRO - Stoppage'
+        )
+        Style = csDropDownList
+        TabOrder = 14
+      end
+      object lbl100Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 520
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object lbl100ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 520
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl100ErreurValeur'
+        WordWrap = True
+      end
+      object lbl100Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 182
+        Caption = 'Identification de l’évènement'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl100ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 554
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl100ErreurDescription'
+        WordWrap = True
+      end
+    end
+    object tsEntite110: TTabSheet
+      Caption = '110'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite110Show
+      object lbl110DateEffetPremSouscr: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Date d''effet 1e souscription :'
+      end
+      object dtp110DateEffetPremSouscr: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 0
+        TrailingSeparator = False
+        TextForNullDate = 'NULL'
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44593
+        Time = 0.749744004628155
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+      object lbl110Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object lbl110ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 104
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl110ErreurValeur'
+        WordWrap = True
+      end
+      object lbl110Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 117
+        Caption = 'Données générales'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl110ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 139
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl110ErreurDescription'
+        WordWrap = True
+      end
+      object lbl110DateAncienneteContrat: TLabel
+        Left = 32
+        Height = 15
+        Top = 68
+        Width = 132
+        Caption = 'Date ancienneté contrat :'
+      end
+      object dtp110DateAncienneteContrat: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 68
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 1
+        TrailingSeparator = False
+        TextForNullDate = ' '
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44593
+        Time = 0.749744004628155
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+    end
+    object tsEntite115: TTabSheet
+      Caption = '115'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite115Show
+      object lbl115CodeCivilite: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code Civilité'
+      end
+      object lbl115Nom: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Nom :'
+      end
+      object lbl115Prenom: TLabel
+        Left = 8
+        Height = 15
+        Top = 136
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Prénom :'
+      end
+      object lbl115Insee: TLabel
+        Left = 8
+        Height = 15
+        Top = 168
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'N° INSEE :'
+      end
+      object edt115Nom: TEdit
+        Left = 178
+        Height = 23
+        Top = 104
+        Width = 326
+        MaxLength = 50
+        TabOrder = 2
+        Text = 'edt115Nom'
+        OnExit = edt115NomExit
+      end
+      object edt115Prenom: TEdit
+        Left = 178
+        Height = 23
+        Top = 136
+        Width = 166
+        MaxLength = 20
+        TabOrder = 3
+        Text = 'edt115Prenom'
+        OnExit = edt115PrenomExit
+      end
+      object edt115Insee: TEdit
+        Left = 178
+        Height = 23
+        Top = 168
+        Width = 128
+        MaxLength = 13
+        TabOrder = 4
+        Text = 'edt115Insee'
+        OnExit = edt115InseeExit
+      end
+      object lbl115Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 200
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object lbl115ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 200
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl115ErreurValeur'
+        WordWrap = True
+      end
+      object cbb115CodeCivilite: TComboBox
+        Left = 178
+        Height = 23
+        Top = 72
+        Width = 110
+        DropDownCount = 2
+        ItemHeight = 15
+        Items.Strings = (
+          'M - Monsieur'
+          'MME - Madame'
+        )
+        Style = csDropDownList
+        TabOrder = 1
+      end
+      object lbl115RangPersonne: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Rang de la personne :'
+      end
+      object edt115RangPesonne: TEdit
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 32
+        MaxLength = 2
+        TabOrder = 0
+        Text = 'ed'
+      end
+      object lbl115Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 190
+        Caption = 'Nom de la personne principale'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl115ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 240
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl115ErreurDescription'
+        WordWrap = True
+      end
+    end
+    object tsEntite120: TTabSheet
+      Caption = '120'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite120Show
+      object lbl120ComplementGeo: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Complément géographique :'
+      end
+      object lbl120NumeroVoie: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Numéro de la voie :'
+      end
+      object lbl120CodeBtq: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Bis, ter, quater :'
+      end
+      object lbl120CodeNatureVoie: TLabel
+        Left = 8
+        Height = 15
+        Top = 136
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Nature de la voie :'
+      end
+      object lbl120LibelleVoie: TLabel
+        Left = 8
+        Height = 15
+        Top = 168
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Libellé de la voie :'
+      end
+      object lbl120LieuDit: TLabel
+        Left = 8
+        Height = 15
+        Top = 200
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Lieu-dit :'
+      end
+      object lbl120CodePostal: TLabel
+        Left = 8
+        Height = 15
+        Top = 232
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code postal :'
+      end
+      object lbl120LibelleLocalite: TLabel
+        Left = 8
+        Height = 15
+        Top = 264
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Ville :'
+      end
+      object lbl120CodeDepartement: TLabel
+        Left = 8
+        Height = 15
+        Top = 296
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Département :'
+      end
+      object lbl120CodePays: TLabel
+        Left = 8
+        Height = 15
+        Top = 328
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Pays :'
+      end
+      object lbl120CodeTypeAdresse: TLabel
+        Left = 8
+        Height = 15
+        Top = 360
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Type d''adresse :'
+      end
+      object edt120ComplementGeo: TEdit
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 400
+        MaxLength = 50
+        TabOrder = 0
+        Text = 'edt120ComplementGeo'
+        OnExit = edt120ComplementGeoExit
+      end
+      object edt120NumeroVoie: TEdit
+        Left = 178
+        Height = 23
+        Top = 72
+        Width = 80
+        MaxLength = 9
+        TabOrder = 1
+        Text = 'edt120Num'
+        OnExit = edt120NumeroVoieExit
+      end
+      object cbb120CodeBtq: TComboBox
+        Left = 178
+        Height = 23
+        Top = 104
+        Width = 100
+        DropDownCount = 4
+        ItemHeight = 15
+        Items.Strings = (
+          'B - Bis'
+          'T - Ter'
+          'Q - Quater'
+          'C - Quinquies'
+        )
+        Style = csDropDownList
+        TabOrder = 2
+      end
+      object cbb120CodeNatureVoie: TComboBox
+        Left = 178
+        Height = 23
+        Top = 136
+        Width = 238
+        ItemHeight = 15
+        Items.Strings = (
+          'ABE - Abbaye'
+          'AER - Aerodrome'
+          'AGL - Agglomeration'
+          'AIRE - Aire'
+          'ALL - Allee'
+          'ACH - Ancien chemin'
+          'ART - Ancienne route'
+          'ANSE - Anse'
+          'APP - Appartement'
+          'ARC - Arcade'
+          'AUT - Autoroute'
+          'AV - Avenue'
+          'BRE - Barriere'
+          'BCH - Bas chemin'
+          'BSTD - Bastide'
+          'BAST - Bastion'
+          'BAT - Batiment'
+          'BER - Berge'
+          'BOIS - Bois'
+          'BCLE - Boucle'
+          'BD - Boulevard'
+          'BRG - Bourg'
+          'BUT - Butte'
+          'CALE - Cale'
+          'CAMP - Camp'
+          'CGNE - Campagne'
+          'CPG - Camping'
+          'CAN - Canal'
+          'CAU - Carreau'
+          'CAR - Carrefour'
+          'CARR - Carrefour'
+          'CARE - Carriere'
+          'CST - Castel'
+          'CAV - Cavee'
+          'CTRE - Centre'
+          'CCAL - Centre commercial'
+          'CHL - Chalet'
+          'CHAM - Champ'
+          'CHN - Chantier'
+          'CHP - Chapelle'
+          'CHI - Charmille'
+          'CHA - Chasse'
+          'CHT - Chateau'
+          'CHS - Chaussee'
+          'CHE - Chemin'
+          'CD - Chemin departemental'
+          'CHEZ - Chez'
+          'CITE - Cite'
+          'CLOI - Cloitre'
+          'CLOS - Clos'
+          'COL - Col'
+          'COLI - Colline'
+          'CTR - Contour'
+          'COR - Corniche'
+          'COTE - Cote'
+          'CTX - Coteaux'
+          'COTT - Cottage'
+          'CLR - Couloir'
+          'COU - Cour'
+          'CRS - Cours'
+          'CRX - Croix'
+          'DARS - Darse'
+          'DEG - Degrés'
+          'DSC - Descente'
+          'DIG - Digue'
+          'DOM - Domaine'
+          'ECA - Ecart'
+          'ECL - Ecluse'
+          'EGL - Eglise'
+          'EMP - Emplacement'
+          'EN - Enceinte'
+          'ENV - Enclave'
+          'ENC - Enclos'
+          'ENT - Entrée'
+          'ESC - Escalier'
+          'ESPA - Espace'
+          'ESP - Esplanade'
+          'ETG - Etage'
+          'ETNG - Etang'
+          'FG - Faubourg'
+          'FRM - Ferme'
+          'FON - Fontaine'
+          'FOR - Forêt'
+          'FORT - Fort'
+          'FORM - Forum'
+          'FOS - Fosse'
+          'FOY - Foyer'
+          'GAL - Galerie'
+          'GALM - Galerie marchande'
+          'GARE - Gare'
+          'GARN - Garenne'
+          'GBD - Gbd'
+          'GDEN - Grand ensemble'
+          'GDE - Grande'
+          'GRDE - Grande'
+          'GALL - Grande allée'
+          'GR - Grande rue'
+          'GRI - Grille'
+          'GRIM - Grimpette'
+          'GPE - Groupe'
+          'GPT - Groupement'
+          'GUE - Gue'
+          'HLG - Halage'
+          'HLE - Halle'
+          'HAM - Hameau'
+          'HCH - Haut chemin'
+          'HIP - Hippodrome'
+          'HLM - Hlm'
+          'HOS - Hopital'
+          'HOT - Hotel'
+          'ILE - Ile'
+          'ILT - Ilot'
+          'IMM - Immeuble'
+          'IMP - Impasse'
+          'JARD - Jardin'
+          'JTE - Jetee'
+          'LEVE - Levée'
+          'LD - Lieu dit'
+          'LOT - Lotissement'
+          'MAIL - Mail'
+          'MAIS - Maison'
+          'MF - Maison forestière'
+          'MAN - Manoir'
+          'MAR - Marché'
+          'MAS - Mas'
+          'MET - Metro'
+          'MONT - Mont'
+          'MTE - Montée'
+          'MLN - Moulin'
+          'MUS - Musee'
+          'PAL - Palais'
+          'PARC - Parc'
+          'PKG - Parking'
+          'PRV - Parvis'
+          'PAS - Passage'
+          'PN - Passage a niveau'
+          'PASS - Passe'
+          'PLE - Passerelle'
+          'PAT - Patio'
+          'PAV - Pavillon'
+          'PERI - Peripherique'
+          'PRS - Peristyle'
+          'PCH - Petit chemin'
+          'PTA - Petite allee'
+          'PAE - Petite avenue'
+          'PIM - Petite impasse'
+          'PRT - Petite route'
+          'PRUE - Petite rue'
+          'PTR - Petite rue'
+          'PL - Place'
+          'PLA - Placette'
+          'PLAG - Plage'
+          'PLN - Plaine'
+          'PLAN - Plan'
+          'PLT - Plateau'
+          'PNT - Pointe'
+          'PONT - Pont'
+          'PTN - Ponton'
+          'POH - Porche'
+          'PORT - Port'
+          'PTE - Porte'
+          'PORQ - Portique'
+          'POT - Poterne'
+          'POUR - Pourtour'
+          'PRE - Pre'
+          'PRQ - Presqu ile'
+          'PROM - Promenade'
+          'QU - Quai'
+          'QUA - Quartier'
+          'RAC - Raccourci'
+          'RAID - Raidillon'
+          'RPE - Rampe'
+          'REM - Rempart'
+          'RES - Residence'
+          'ROC - Rocade'
+          'RPT - Rond point'
+          'ROQT - Roquet'
+          'RTD - Rotonde'
+          'RO - Route'
+          'RTE - Route'
+          'RD - Route departementale'
+          'RN - Route nationale'
+          'RUE - Rue'
+          'RLE - Ruelle'
+          'SEN - Sentier'
+          'SQ - Square'
+          'STDE - Stade'
+          'STA - Station'
+          'TRN - Terrain'
+          'TSSE - Terrasse'
+          'TRT - Tertre'
+          'TOUR - Tour'
+          'TPL - Tpl'
+          'TRAV - Traverse'
+          'VAL - Vallee - vallon'
+          'VEN - Venelle'
+          'VIA - Via'
+          'VTE - Vieille route'
+          'VCHE - Vieux chemin'
+          'VLA - Villa'
+          'VLGE - Village'
+          'VIL - Ville'
+          'VOI - Voie'
+          'VT - Voute'
+          'ZONE - Zone'
+          'ZUP - Zone a urbaniser en priorite'
+          'ZA - Zone d''activite'
+          'ZAE - Zone d''activites entreprises'
+          'ZAC - Zone d''amenagement concerte'
+          'ZAD - Zone d''amenagement differe'
+          'ZI - Zone industrielle'
+        )
+        Style = csDropDownList
+        TabOrder = 3
+      end
+      object edt120LibelleVoie: TEdit
+        Left = 178
+        Height = 23
+        Top = 168
+        Width = 400
+        MaxLength = 50
+        TabOrder = 4
+        Text = 'edt120LibelleVoie'
+        OnExit = edt120LibelleVoieExit
+      end
+      object edt120LieuDit: TEdit
+        Left = 178
+        Height = 23
+        Top = 200
+        Width = 400
+        MaxLength = 50
+        TabOrder = 5
+        Text = 'edt120LieuDit'
+        OnExit = edt120LieuDitExit
+      end
+      object edt120CodePostal: TEdit
+        Left = 178
+        Height = 23
+        Top = 232
+        Width = 50
+        MaxLength = 5
+        TabOrder = 6
+        Text = 'edt12'
+        OnExit = edt120CodePostalExit
+      end
+      object edt120LibelleLocalite: TEdit
+        Left = 178
+        Height = 23
+        Top = 264
+        Width = 400
+        MaxLength = 50
+        TabOrder = 7
+        Text = 'edt120LibelleLocalite'
+        OnExit = edt120LibelleLocaliteExit
+      end
+      object cbb120CodeDepartement: TComboBox
+        Left = 178
+        Height = 23
+        Top = 296
+        Width = 262
+        ItemHeight = 15
+        Items.Strings = (
+          '01 - Ain'
+          '02 - Aisne'
+          '03 - Allier'
+          '04 - Alpes-de-haute-provence'
+          '05 - Hautes-alpes'
+          '06 - Alpes-maritimes'
+          '07 - Ardeche'
+          '08 - Ardennes'
+          '09 - Ariege'
+          '10 - Aube'
+          '11 - Aude'
+          '12 - Aveyron'
+          '13 - Bouches-du-rhone'
+          '14 - Calvados'
+          '15 - Cantal'
+          '16 - Charente'
+          '17 - Charente-maritime'
+          '18 - Cher'
+          '19 - Correze'
+          '20 - Corse'
+          '21 - Cote-d or'
+          '22 - Cotes-d armor'
+          '23 - Creuse'
+          '24 - Dordogne'
+          '25 - Doubs'
+          '26 - Drome'
+          '27 - Eure'
+          '28 - Eure-et-loir'
+          '29 - Finistere'
+          '30 - Gard'
+          '31 - Haute-garonne'
+          '32 - Gers'
+          '33 - Gironde'
+          '34 - Herault'
+          '35 - Ille-et-vilaine'
+          '36 - Indre'
+          '37 - Indre-et-loire'
+          '38 - Isere'
+          '39 - Jura'
+          '40 - Landes'
+          '41 - Loir-et-cher'
+          '42 - Loire'
+          '43 - Haute-loire'
+          '44 - Loire-atlantique'
+          '45 - Loiret'
+          '46 - Lot'
+          '47 - Lot-et-garonne'
+          '48 - Lozere'
+          '49 - Maine-et-loire'
+          '50 - Manche'
+          '51 - Marne'
+          '52 - Haute-marne'
+          '53 - Mayenne'
+          '54 - Meurthe-et-moselle'
+          '55 - Meuse'
+          '56 - Morbihan'
+          '57 - Moselle'
+          '58 - Nievre'
+          '59 - Nord'
+          '60 - Oise'
+          '61 - Orne'
+          '62 - Pas-de-calais'
+          '63 - Puy-de-dome'
+          '64 - Pyrenees-atlantiques'
+          '65 - Hautes-pyrenees'
+          '66 - Pyrenees-orientales'
+          '67 - Bas-rhin'
+          '68 - Haut-rhin'
+          '69 - Rhone'
+          '70 - Haute-saone'
+          '71 - Saone-et-loire'
+          '72 - Sarthe'
+          '73 - Savoie'
+          '74 - Haute-savoie'
+          '75 - Paris'
+          '76 - Seine-maritime'
+          '77 - Seine-et-marne'
+          '78 - Yvelines'
+          '79 - Deux-sevres'
+          '80 - Somme'
+          '81 - Tarn'
+          '82 - Tarn-et-garonne'
+          '83 - Var'
+          '84 - Vaucluse'
+          '85 - Vendee'
+          '86 - Vienne'
+          '87 - Haute-vienne'
+          '88 - Vosges'
+          '89 - Yonne'
+          '90 - Territoire-de-belfort'
+          '91 - Essonne'
+          '92 - Hauts-de-seine'
+          '93 - Seine-st-denis'
+          '94 - Val-de-marne'
+          '95 - Val-d oise'
+          '71 - Guadeloupe'
+          '72 - Martinique'
+          '73 - Guyane'
+          '74 - Reunion'
+          '75 - St-pierre-et-miquelon'
+          '76 - Mayotte'
+          '77 - Saint-barthelemy'
+          '78 - Saint-martin'
+          '80 - Monaco'
+          '84 - Terres australes et antarctiques francaises'
+          '86 - Wallis et futuna'
+          '87 - Polynesie francaise'
+          '88 - Nouvelle caledonie'
+          '89 - Ile de clipperton'
+          '99 - Departement hors france'
+        )
+        Style = csDropDownList
+        TabOrder = 8
+      end
+      object cbb120CodePays: TComboBox
+        Left = 178
+        Height = 23
+        Top = 328
+        Width = 214
+        ItemHeight = 15
+        Items.Strings = (
+          'AFG - Afghanistan'
+          'ZAF - Afrique Du Sud'
+          'ALB - Albanie'
+          'DZA - Algerie'
+          'DEU - Allemagne'
+          'AND - Andorre'
+          'AGO - Angola'
+          'AIA - Anguilla'
+          'ATA - Antarctique'
+          'ATG - Antigua Et Barbuda'
+          'SAU - Arabie Saoudite'
+          'ARG - Argentine'
+          'ARM - Armenie'
+          'ABW - Aruba'
+          'AUS - Australie'
+          'AUT - Autriche'
+          'AZE - Azerbaidjan'
+          'BHS - Bahamas'
+          'BHR - Bahrein'
+          'BGD - Bangladesh'
+          'BRB - Barbade'
+          'BLR - Belarus'
+          'BEL - Belgique'
+          'BLZ - Belize'
+          'DEN - Benin'
+          'BMU - Bermudes'
+          'BTN - Bhoutan'
+          'BOL - Bolivie'
+          'DES - Bonaire Saint Eustache Et Saba'
+          'BIH - Bosnie Herzegovine'
+          'BWA - Botswana'
+          'BRA - Bresil'
+          'BRN - Brunei'
+          'BGE - Bulgarie'
+          'BFA - Burkina Faso'
+          'BDI - Burundi'
+          'KHM - Cambodge'
+          'CMR - Cameroun'
+          'CAN - Canada'
+          'CPV - Cap Vert'
+          'CHL - Chili'
+          'CHN - Chine'
+          'CYP - Chypre'
+          'COL - Colombie'
+          'COM - Comores'
+          'COG - Congo'
+          'CRI - Costa Rica'
+          'CIV - Cote D Ivoire'
+          'HRV - Croatie'
+          'CUB - Cuba'
+          'CUW - Curacao'
+          'DNK - Danemark'
+          'DJI - Djibouti'
+          'DMA - Dominique'
+          'EGY - Egypte'
+          'SLV - El Salvador'
+          'ARE - Emirats Arabes Unis'
+          'ECU - Equateur'
+          'ERI - Erythree'
+          'ESP - Espagne'
+          'EST - Estonie'
+          'USA - Etats Unis'
+          'ETH - Ethiopie'
+          'YUG - Etranger'
+          'DJI - Fidji'
+          'FIN - Finlande'
+          'FRA - France'
+          'GAB - Gabon'
+          'GMB - Gambie'
+          'GEO - Georgie'
+          'SGS - Georgie Du Sud'
+          'GHA - Ghana'
+          'GIB - Gibraltar'
+          'GRC - Grece'
+          'GRD - Grenade'
+          'GRL - Groenland'
+          'GUM - Guam'
+          'GTM - Guatemala'
+          'GGY - Guernesey'
+          'GIN - Guinee'
+          'GNB - Guinee Bissau'
+          'GNQ - Guinee Equat'
+          'GUY - Guyane'
+          'HTI - Haiti'
+          'HMD - Heard Mcdonald'
+          'HND - Honduras'
+          'HKG - Hong Kong'
+          'HUN - Hongrie'
+          'BVT - Ile Bouvet'
+          'IMN - Ile De Man'
+          'NFK - Ile Norfolk'
+          'ALA - Iles Aland'
+          'CYM - Iles Caimanes'
+          'CXR - Iles Christmas'
+          'CCK - Iles Cocos'
+          'COK - Iles Cook'
+          'FLK - Iles Falkland'
+          'FRO - Iles Feroes'
+          'MNP - Iles Mariannes'
+          'MHL - Iles Marshall'
+          'UMI - Iles Mineures'
+          'SLB - Iles Salomon'
+          'VGB - Iles Vierges Gb'
+          'VIR - Iles Vierges Us'
+          'IND - Inde'
+          'IDN - Indonesie'
+          'IRQ - Iraq'
+          'IRL - Irlande'
+          'ISL - Islande'
+          'ISR - Israel'
+          'ITA - Italie'
+          'JAM - Jamaique'
+          'JPN - Japon'
+          'JEY - Jersey'
+          'JOR - Jordanie'
+          'KAZ - Kazakstan'
+          'KEN - Kenya'
+          'KGZ - Kirghizistan'
+          'KIR - Kiribati'
+          'KWT - Koweit'
+          'LAO - Laos'
+          'LSO - Lesotho'
+          'LVA - Lettonie'
+          'LBN - Liban'
+          'LBR - Liberia'
+          'LBY - Libye'
+          'LIE - Liechtenstein'
+          'LTU - Lituanie'
+          'LUX - Luxembourg'
+          'MAC - Macao'
+          'MKD - Macedoine'
+          'MDG - Madagascar'
+          'MYS - Malaisie'
+          'MWI - Malawi'
+          'MDV - Maldives'
+          'MLI - Mali'
+          'MLT - Malte'
+          'MAR - Maroc'
+          'MUS - Maurice'
+          'MRT - Mauritanie'
+          'MEX - Mexique'
+          'FSM - Micronesie'
+          'MDA - Moldavie'
+          'MCO - Monaco'
+          'MNG - Mongolie'
+          'MNE - Montenegro'
+          'MSR - Montserrat'
+          'MOZ - Mozambique'
+          'MMR - Myanmar'
+          'NAM - Namibie'
+          'NRU - Nauru'
+          'NPL - Nepal'
+          'NIC - Nicaragua'
+          'NER - Niger'
+          'NGA - Nigeria'
+          'NIU - Nioue'
+          'NZL - Nle Zelande'
+          'NOR - Norvege'
+          'IOT - Ocean Indien'
+          'OMN - Oman'
+          'UGA - Ouganda'
+          'UZB - Ouzbekistan'
+          'PAK - Pakistan'
+          'PLW - Palaos'
+          'PSE - Palestine'
+          'PAN - Panama'
+          'PNG - Papouasie'
+          'PRY - Paraguay'
+          'NLD - Pays Bas'
+          'ZZZ - Pays Inconnu'
+          'PER - Perou'
+          'PHL - Philippines'
+          'PCN - Pitcaim'
+          'POL - Pologne'
+          'PRI - Porto Rico'
+          'PRT - Portugal'
+          'QAT - Qatar'
+          'CAF - Rep Centrafic'
+          'KOR - Rep De Coree'
+          'COD - Rep Demo Congo'
+          'DOM - Rep Dominicaine'
+          'PRK - Rep Pop Coree'
+          'CZE - Rep Tcheque'
+          'IRN - Republique Islamique D Iran'
+          'ROU - Roumanie'
+          'GBR - Royaume Uni'
+          'RUS - Russie'
+          'RWA - Rwanda'
+          'ESH - Sahara Occident'
+          'WSM - Samoa  '
+          'ASM - Samoa Americaines'
+          'STP - Sao Tome Ppe'
+          'SEN - Senegal'
+          'SRB - Serbie'
+          'SYC - Seychelles'
+          'SLE - Sierra Leone'
+          'SGP - Singapour'
+          'SVK - Slovaquie'
+          'SVN - Slovenie'
+          'SOM - Somalie'
+          'SDN - Soudan'
+          'SSD - Soudan Du Sud'
+          'LKA - Sri Lanka'
+          'KNA - St Kiits Nevi'
+          'SMR - St Martin'
+          'SXM - St Martin (Nld)'
+          'VCT - St Vincent'
+          'SHN - Ste Helen'
+          'LCA - Ste Lucie'
+          'SWE - Suede'
+          'CHE - Suisse'
+          'SUR - Suriname'
+          'SJM - Svalbard'
+          'SWZ - Swaziland'
+          'SYR - Syrie'
+          'TJK - Tadjikistan'
+          'THA - Tahilande'
+          'TWN - Taiwan'
+          'TZA - Tanzanie'
+          'TCD - Tchad'
+          'TLS - Timor Leste'
+          'TGO - Togo'
+          'TKL - Tokelau'
+          'TON - Tonga'
+          'TTO - Trinite Tobago'
+          'TKM - Tukmenistan'
+          'TUN - Tunisie'
+          'TCA - Turks Caiques'
+          'TUR - Turquie'
+          'TUV - Tuvalu'
+          'UKR - Ukraine'
+          'URY - Uruguay'
+          'VUT - Vanuatu'
+          'VAT - Vatican'
+          'VEN - Venezuela'
+          'VNM - Vietnam'
+          'YEM - Yemen'
+          'ZMB - Zambie'
+          'ZWE - Zimbabwe'
+        )
+        Style = csDropDownList
+        TabOrder = 9
+      end
+      object cbb120CodeTypeAdresse: TComboBox
+        Left = 178
+        Height = 23
+        Top = 360
+        Width = 188
+        DropDownCount = 2
+        ItemHeight = 15
+        Items.Strings = (
+          'DOM - Adresse domicile'
+          'PROF - Adresse professionnelle'
+        )
+        Style = csDropDownList
+        TabOrder = 10
+      end
+      object lbl120Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 392
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object lbl120ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 392
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl120ErreurValeur'
+        WordWrap = True
+      end
+      object lbl120Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 113
+        Caption = 'Adresse principale'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl120ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 429
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl120ErreurDescription'
+        WordWrap = True
+      end
+    end
+    object tsCoordonnees: TTabSheet
+      Caption = 'Coordonnées'
+      ClientHeight = 690
+      ClientWidth = 664
+      object pcCoordonnees: TPageControl
+        Left = 0
+        Height = 690
+        Top = 0
+        Width = 664
+        ActivePage = tsCoordonneesListe
+        Align = alClient
+        Images = ilMain
+        TabIndex = 0
+        TabOrder = 0
+        object tsCoordonneesListe: TTabSheet
+          Caption = 'Coordonnées'
+          ClientHeight = 662
+          ClientWidth = 656
+          object sgCoordonnees: TStringGrid
+            Left = 10
+            Height = 654
+            Top = 2
+            Width = 390
+            AutoEdit = False
+            ColCount = 4
+            MouseWheelOption = mwGrid
+            Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRowSelect, goSmoothScroll]
+            TabOrder = 0
+            TitleFont.Style = [fsBold]
+            OnClick = sgCoordonneesClick
+            ColWidths = (
+              19
+              64
+              80
+              208
+            )
+            Cells = (
+              3
+              1
+              0
+              'Type'
+              2
+              0
+              'Nature'
+              3
+              0
+              'Valeur'
+            )
+          end
+        end
+        object tsEntite125: TTabSheet
+          Caption = '125'
+          ClientHeight = 662
+          ClientWidth = 656
+          OnShow = tsEntite125Show
+          object lbl125Type: TLabel
+            Left = 8
+            Height = 15
+            Top = 40
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Type :'
+          end
+          object cbb125Type: TComboBox
+            Left = 178
+            Height = 23
+            Top = 40
+            Width = 118
+            DropDownCount = 4
+            ItemHeight = 15
+            Items.Strings = (
+              'DOM - Domicile'
+              'MPCP - Mail'
+              'MOB - Portable'
+              'PROF - Professionnel'
+            )
+            Style = csDropDownList
+            TabOrder = 0
+          end
+          object cbb125Nature: TComboBox
+            Left = 178
+            Height = 23
+            Top = 72
+            Width = 116
+            DropDownCount = 3
+            ItemHeight = 15
+            Items.Strings = (
+              'FAX - Fax'
+              'MAIL - E-mail'
+              'TELP - Téléphone'
+            )
+            Style = csDropDownList
+            TabOrder = 1
+          end
+          object edt125Valeur: TEdit
+            Left = 178
+            Height = 23
+            Top = 104
+            Width = 310
+            MaxLength = 50
+            TabOrder = 2
+            Text = 'edt125Valeur'
+            OnExit = edt125ValeurExit
+          end
+          object lbl125ErreurValeur: TLabel
+            Left = 178
+            Height = 30
+            Top = 136
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl125ErreurValeur'
+            WordWrap = True
+          end
+          object lbl125Erreur: TLabel
+            Left = 8
+            Height = 15
+            Top = 136
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Erreur :'
+          end
+          object lbl125Valeur: TLabel
+            Left = 8
+            Height = 15
+            Top = 104
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Valeur :'
+          end
+          object lbl125Nature: TLabel
+            Left = 8
+            Height = 15
+            Top = 72
+            Width = 156
+            Alignment = taRightJustify
+            AutoSize = False
+            Caption = 'Nature :'
+          end
+          object lbl125Titre: TLabel
+            Left = 8
+            Height = 17
+            Top = 8
+            Width = 175
+            Caption = 'Communications principales'
+            Font.CharSet = ANSI_CHARSET
+            Font.Height = -13
+            Font.Pitch = fpVariable
+            Font.Quality = fqDraft
+            Font.Style = [fsBold]
+            ParentFont = False
+          end
+          object lbl125ErreurDescription: TLabel
+            Left = 178
+            Height = 120
+            Top = 176
+            Width = 470
+            AutoSize = False
+            Caption = 'lbl125ErreurDescription'
+            WordWrap = True
+          end
+        end
+      end
+    end
+    object tsEntite130: TTabSheet
+      Caption = '130'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite130Show
+      object lbl130CodeBanque: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code banque :'
+      end
+      object lbl130CodeGuichet: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Code guichet :'
+      end
+      object lbl130NumeroCompte: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Numéro de compte :'
+      end
+      object lbl130CleCompte: TLabel
+        Left = 8
+        Height = 15
+        Top = 136
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Clé du compte :'
+      end
+      object lbl130Titulaire: TLabel
+        Left = 8
+        Height = 15
+        Top = 168
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Titulaire :'
+      end
+      object lbl130Pays: TLabel
+        Left = 8
+        Height = 15
+        Top = 200
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Pays :'
+      end
+      object lbl130Devise: TLabel
+        Left = 8
+        Height = 15
+        Top = 232
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Devise :'
+      end
+      object lbl130Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 264
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object edt130CodeBanque: TEdit
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 80
+        MaxLength = 10
+        TabOrder = 0
+        Text = 'edt130Code'
+      end
+      object edt130CodeGuichet: TEdit
+        Left = 178
+        Height = 23
+        Top = 72
+        Width = 80
+        MaxLength = 10
+        TabOrder = 1
+        Text = 'edt130Code'
+      end
+      object edt130NumeroCompte: TEdit
+        Left = 178
+        Height = 23
+        Top = 104
+        Width = 160
+        MaxLength = 20
+        TabOrder = 2
+        Text = 'edt130NumeroCompte'
+      end
+      object edt130CleCompte: TEdit
+        Left = 178
+        Height = 23
+        Top = 136
+        Width = 30
+        MaxLength = 2
+        TabOrder = 3
+        Text = 'ed'
+      end
+      object edt130Titulaire: TEdit
+        Left = 178
+        Height = 23
+        Top = 168
+        Width = 350
+        MaxLength = 50
+        TabOrder = 4
+        Text = 'edt130Titulaire'
+      end
+      object cbb130Pays: TComboBox
+        Left = 178
+        Height = 23
+        Top = 200
+        Width = 214
+        ItemHeight = 15
+        Items.Strings = (
+          'AFG - Afghanistan'
+          'ZAF - Afrique Du Sud'
+          'ALB - Albanie'
+          'DZA - Algerie'
+          'DEU - Allemagne'
+          'AND - Andorre'
+          'AGO - Angola'
+          'AIA - Anguilla'
+          'ATA - Antarctique'
+          'ATG - Antigua Et Barbuda'
+          'SAU - Arabie Saoudite'
+          'ARG - Argentine'
+          'ARM - Armenie'
+          'ABW - Aruba'
+          'AUS - Australie'
+          'AUT - Autriche'
+          'AZE - Azerbaidjan'
+          'BHS - Bahamas'
+          'BHR - Bahrein'
+          'BGD - Bangladesh'
+          'BRB - Barbade'
+          'BLR - Belarus'
+          'BEL - Belgique'
+          'BLZ - Belize'
+          'DEN - Benin'
+          'BMU - Bermudes'
+          'BTN - Bhoutan'
+          'BOL - Bolivie'
+          'DES - Bonaire Saint Eustache Et Saba'
+          'BIH - Bosnie Herzegovine'
+          'BWA - Botswana'
+          'BRA - Bresil'
+          'BRN - Brunei'
+          'BGE - Bulgarie'
+          'BFA - Burkina Faso'
+          'BDI - Burundi'
+          'KHM - Cambodge'
+          'CMR - Cameroun'
+          'CAN - Canada'
+          'CPV - Cap Vert'
+          'CHL - Chili'
+          'CHN - Chine'
+          'CYP - Chypre'
+          'COL - Colombie'
+          'COM - Comores'
+          'COG - Congo'
+          'CRI - Costa Rica'
+          'CIV - Cote D Ivoire'
+          'HRV - Croatie'
+          'CUB - Cuba'
+          'CUW - Curacao'
+          'DNK - Danemark'
+          'DJI - Djibouti'
+          'DMA - Dominique'
+          'EGY - Egypte'
+          'SLV - El Salvador'
+          'ARE - Emirats Arabes Unis'
+          'ECU - Equateur'
+          'ERI - Erythree'
+          'ESP - Espagne'
+          'EST - Estonie'
+          'USA - Etats Unis'
+          'ETH - Ethiopie'
+          'YUG - Etranger'
+          'DJI - Fidji'
+          'FIN - Finlande'
+          'FRA - France'
+          'GAB - Gabon'
+          'GMB - Gambie'
+          'GEO - Georgie'
+          'SGS - Georgie Du Sud'
+          'GHA - Ghana'
+          'GIB - Gibraltar'
+          'GRC - Grece'
+          'GRD - Grenade'
+          'GRL - Groenland'
+          'GUM - Guam'
+          'GTM - Guatemala'
+          'GGY - Guernesey'
+          'GIN - Guinee'
+          'GNB - Guinee Bissau'
+          'GNQ - Guinee Equat'
+          'GUY - Guyane'
+          'HTI - Haiti'
+          'HMD - Heard Mcdonald'
+          'HND - Honduras'
+          'HKG - Hong Kong'
+          'HUN - Hongrie'
+          'BVT - Ile Bouvet'
+          'IMN - Ile De Man'
+          'NFK - Ile Norfolk'
+          'ALA - Iles Aland'
+          'CYM - Iles Caimanes'
+          'CXR - Iles Christmas'
+          'CCK - Iles Cocos'
+          'COK - Iles Cook'
+          'FLK - Iles Falkland'
+          'FRO - Iles Feroes'
+          'MNP - Iles Mariannes'
+          'MHL - Iles Marshall'
+          'UMI - Iles Mineures'
+          'SLB - Iles Salomon'
+          'VGB - Iles Vierges Gb'
+          'VIR - Iles Vierges Us'
+          'IND - Inde'
+          'IDN - Indonesie'
+          'IRQ - Iraq'
+          'IRL - Irlande'
+          'ISL - Islande'
+          'ISR - Israel'
+          'ITA - Italie'
+          'JAM - Jamaique'
+          'JPN - Japon'
+          'JEY - Jersey'
+          'JOR - Jordanie'
+          'KAZ - Kazakstan'
+          'KEN - Kenya'
+          'KGZ - Kirghizistan'
+          'KIR - Kiribati'
+          'KWT - Koweit'
+          'LAO - Laos'
+          'LSO - Lesotho'
+          'LVA - Lettonie'
+          'LBN - Liban'
+          'LBR - Liberia'
+          'LBY - Libye'
+          'LIE - Liechtenstein'
+          'LTU - Lituanie'
+          'LUX - Luxembourg'
+          'MAC - Macao'
+          'MKD - Macedoine'
+          'MDG - Madagascar'
+          'MYS - Malaisie'
+          'MWI - Malawi'
+          'MDV - Maldives'
+          'MLI - Mali'
+          'MLT - Malte'
+          'MAR - Maroc'
+          'MUS - Maurice'
+          'MRT - Mauritanie'
+          'MEX - Mexique'
+          'FSM - Micronesie'
+          'MDA - Moldavie'
+          'MCO - Monaco'
+          'MNG - Mongolie'
+          'MNE - Montenegro'
+          'MSR - Montserrat'
+          'MOZ - Mozambique'
+          'MMR - Myanmar'
+          'NAM - Namibie'
+          'NRU - Nauru'
+          'NPL - Nepal'
+          'NIC - Nicaragua'
+          'NER - Niger'
+          'NGA - Nigeria'
+          'NIU - Nioue'
+          'NZL - Nle Zelande'
+          'NOR - Norvege'
+          'IOT - Ocean Indien'
+          'OMN - Oman'
+          'UGA - Ouganda'
+          'UZB - Ouzbekistan'
+          'PAK - Pakistan'
+          'PLW - Palaos'
+          'PSE - Palestine'
+          'PAN - Panama'
+          'PNG - Papouasie'
+          'PRY - Paraguay'
+          'NLD - Pays Bas'
+          'ZZZ - Pays Inconnu'
+          'PER - Perou'
+          'PHL - Philippines'
+          'PCN - Pitcaim'
+          'POL - Pologne'
+          'PRI - Porto Rico'
+          'PRT - Portugal'
+          'QAT - Qatar'
+          'CAF - Rep Centrafic'
+          'KOR - Rep De Coree'
+          'COD - Rep Demo Congo'
+          'DOM - Rep Dominicaine'
+          'PRK - Rep Pop Coree'
+          'CZE - Rep Tcheque'
+          'IRN - Republique Islamique D Iran'
+          'ROU - Roumanie'
+          'GBR - Royaume Uni'
+          'RUS - Russie'
+          'RWA - Rwanda'
+          'ESH - Sahara Occident'
+          'WSM - Samoa  '
+          'ASM - Samoa Americaines'
+          'STP - Sao Tome Ppe'
+          'SEN - Senegal'
+          'SRB - Serbie'
+          'SYC - Seychelles'
+          'SLE - Sierra Leone'
+          'SGP - Singapour'
+          'SVK - Slovaquie'
+          'SVN - Slovenie'
+          'SOM - Somalie'
+          'SDN - Soudan'
+          'SSD - Soudan Du Sud'
+          'LKA - Sri Lanka'
+          'KNA - St Kiits Nevi'
+          'SMR - St Martin'
+          'SXM - St Martin (Nld)'
+          'VCT - St Vincent'
+          'SHN - Ste Helen'
+          'LCA - Ste Lucie'
+          'SWE - Suede'
+          'CHE - Suisse'
+          'SUR - Suriname'
+          'SJM - Svalbard'
+          'SWZ - Swaziland'
+          'SYR - Syrie'
+          'TJK - Tadjikistan'
+          'THA - Tahilande'
+          'TWN - Taiwan'
+          'TZA - Tanzanie'
+          'TCD - Tchad'
+          'TLS - Timor Leste'
+          'TGO - Togo'
+          'TKL - Tokelau'
+          'TON - Tonga'
+          'TTO - Trinite Tobago'
+          'TKM - Tukmenistan'
+          'TUN - Tunisie'
+          'TCA - Turks Caiques'
+          'TUR - Turquie'
+          'TUV - Tuvalu'
+          'UKR - Ukraine'
+          'URY - Uruguay'
+          'VUT - Vanuatu'
+          'VAT - Vatican'
+          'VEN - Venezuela'
+          'VNM - Vietnam'
+          'YEM - Yemen'
+          'ZMB - Zambie'
+          'ZWE - Zimbabwe'
+        )
+        Style = csDropDownList
+        TabOrder = 5
+      end
+      object cbb130Devise: TComboBox
+        Left = 178
+        Height = 23
+        Top = 232
+        Width = 100
+        DropDownCount = 1
+        ItemHeight = 15
+        Items.Strings = (
+          'EUR - Euro'
+        )
+        Style = csDropDownList
+        TabOrder = 6
+      end
+      object lbl130ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 264
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl130ErreurValeur'
+        WordWrap = True
+      end
+      object lbl130Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 78
+        Caption = 'RIB principal'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl130ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 302
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl130ErreurDescription'
+        WordWrap = True
+      end
+    end
+    object tsEntite135: TTabSheet
+      Caption = '135'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite135Show
+      object lbl135Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object lbl135ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 72
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl135ErreurValeur'
+        WordWrap = True
+      end
+      object lbl135RangPersonne: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Rang de la personne :'
+      end
+      object edt135RangPesonne: TEdit
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 32
+        MaxLength = 2
+        TabOrder = 0
+        Text = 'ed'
+      end
+      object lbl135Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 183
+        Caption = 'Identification du souscripteur'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl135ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 111
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl135ErreurDescription'
+        WordWrap = True
+      end
+    end
+    object tsEntite155: TTabSheet
+      Caption = '155'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite155Show
+      object lbl155DateDebutPrelevement: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Date début prélèvement :'
+      end
+      object lbl155Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object dtp155DateDebutPrelevement: TDateTimePicker
+        Left = 178
+        Height = 23
+        Top = 72
+        Width = 83
+        CenturyFrom = 1941
+        MaxDate = 2958465
+        MinDate = -53780
+        TabOrder = 1
+        TrailingSeparator = False
+        TextForNullDate = 'NULL'
+        LeadingZeros = True
+        Kind = dtkDate
+        TimeFormat = tf24
+        TimeDisplay = tdHMS
+        DateMode = dmComboBox
+        Date = 44594
+        Time = 0.794972638890613
+        UseDefaultSeparators = True
+        HideDateTimeParts = []
+        MonthNames = 'Long'
+      end
+      object lbl155ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 104
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl155ErreurValeur'
+        WordWrap = True
+      end
+      object lbl155RangPersonne: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Rang de la personne :'
+      end
+      object edt155RangPesonne: TEdit
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 32
+        MaxLength = 2
+        TabOrder = 0
+        Text = 'ed'
+      end
+      object lbl155Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 149
+        Caption = 'Identification du payeur'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl155ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 141
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl155ErreurDescription'
+        WordWrap = True
+      end
+    end
+    object tsEntite180: TTabSheet
+      Caption = '180'
+      ClientHeight = 690
+      ClientWidth = 664
+      OnShow = tsEntite180Show
+      object lbl180RangPersonne: TLabel
+        Left = 8
+        Height = 15
+        Top = 40
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Rang de la personne :'
+      end
+      object edt180RangPesonne: TEdit
+        Left = 178
+        Height = 23
+        Top = 40
+        Width = 32
+        MaxLength = 2
+        TabOrder = 0
+        Text = 'ed'
+      end
+      object lbl180ModePaiement: TLabel
+        Left = 8
+        Height = 15
+        Top = 72
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Mode de paiement :'
+      end
+      object lbl180Erreur: TLabel
+        Left = 8
+        Height = 15
+        Top = 104
+        Width = 156
+        Alignment = taRightJustify
+        AutoSize = False
+        Caption = 'Erreur :'
+      end
+      object lbl180ErreurValeur: TLabel
+        Left = 178
+        Height = 30
+        Top = 104
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl180ErreurValeur'
+        WordWrap = True
+      end
+      object cbb180ModePaiement: TComboBox
+        Left = 178
+        Height = 23
+        Top = 72
+        Width = 94
+        DropDownCount = 1
+        ItemHeight = 15
+        Items.Strings = (
+          'V - Virement'
+        )
+        Style = csDropDownList
+        TabOrder = 1
+      end
+      object lbl180Titre: TLabel
+        Left = 8
+        Height = 17
+        Top = 8
+        Width = 278
+        Caption = 'Identification du destinataire des prestations'
+        Font.CharSet = ANSI_CHARSET
+        Font.Height = -13
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl180ErreurDescription: TLabel
+        Left = 178
+        Height = 120
+        Top = 144
+        Width = 470
+        AutoSize = False
+        Caption = 'lbl180ErreurDescription'
+        WordWrap = True
+      end
+    end
+  end
+  object btnCharger: TButton
+    Left = 488
+    Height = 25
+    Top = 8
+    Width = 91
+    Caption = 'Charger'
+    TabOrder = 3
+    OnClick = btnChargerClick
+  end
+  object btnEnregistrer: TButton
+    Left = 608
+    Height = 25
+    Top = 8
+    Width = 91
+    Caption = 'Enregistrer'
+    TabOrder = 4
+    OnClick = btnEnregistrerClick
+  end
+  object btnFermer: TButton
+    Left = 728
+    Height = 25
+    Top = 8
+    Width = 91
+    Caption = 'Fermer'
+    TabOrder = 5
+    OnClick = btnFermerClick
+  end
+  object lblFilAriane: TLabel
+    Left = 8
+    Height = 15
+    Top = 48
+    Width = 809
+    AutoSize = False
+    Caption = 'lblFilAriane'
+  end
+  object btnVersion: TButton
+    Left = 1189
+    Height = 25
+    Top = 8
+    Width = 75
+    Caption = 'Version'
+    TabOrder = 6
+    OnClick = btnVersionClick
+  end
+  object lblJournal: TLabel
+    Left = 688
+    Height = 15
+    Top = 80
+    Width = 46
+    Caption = 'Journal :'
+    Font.CharSet = ANSI_CHARSET
+    Font.Pitch = fpVariable
+    Font.Quality = fqDraft
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object btnIga: TButton
+    Left = 128
+    Height = 25
+    Top = 8
+    Width = 91
+    Caption = 'IGA'
+    TabOrder = 0
+    OnClick = btnIgaClick
+  end
+  object btnApiviaRejet: TButton
+    Left = 368
+    Height = 25
+    Top = 8
+    Width = 91
+    Caption = 'APIVIA - Rejet'
+    TabOrder = 2
+    OnClick = btnApiviaRejetClick
+  end
+  object btnApiviaDepot: TButton
+    Left = 248
+    Height = 25
+    Top = 8
+    Width = 91
+    Caption = 'APIVIA - Dépôt'
+    TabOrder = 1
+    OnClick = btnApiviaDepotClick
+  end
+  object lbFichiersFtp: TListBox
+    Left = 840
+    Height = 80
+    Top = 8
+    Width = 328
+    Items.Strings = (
+      'Fichier 001'
+      'Fichier 002'
+      'Fichier 003'
+      'Fichier 004'
+      'Fichier 005'
+    )
+    ItemHeight = 15
+    TabOrder = 8
+    OnSelectionChange = lbFichiersFtpSelectionChange
+  end
+  object btnVeos: TButton
+    Left = 24
+    Height = 25
+    Top = 8
+    Width = 75
+    Caption = 'VEOS'
+    TabOrder = 9
+    OnClick = btnVeosClick
+  end
+  object rmJournal: TRichMemo
+    Left = 688
+    Height = 695
+    Top = 103
+    Width = 576
+    HideSelection = False
+    Lines.Strings = (
+      'rmJournal'
+    )
+    ReadOnly = True
+    ScrollBars = ssAutoBoth
+    TabOrder = 11
+    ZoomFactor = 1
+  end
+  object btnJournal: TSpeedButton
+    Left = 744
+    Height = 22
+    Top = 73
+    Width = 23
+    Images = ilMain
+    ImageIndex = 2
+    OnClick = btnJournalClick
+  end
+  object cefwpChromiumMain: TCEFWindowParent
+    Left = 1200
+    Height = 32
+    Top = 56
+    Width = 32
+    Color = clMenuHighlight
+    TabOrder = 10
+    Visible = False
+  end
+  object ilMain: TImageList
+    Left = 1200
+    Top = 16
+    Bitmap = {
+      4C7A030000001000000010000000AE0500000000000078DAED94794C93771CC6
+      17E7B24D499698451733AF455D9DF3845A50249B88881601B907544010569DB2
+      798114058522064110B90AC8558A94C94D410A02054A95B69EE0D4098AB36275
+      D36D8C20B4CF7E6F570C03344CE37FFBE393266FBE9FEFEF798FA700DEC15B60
+      B53977FA1293FC92CF0D9BEECEA34BBA161A0B2B8C7C8FA6CF708904A18CB0E1
+      55FEE4993D5A3BF7E7B8A8D4A2B0548B656683586CD281DFFA06B022BC46B783
+      9A63ACE64E789FD67BF6BDF9BDCF27CEEDC5C439BD7877662F4EF206D1711350
+      3D04E44A407A01C82CAF07577C0F8B7FC8A57C6FCA375C193DF9C3797D125E36
+      709A0FF032812A31D0DA0654D60097AFFD73FD541A40DF9984D886FB98B32596
+      F2A753FE2293F4F906B3FAAF50BE9D3B60EB068445112717689202CD32203D07
+      08D8FBB49F1E54889D45B7281743F739975E623B6DFEC0BD74E23BB000674FE0
+      F031805F40725F024424432AC97432A1E3E99AE87A84883AFFE57FB2441E119B
+      A87D161201B8FB012C7F20221A2828063ABB80DA06A0A21A484EBE0CA7EC76AC
+      8B9752FEB521DFE00B7529D93F48E5B6B207384780336781FA26720F79831A07
+      8FDFFFB276E91F60F9D5EBFC95078B29FFC88BF744EB9325F0B4C8C907B209A5
+      955AD0CDFB6130FBB176A3A3421E9B38E0E2C9FE2563EA8CE5B0CFB88685EC54
+      CA371BF217180B7953175FEF9D34F7B176D2DC47DA29F36EF4D38C0A5A867F0B
+      64DEFCCBED69BAF387DFFB78214E946968C99BF837AC932EBC89AF732DA2EB5E
+      7CB7AFE31B0717527EE06BF889FADE51BF1FE12D757E383EFBACE876076C7FB5
+      3AEE30C84C660E3A1DB57C42FA2F1E6FFFE9999BC11205E17C4F23CEDEAFC477
+      97436199603FAAFFDC6D8C099191961D467C2696E551586329E170632224EA16
+      C89E5C4475CF798854E231FB1FED6738D9357AE3B3DA9E7A5491196AAE412D41
+      CBE356E47717E3DCC33AA474E642703B63CCFEA7EF58349FE47A9ED575063ECA
+      401DE137E291742707C50F4428252477E620469988B1FA7F74CFA68075296E9A
+      ECBB426C531E80BF92A3F3799D7C54AACEE9329CBA9385745936C6EA7F66B0E9
+      E9CCAB6770E2160FEC4B21D871F920B83F2520A34B80E6C752943FA8D6E5382E
+      3C3166FFB3C297B6159033B62AF6638B7C0F42DB6320E82E42B9AA1A395D42F8
+      37EFC57E6980B6B0AC70CCFEEF4F58F58877874F660B7408BB4BC09607835EC6
+      045BB0B5AFB22339B54C1CD8F8B2FEBB46ACF9D934C70286A596302CB18431DF
+      12D6DCB57F8EF87E1DDFB0FF71FFF7FFD5FD77CF5330580245919740A1F6C957
+      6ABCF3141A8FAC36B5735A6B917D620BE355FB3D040A5FAF7CA58A95A7507C93
+      D5C6714E97D19C78AD34C7D4568E73AA54E19C2455D9C635FABEEC5CCA75CB95
+      73FFB8A75C407020EC22EC2058133EB38D9370EDE3242A6654DDA81CAC3C7911
+      8B2F5790391AE15B4210611F610FE17B821B61B64D4C838219555B34D2F7CC53
+      A85D33DB386466332150EFEED6BB54063661ED466E2DC73AAA4E3DD2F7162835
+      CE6932EAECEDC3CE1CCA4FE5F1A332AC0FABA1D91CABD38CF4BDF8728D638A94
+      A69FA3BC9DFA5DFEFA6B3E04678B83553426B77694EF765AA676489252F9D7EB
+      3DB6DEF5256C257812CC2C82451CCB4355A3F23BA5B4143926B650CF6F36C149
+      EF51677AE95D1BC2A75661D57DE64195B291BE5DBC84E178AA496513DB40BDBF
+      5984AFA9BC04478229E53AC64B9EEF125EC157BBEB60BAABD875E48E4DD1F5BE
+      B6B18D2AEB63750AAB703167DDA16A9A458888B6F68088B339BA411354DE8E94
+      B66E1C6FBA039B236298F8174E1BB96343849841286272C56AEA396D0C176B2C
+      0F8A9E32C36A1079FE1672AE3F04BFA307A13537B1DA47A859E19D3F6D3CDD31
+      0B28F6708969406C732732AFAA7052DA052F9E0CB4F591B70DB7E44D1ACF8E55
+      EC1F3DECC2C508A9E8C0A18A7638C549C0F0133E59CEE21B8CB7C30CDF020F43
+      773ED6875683E1237C40DC8FFFEBFF8091A760CA52175EF83216FF83A16B7F03
+      8B8F285C
+    }
+  end
+  object chromiumMain: TChromium
+    OnTextResultAvailable = chromiumMainTextResultAvailable
+    OnLoadEnd = chromiumMainLoadEnd
+    OnAfterCreated = chromiumMainAfterCreated
+    OnBeforeClose = chromiumMainBeforeClose
+    OnClose = chromiumMainClose
+    Left = 1064
+    Top = 16
+  end
+  object timerMain: TTimer
+    Interval = 500
+    OnTimer = timerMainTimer
+    Left = 1136
+    Top = 16
+  end
+end
