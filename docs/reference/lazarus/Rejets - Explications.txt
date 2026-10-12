@@ -1,0 +1,108 @@
+[ERR001]
+Acte de gestion  Modification d assure non traversable pour l'assuré de rang
+Aide ERR001
+
+[ERR002]
+Acte de gestion  Radiation d assure non traversable pour l'assuré de rang
+Aide ERR002
+
+[ERR003]
+Acte de gestion  Reactivation d assure non traversable pour l'assuré de rang
+Aide ERR003
+
+[ERR004]
+Contrat XXX échec de la réactivation du contrat, pas d'opération de résiliation trouvée. Valeur du code retour du SAD de recherche d'une opération CI0042A
+Aide ERR004
+
+[ERR005]
+Dans le cadre d'une souscription, le contrat XXX existe déjà (CI9101M)
+Aide ERR005
+
+[ERR006]
+Département tarifaire XXX invalide
+Aide ERR006
+
+[ERR007]
+Evenement rejeté, pour le contrat XXX il existe des doublons pour la personne de rang dans l'evenement
+Aide ERR007
+
+[ERR008]
+Existence dans le contrat XXX d'un  jumeau qui a les mêmes rang naissance/date de naissance/numéro RO : XXX que la personne de rang dans l'événement
+Aide ERR008
+
+[ERR009]
+Incohérence du centre de paiement
+Aide ERR009
+
+[ERR010]
+La garantie XXX de l'assuré de rang XXX ne peut etre radiée car elle n'est pas valide pour le contrat
+Aide ERR010
+
+[ERR011]
+L'acte de gestion ACMA en date d'effet XXX n'est pas autorisé (traversabilité) pour le contrat
+Aide ERR011
+
+[ERR012]
+L'adresse présente pour le role PERSONNE PRINCIPALE est incorrecte pour la personne de rang dans l'evenement
+Aide ERR012
+
+[ERR013]
+L'assuré de rang XXX existe déjà pour l'adjonction d'assuré
+Aide ERR013
+
+[ERR014]
+L'assuré de rang XXX pour le contrat XXX existe deja à une date d'effet différente
+Aide ERR014
+
+[ERR015]
+Le contrat XXX n'existe pas, ou bien n'est pas valide a la date d'effet de l'opération
+Aide ERR015
+
+[ERR016]
+Le début d'exercice madelin est obligatoire pour le contrat
+Aide ERR016
+
+[ERR017]
+Le nom présent pour le role XXX de la personne de rang
+Aide ERR017
+
+[ERR018]
+Le rib présent pour le role PERSONNE PRINCIPALE est incorrect pour la personne de rang dans l'evenement
+Aide ERR018
+
+[ERR019]
+Les données RO de la personne de rang dans l'evenement
+Aide ERR019
+
+[ERR020]
+Mode de règlement = prélèvement ou versement et RIB DEST PREST CONTRAT absent pour le contrat
+Aide ERR020
+
+[ERR021]
+Pas d'enregistrement de fin d'évènement
+Aide ERR021
+
+[ERR022]
+Pour l'assuré XXX du contrat XXX radiation de garantie impossible, un assuré doit avoir au moins une garantie valide a la date d'effet de l'operation
+Aide ERR022
+
+[ERR023]
+Pour le contrat XXX et l'assuré de rang XXX on ne peut re-souscrire a la meme garantie
+Aide ERR023
+
+[ERR024]
+Probleme lors de la création ou mise à jour des caractéristiques physiques de la personne de rang evt
+Aide ERR024
+
+[ERR025]
+Rang de naissance RO identique pour même date de naissance / numéro RO
+Aide ERR025
+
+[ERR026]
+Role ASSURE (ENTITE 400) absent dans l'evenement souscription du contrat 00 de la personne de rang evt
+Aide ERR026
+
+[ERR027]
+La garantie XXX de l'assuré de rang XXX ne peut etre radiée car elle n'existe pas pour le contrat
+Aide ERR027
+

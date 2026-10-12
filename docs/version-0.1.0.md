@@ -20,7 +20,7 @@
 
 ### 1. Corpus de référence AC056 (hors dépôt)
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Jeu de fichiers AC056 réels servant de référence de parité avec Lazarus, rangé sur `P:` et jamais dans le dépôt. Mise en place de l'accès depuis les tests et copie des sources Lazarus de référence dans le dépôt.
@@ -49,6 +49,15 @@
 - Données personnelles : le corpus n'est pas anonymisé et ne quitte pas `P:`. Aucun extrait dans le dépôt (ni fixture, ni snapshot). En cas d'échec, un test corpus affiche le fichier, la ligne et la position, jamais la valeur. Les tests du dépôt utilisent des fichiers synthétiques.
 
 **Fichiers impactés** : `docs/reference/**`, `.env.example`, `package.json` (script `test:corpus`), `vitest.config.ts` si nécessaire, helper de test d'accès au corpus.
+
+**Décisions d'implémentation** (2026-10-12) :
+
+- `vitest.config.ts` charge uniquement les variables `AC056_*` du `.env` (`loadEnv` filtré, jamais les secrets). Mode `corpus` (`npm run test:corpus`) : seuls les `*.corpus.test.ts` sont lancés, `passWithNoTests: false`, corpus obligatoire.
+- Helper `src/shared/test/corpus.ts` : `resoudreCorpus` (disponible si `IN\` et `OUT\` existent), `decrireCorpus` (skip si indisponible), `listerCorpus`, `lireCorpus` (octets bruts), `localiserEcart` et `decrireEcart` (fichier, ligne, octet, jamais la valeur).
+- `docs/reference/** -text` dans `.gitattributes` : copies conformes à l'original à l'octet près (CRLF, encodage), vérifiées par comparaison binaire.
+- Garde-fous `.gitignore` : `uconstantes*.pas`, `MATH_*.txt`, `AC056COUR_REJ_*`.
+- Les tests du domaine et du corpus portent `// @vitest-environment node` (environnement global `jsdom`). À trancher à l'item 2 : environnement par dossier ou docblock par fichier.
+- Non bloquant, reporté : `listerCorpus`, `lireCorpus` et `decrireCorpus` ne sont testés que sur le vrai corpus, pas sur un dossier temporaire.
 
 ---
 

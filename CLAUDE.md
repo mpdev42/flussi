@@ -129,6 +129,7 @@ Référence : `.env.example`.
 | VEOS (IGA)                                    | `VEOS_URL`, `VEOS_WORKFLOW_EXPORT_ID`                                                                                                                                                        |
 | IGA — FTP                                     | `IGA_FTP_HOST`, `IGA_FTP_USER`, `IGA_FTP_PASSWORD` (dev uniquement), `IGA_FTP_DOSSIER`                                                                                                       |
 | MSP — SFTP                                    | `MSP_SFTP_HOST`, `MSP_SFTP_PORT`, `MSP_SFTP_USER`, `MSP_SFTP_PASSWORD` (dev uniquement), `MSP_SFTP_CLE_PRIVEE_CHEMIN` (dev uniquement), `MSP_SFTP_DOSSIER_DEPOT`, `MSP_SFTP_DOSSIER_RETRAIT` |
+| Tests (dev uniquement)                        | `AC056_CORPUS_DIR` (corpus AC056 de référence sur `P:`, voir « Commandes de développement »)                                                                                                 |
 
 **Sources selon le contexte (mêmes noms partout)** :
 
@@ -166,6 +167,7 @@ src/
   shared/
     domain/ac056/               domaine pur AC056 (entités 000 à 800, lecteur, écrivain, contrôles, ERRxxx)
     schemas/                    schémas zod (configuration, échanges IPC)
+    test/corpus.ts              helper de test : accès au corpus AC056 de référence (P:), écarts sans valeur
     types/
       index.ts                  types métier partagés
       window.d.ts               augmentation globale Window.api
@@ -182,6 +184,8 @@ resources/                      ressources embarquées dans le paquet
 build/                          ressources de build electron-builder (icône…)
 design/                         sources de design (à produire)
 docs/                           roadmap, backlog, description, pre-mortem
+  reference/lazarus/            sources Lazarus de référence (sans uconstantes.pas : mots de passe en clair)
+  reference/iga/                cahier des charges IGA AC056 (archive, consultée sur un point bloquant)
 ```
 
 ---
@@ -191,6 +195,7 @@ docs/                           roadmap, backlog, description, pre-mortem
 ```bash
 npm run dev           # Lancer en dev — electron-vite dev (encapsulé par scripts/dev.mjs)
 npm test              # Tests unitaires — vitest run
+npm run test:corpus   # Tests de parité sur le corpus AC056 réel, obligatoires — vitest run --mode corpus
 npm run test:e2e      # Tests e2e Playwright — build puis playwright test (encapsulé par scripts/e2e.mjs)
 npm run build         # Build production — electron-vite build
 npm run package       # Installeur Windows NSIS pour Intune — electron-vite build && electron-builder --win nsis
@@ -203,8 +208,9 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 
 - Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, jamais par `npx playwright test` directement. Le wrapper `scripts/e2e.mjs` rebuild l'application (les specs lancent `out/`, pas les sources) et neutralise `ELECTRON_RUN_AS_NODE`, posée par VS Code et Claude Code. Arguments transmis à Playwright : `npm run test:e2e -- <spec> --reporter=list`.
 - Les tests unitaires vivent à côté du code (`src/**/*.test.ts`). Vitest ignore le dossier `e2e/`.
+- **Corpus AC056** : fichiers réels sur `P:` (`IN\`, `OUT\`, `PIEGES\`), données personnelles non anonymisées, jamais copiés dans le dépôt (ni fixture, ni snapshot). Chemin dans `AC056_CORPUS_DIR` (`.env`). Les tests corpus s'appellent `*.corpus.test.ts` et sont enveloppés dans `decrireCorpus` (`@shared/test/corpus`) : ignorés par `npm test` si le corpus est indisponible, obligatoires avec `npm run test:corpus`. Jamais de `toEqual` ni de snapshot sur un contenu du corpus (Vitest afficherait les valeurs) : comparer par SHA-256, et localiser un écart par `localiserEcart` et `decrireEcart` (fichier, ligne, octet, jamais la valeur). Convention de `PIEGES\` : `NOM.txt` (fichier piégé) et `NOM.erreurs.txt` (relevé manuel des messages de Lazarus).
 - ESLint et Prettier ignorent `.claude/`, `docs/` et `design/` (sources gérées par les skills).
-- Fins de ligne LF partout (`.gitattributes` : `* text=auto eol=lf`), cohérentes avec Prettier.
+- Fins de ligne LF partout (`.gitattributes` : `* text=auto eol=lf`), cohérentes avec Prettier. Exception : `docs/reference/**` est en `-text`, copies conformes à l'original à l'octet près.
 
 ---
 
