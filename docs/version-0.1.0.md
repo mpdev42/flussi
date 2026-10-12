@@ -63,7 +63,7 @@
 
 ### 2. Description des entités AC056 (000 à 999)
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Description déclarative de tous les enregistrements AC056 en largeur fixe : positions, longueurs, types, bourrage, champs affichés et modifiables, valeurs autorisées.
@@ -86,6 +86,31 @@
 **Tests** : pour chaque entité, champs contigus, sans trou ni chevauchement, sur exactement 700 octets.
 
 **Fichiers impactés** : `src/shared/domain/ac056/entites/*.ts` et leurs tests.
+
+**Décisions d'implémentation** (2026-10-12) :
+
+- Modèle : `DescriptionChamp` et `DescriptionEntite` (`entites/types.ts`), aides `alpha`, `num`, `date` (une ligne par champ, calquée sur le `Copy` de Lazarus), registre `ENTITES` (`entites/index.ts`).
+- Nommage mécanique : `s_` et suffixe `_n` ou `_d` retirés, puis camelCase. Les coquilles de Lazarus sont conservées (`echancier`), pour retrouver chaque champ dans la source.
+- En-tête commun 1 à 25 pour les 22 entités : `numEmetteur`, `numDossier`, `numEvt`, `rang` (rang du bénéficiaire, `s_rang_n`), `numEntite`.
+- Lazarus ne lit pas la fin de ligne (la 100 s'arrête à 364, la 485 à 41) et la réécrit en espaces : dernier champ `zoneNonDecrite` jusqu'à 700. Entités brutes (000, 001, 990, 995, 999) : en-tête puis `donnees` (26 à 700). Pour 000, 990, 995 et 999, Lazarus ne lit que le code d'entité, le reste de l'en-tête est indicatif.
+- Écarts de Lazarus conservés sans correction :
+  - 4 `MaxLength` différents de la longueur : 120 code postal (5 pour 10), 485 valeur (9 pour 10), 490 valeur (9 pour 20), 700 `appliquerStageCv` (2 pour 1) ;
+  - 2 largeurs d'écriture plus courtes que la lecture, sans effet (`AddCharR` ne tronque pas) : 110 monnaie de gestion (1 pour 3), 135 numéro d'évènement (2 pour 3).
+- `valeursAutorisees` : listes des `TComboBox` recopiées mot pour mot en `{ code, libelle }`, doublons et coquilles compris. Elles servent à l'affichage uniquement : Lazarus ne les contrôle pas. Listes longues ou partagées dans `entites/valeurs/`.
+- Pas de libellé de champ : il sera ajouté par l'item 5 (message « caractère non autorisé dans {champ} ») ou par la v0.3.0.
+- Tests ajoutés à ceux prévus :
+  - parité automatique avec `uac056.pas` (ordre, positions, longueurs, Trim, bourrage) ;
+  - corpus : la zone non décrite des lignes de `IN\` ne contient que des espaces. Vérifié sur le corpus le 2026-10-12 : VEOS n'écrit rien au-delà des champs lus par Lazarus.
+- Environnement Vitest (question laissée ouverte à l'item 1) : `node` par défaut. Un test du renderer déclare `// @vitest-environment jsdom`.
+- Non bloquant, reporté au plus tard en v0.3.0 (consommation par l'écran), relevé par la revue d'item :
+  - `affiche` n'est figé par un test que pour les champs modifiables, avec `maxLength` ou avec liste. Les 93 champs affichés ont été comptés à la main.
+  - Les listes courtes recopiées en ligne (100, 120, 125, 130, 180, 400) ne sont pas vérifiées contre `fmain.lfm` par un test. Les 6 listes de `valeurs/` ont été générées par script depuis `fmain.lfm`.
+
+**Point d'attention pour l'item 3** (constaté dans `uac056.pas`, non traité ici) :
+
+- 4 champs combinent Trim et bourrage `'0'` : 100 `echPrinc`, 410 `rangNaissance`, 700 `typeGarantieAssemblee`, 800 `rangPersonne`. Lazarus réécrit un champ blanc en zéros (`'    '` → `'0000'`) et transforme une valeur précédée d'espaces (`' 1'` → `'10'`).
+- Champs avec Trim et bourrage `' '` : les espaces de tête disparaissent à la réécriture, la valeur est recalée à gauche dans sa zone.
+- Le test SHA-256 sur le corpus dira si VEOS produit ces cas.
 
 ---
 

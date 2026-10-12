@@ -19,7 +19,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
-      environment: 'jsdom',
+      // Environnement par défaut `node` (domaine et corpus, zone la plus testée).
+      // Un test du renderer déclare `// @vitest-environment jsdom` en tête de fichier.
+      environment: 'node',
       // Tests unitaires à côté du code ; e2e/ appartient à Playwright
       include: corpus ? ['src/**/*.corpus.test.ts'] : ['src/**/*.{test,spec}.{ts,tsx}'],
       passWithNoTests: !corpus,
