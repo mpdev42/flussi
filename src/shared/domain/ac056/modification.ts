@@ -13,6 +13,7 @@ export interface CibleChamp {
 }
 
 export type CodeErreurModification =
+  | 'fichier-rejet'
   | 'ligne-introuvable'
   | 'ligne-non-decrite'
   | 'champ-inconnu'
@@ -38,6 +39,10 @@ export function modifierChamp(
   cible: CibleChamp,
   valeur: string,
 ): ResultatModification {
+  if (fichier.provenance === 'rejet') {
+    return echec('fichier-rejet', 'Un fichier de rejet est en lecture seule.');
+  }
+
   const indice = fichier.lignes.findIndex((ligne) => ligne.numero === cible.ligne);
   const ligne = fichier.lignes[indice];
   if (ligne === undefined) {

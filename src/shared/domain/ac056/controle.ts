@@ -301,6 +301,8 @@ function champsAvecOctetInterdit(ligne: LigneAc056, entite: CodeEntite): Descrip
  * Résultat trié par numéro de ligne, position du champ puis ordre des règles.
  */
 export function controlerAc056(fichier: FichierAc056): AnomalieAc056[] {
+  // Parité Lazarus : `if not FFichierRejet then ControlerEvenements`. Un rejet n'est jamais contrôlé.
+  if (fichier.provenance === 'rejet') return [];
   const { lignes } = fichier;
   const constats: Constat[] = [];
   /** Par indice de ligne : champs en échec sur un jeu de caractères (pas de doublon D5). */

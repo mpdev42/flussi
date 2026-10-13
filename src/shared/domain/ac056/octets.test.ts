@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  estUtf8Valide,
   octetsDepuisTableau,
   octetsDepuisTexte,
   repeterOctet,
   tableauDepuisOctets,
   texteDepuisOctets,
+  texteWindows1252,
   type Octets,
 } from './octets';
 
@@ -155,4 +157,89 @@ describe('repeterOctet', () => {
       expect(() => repeterOctet(' ', nombre)).toThrow(/Nombre de répétitions invalide/);
     },
   );
+});
+
+describe('texteWindows1252', () => {
+  it('décode 0xE9 en « é »', () => {
+    expect(texteWindows1252(binaire('caf\xE9'))).toBe('café');
+  });
+
+  it('décode 0x80 en « € »', () => {
+    expect(texteWindows1252(binaire('\x80'))).toBe('€');
+  });
+
+  it('décode 0x92 en « ’ »', () => {
+    expect(texteWindows1252(binaire('l\x92\xE9t\xE9'))).toBe('l’été');
+  });
+
+  it('décode 0x81, non défini en Windows-1252, en contrôle C1 U+0081 et non en U+FFFD', () => {
+    expect(texteWindows1252(binaire('\x81'))).toBe('\u0081');
+  });
+
+  it.each([0x81, 0x8d, 0x8f, 0x90, 0x9d])(
+    'ne produit jamais U+FFFD pour l octet non défini 0x%s',
+    (octet) => {
+      const texte = texteWindows1252(binaire(String.fromCharCode(octet)));
+      expect(texte).toBe(String.fromCharCode(octet));
+    },
+  );
+
+  it('laisse l ASCII inchangé', () => {
+    expect(texteWindows1252(binaire('DUPONT 123 /-.'))).toBe('DUPONT 123 /-.');
+  });
+
+  it('décode un octet UTF-8 multi-octets comme deux caractères Windows-1252', () => {
+    expect(texteWindows1252(binaire('\xC3\xA9'))).toBe('Ã©');
+  });
+
+  it('ne produit aucun U+FFFD sur les 256 valeurs d octet', () => {
+    const tous = octetsDepuisTableau(Uint8Array.from({ length: 256 }, (_, i) => i));
+    const texte = texteWindows1252(tous);
+    expect(texte).toHaveLength(256);
+    expect(texte.includes('�')).toBe(false);
+  });
+
+  it('renvoie une chaîne vide pour une chaîne vide', () => {
+    expect(texteWindows1252(binaire(''))).toBe('');
+  });
+});
+
+describe('estUtf8Valide', () => {
+  it('accepte l ASCII', () => {
+    expect(estUtf8Valide(new Uint8Array([0x44, 0x55, 0x50, 0x4f, 0x4e, 0x54]))).toBe(true);
+  });
+
+  it('accepte de l UTF-8 multi-octets valide (2, 3 et 4 octets)', () => {
+    const octets = tableauDepuisOctets(octetsDepuisTexte('é € \u{1F600}'));
+    expect(estUtf8Valide(octets)).toBe(true);
+  });
+
+  it('refuse un octet 0xE9 isolé', () => {
+    expect(estUtf8Valide(new Uint8Array([0x63, 0x61, 0x66, 0xe9]))).toBe(false);
+  });
+
+  it('refuse un 0xE9 isolé suivi d un caractère ASCII', () => {
+    expect(estUtf8Valide(new Uint8Array([0xe9, 0x20, 0x41]))).toBe(false);
+  });
+
+  it('refuse une séquence tronquée en fin de fichier', () => {
+    expect(estUtf8Valide(new Uint8Array([0x41, 0xe2, 0x82]))).toBe(false);
+  });
+
+  it('accepte le BOM UTF-8 seul', () => {
+    expect(estUtf8Valide(new Uint8Array([0xef, 0xbb, 0xbf]))).toBe(true);
+  });
+
+  it('accepte un tableau vide', () => {
+    expect(estUtf8Valide(new Uint8Array())).toBe(true);
+  });
+
+  it('refuse l octet 0xFF', () => {
+    expect(estUtf8Valide(new Uint8Array([0xff]))).toBe(false);
+  });
+
+  it('lit une vue (subarray) sans sortir de ses bornes', () => {
+    const tampon = new Uint8Array([0xe9, 0x41, 0x42, 0xe9]);
+    expect(estUtf8Valide(tampon.subarray(1, 3))).toBe(true);
+  });
 });

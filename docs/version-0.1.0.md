@@ -18,6 +18,7 @@
 | 8 | Format d'origine conservé : fins de ligne (CRLF, LF, CR), BOM, saut de ligne final (Lazarus réécrit tout en CRLF, sans BOM, avec un CRLF après la dernière ligne) | 3 |
 | 9 | Zone non décrite (fin de ligne non lue par Lazarus) réécrite telle quelle (Lazarus la réécrit en espaces) | 3 |
 | 10 | Rejet non reconnu : explication « Erreur inconnue. Contactez le service informatique. » (Lazarus affiche une explication vide, par bug) | 5 |
+| 11 | Rejets : message conservé sur toutes les lignes (Lazarus perd celui des 411, 990 et 995, et celui d'une fille de 400 sans 400) | 6 |
 
 ---
 
@@ -390,7 +391,7 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
 
 ### 6. Fichiers de rejet MSP (Windows-1252)
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Lecture des fichiers de rejet MSP, décodage des messages en Windows-1252, rattachement de chaque message à son code `ERRxxx` et à son explication. **Lecture seule** : un rejet n'est jamais modifié ni redéposé, il sert uniquement à connaître la raison du rejet.
@@ -424,6 +425,51 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
 - `identifierRejet` (`codes-rejet.ts`) prend le message tel quel. Lazarus le prépare ainsi : ligne entière décodée (`WinCPToUTF8`), puis `Trim` de **toute la ligne**, puis `Copy(ligne, 719, …)`. Les espaces de tête du message sont donc conservés, ceux de fin retirés. Un message qui commence par un espace ne correspond à aucun mode `debut`.
 - Dans Lazarus, le décodage précède le `Copy` : un caractère accentué dans les octets 1 à 718 décale le début du message. Le décodage par zones de l'item 6 (divergence déjà prévue) ne reproduit pas ce décalage.
 - `controlerAc056` ne doit jamais être appelé sur un rejet (parité : `if not FFichierRejet then ControlerEvenements`).
+
+**Décisions d'implémentation** (2026-10-13) :
+
+- **Constats du corpus `OUT\`** (structure seulement, aucune valeur affichée) :
+  - les rejets contiennent des 000, 001 et 999, dans l'ordre de MSP : `100 … 990 995 001` par dossier (la 001 après la 995), puis `000 999` en fin de fichier ;
+  - 990, 995 et 001 ont les 17 premiers octets de la 100 de leur dossier, 000 et 999 ont les leurs ;
+  - une ligne sans message fait exactement 718 octets, une ligne avec message jusqu'à 829 ;
+  - octets ≥ 0x80 dans les messages seulement, fichiers invalides en UTF-8, CRLF, sans BOM ;
+  - messages sur des 100, 400 et 700.
+  - La décision « l'absence de 000, 001 et 999 est normale » est donc précisée : dans un rejet, leur présence, leur absence et leur place ne sont pas contrôlées.
+- **API** :
+  - `lireAc056(octets, provenance = 'veos')`. `provenance` (`'veos' | 'rejet'`) est recopiée dans `FichierAc056` : le nom `origine` désigne déjà les octets d'une ligne.
+  - `LigneCommune.rejet?: MessageRejet` (`message`, `code`, `explication`) : présent sur toute ligne de rejet au message non vide, décrite ou brute (divergence 11).
+  - Pas de champ pour l'identification (octets 701 à 718) : elle reste dans `origine`.
+  - `DossierAc056.e001` devient `number | null`.
+- **Lignes** :
+  - une ligne est décrite à partir de 718 octets, si son code est connu et non brut ; ses valeurs sont lues sur les octets 1 à 700 ;
+  - message (`rejet.ts`, `messageRejet`) : octets 719 et suivants, `trimDroiteFpc`, `texteWindows1252`, puis `identifierRejet` ;
+  - espaces de tête conservés, de fin retirés : parité du `Trim` de la ligne entière.
+- **Dossiers** : dans un rejet, un dossier est une suite de lignes de mêmes 17 premiers octets, 000 et 999 exclues. La règle est la même dans `construireHierarchie` et `controlerStructure`. La 001 se rattache au dossier sans toucher aux curseurs.
+- **Structure d'un rejet** :
+  - au moins 718 octets par ligne ;
+  - 000 et 999 ni placées ni exigées, doublon signalé ;
+  - 001 non placée, doublon signalé ;
+  - 990 et 995 absentes signalées, la 995 sur la première ligne du dossier ;
+  - table `REGLES` inchangée.
+  - Garantie de l'item 4 conservée et testée : sans anomalie bloquante, chaque ligne est rattachée une fois (suites exhaustives jusqu'à 5 lignes, 11 000 suites aléatoires, mutations).
+- **Anomalies** :
+  - anomalies de format (`bom`, LF, CR, ligne vide) non émises pour un rejet, qui ne s'enregistre jamais ;
+  - `encodage-incoherent`, non bloquante, niveau fichier : fichier VEOS invalide en UTF-8 ; rejet avec BOM, ou avec un octet non ASCII et valide en UTF-8 ;
+  - l'ASCII pur ne déclenche rien. Un rejet en Windows-1252 qui forme par hasard de l'UTF-8 valide serait signalé : accepté.
+- **Lecture seule** : `controlerAc056` renvoie `[]` (parité), `modifierChamp` refuse (`fichier-rejet`), `ecrireAc056` lève une erreur.
+- **Décodage** : `texteWindows1252` utilise `TextDecoder('windows-1252')`. Il ne produit jamais U+FFFD : les 5 octets non définis deviennent des contrôles C1. Le test corpus vérifie donc aussi l'absence de C1.
+- **Dette de l'item 5 soldée** : `REJETS` gelé en profondeur.
+- **Résultats** :
+  - corpus `OUT\` : aucune anomalie sur les 3 rejets, chaque ligne rattachée une fois, aucun U+FFFD ni C1 ;
+  - 29 lignes avec message : 16 reconnues par un `ERRxxx`, 13 « Erreur inconnue », toutes distinctes (par fichier : 1/0, 14/10, 1/3) ;
+  - `npm test` (1 813 tests) et `npm run test:corpus` (31 tests) passent.
+  - Le test corpus lit les rejets une seule fois puis les met en cache : 7 relectures de `P:` dépassaient le délai de 5 s quand toute la suite tournait en parallèle.
+- **Non bloquant, reporté** (revue d'item du 2026-10-13) :
+  - La règle de longueur (au moins 718 octets en rejet, 700 en VEOS) est écrite deux fois, dans `lecteur.ts` et `structure.ts`. À regrouper dans `rejet.ts` si elle évolue.
+  - `texteWindows1252` construit son `TextDecoder` au chargement du module. Sans ICU complet, l'import échouerait ; Electron et Node l'embarquent.
+  - Le futur service d'enregistrement ne doit pas appeler `ecrireAc056` sur un rejet : il lève une erreur.
+  - 13 messages sur 29 ne correspondent à aucun des 27 `ERRxxx`. Lazarus obtient le même message sur ces fichiers (octets 1 à 718 en ASCII), donc le même résultat. Examiner ces formulations avec le service administratif avant d'enrichir la table.
+  - Écran (v0.3.0) : naviguer dans un rejet comme dans un fichier VEOS, afficher le message et l'explication de chaque ligne, sans Enregistrer ni Dépôt.
 
 ---
 

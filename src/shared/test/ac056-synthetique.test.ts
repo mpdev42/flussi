@@ -3,13 +3,18 @@ import { controlerAc056 } from '@shared/domain/ac056/controle';
 import { CODES_ENTITE, ENTITES } from '@shared/domain/ac056/entites';
 import { lireAc056 } from '@shared/domain/ac056/lecteur';
 import {
+  IDENTIFICATION_MSP_FICTIVE,
   enChaineBinaire,
   enOctetsBruts,
+  enWindows1252,
   extraireChamp,
   fichierSynthetique,
+  ligneRejet,
+  ligneRejetSynthetique,
   ligneSynthetique,
   lignesCompletes,
   lignesDepuisCodes,
+  lignesRejet,
 } from './ac056-synthetique';
 
 /** Code d'entité (octets 23 à 25) d'une ligne. */
@@ -268,5 +273,155 @@ describe('lignesDepuisCodes', () => {
 
   it('conserve l ordre des codes', () => {
     expect(lignesDepuisCodes(['999', null, '000']).map(codeDe)).toEqual(['999', '   ', '000']);
+  });
+});
+
+describe('enWindows1252', () => {
+  it('laisse l ASCII inchangé', () => {
+    expect(enWindows1252('DUPONT 123')).toBe('DUPONT 123');
+  });
+
+  it('donne à un caractère Latin-1 son octet', () => {
+    expect(enWindows1252('éàÿ')).toBe('\xE9\xE0\xFF');
+  });
+
+  it('donne 0x80 à « € » et 0x92 à « ’ »', () => {
+    expect(enWindows1252('€’')).toBe('\x80\x92');
+  });
+
+  it('renvoie une chaîne vide pour un texte vide', () => {
+    expect(enWindows1252('')).toBe('');
+  });
+
+  it.each(['Ā', '\u{1F600}', '\x85'])('lève sur le caractère non géré %j', (caractere) => {
+    expect(() => enWindows1252(caractere)).toThrow(/non géré/);
+  });
+});
+
+describe('ligneRejet', () => {
+  const L405 = ligneSynthetique('405');
+
+  it('ajoute l identification MSP de 18 octets à la ligne de 700 caractères', () => {
+    const ligne = ligneRejet(L405);
+    expect(ligne).toHaveLength(718);
+    expect(ligne.slice(0, 700)).toBe(L405);
+    expect(ligne.slice(700)).toBe(IDENTIFICATION_MSP_FICTIVE);
+  });
+
+  it('place le message à partir de l octet 719, tel quel', () => {
+    const ligne = ligneRejet(L405, 'Message \xE9');
+    expect(ligne.slice(718)).toBe('Message \xE9');
+  });
+
+  it('a une identification de la forme 9 chiffres, espace, 8 alphanumériques', () => {
+    expect(IDENTIFICATION_MSP_FICTIVE).toMatch(/^\d{9} [A-Z0-9]{8}$/);
+  });
+
+  it('lève si la ligne ne fait pas 700 caractères', () => {
+    expect(() => ligneRejet(L405.slice(0, 699))).toThrow(/699/);
+  });
+
+  it('lève si un caractère du message dépasse 0xFF', () => {
+    expect(() => ligneRejet(L405, 'Ā')).toThrow(/0xFF/);
+  });
+});
+
+describe('ligneRejetSynthetique', () => {
+  it('place l émetteur TEST et le numéro de dossier sur 8 chiffres aux octets 1 à 17', () => {
+    expect(ligneRejetSynthetique('100', 12).slice(0, 17)).toBe('TEST     00000012');
+  });
+
+  it.each(CODES_ENTITE)('place le code %s en position 23 sur 718 octets', (code) => {
+    const ligne = ligneRejetSynthetique(code, 1);
+    expect(codeDe(ligne)).toBe(code);
+    expect(ligne).toHaveLength(718);
+  });
+
+  it('ajoute le message éventuel', () => {
+    expect(ligneRejetSynthetique('990', 1, 'MSG')).toHaveLength(721);
+  });
+});
+
+describe('lignesRejet', () => {
+  const lignes = lignesRejet();
+  const codes = lignes.map(codeDe);
+  const cle = (ligne: string) => ligne.slice(0, 17);
+
+  it('compte 138 lignes de 718 octets sans message', () => {
+    expect(lignes).toHaveLength(138);
+    expect(lignes.filter((ligne) => ligne.length !== 718)).toEqual([]);
+  });
+
+  it('reprend les lignes de lignesCompletes sur les 700 premiers octets, dans un autre ordre', () => {
+    const base = lignesCompletes();
+    expect(lignes.map((ligne) => ligne.slice(0, 700)).sort()).toEqual([...base].sort());
+  });
+
+  it('ajoute l identification MSP fictive à chaque ligne', () => {
+    expect(lignes.every((ligne) => ligne.slice(700, 718) === IDENTIFICATION_MSP_FICTIVE)).toBe(
+      true,
+    );
+  });
+
+  it('place la 001 après la 995 de son dossier', () => {
+    // Un dossier de 68 lignes : 2 évènements de 33 lignes (100 … 990), puis 995 et 001.
+    expect(codes.slice(65, 69)).toEqual(['990', '995', '001', '100']);
+    expect(codes.slice(133, 136)).toEqual(['990', '995', '001']);
+    expect(codes.slice(0, 66).includes('001')).toBe(false);
+  });
+
+  it('ne garde aucune 001 avant la première 100 et finit par 000 puis 999', () => {
+    expect(codes[0]).toBe('100');
+    expect(codes.slice(-2)).toEqual(['000', '999']);
+  });
+
+  it('conserve 2 dossiers, 4 évènements et un seul 000 et 999', () => {
+    expect(codes.filter((code) => code === '001')).toHaveLength(2);
+    expect(codes.filter((code) => code === '995')).toHaveLength(2);
+    expect(codes.filter((code) => code === '100')).toHaveLength(4);
+    expect(codes.filter((code) => code === '000')).toHaveLength(1);
+    expect(codes.filter((code) => code === '999')).toHaveLength(1);
+  });
+
+  it('donne aux 100, 990, 995 et 001 d un dossier les mêmes 17 premiers octets', () => {
+    for (const code of ['100', '990', '995', '001']) {
+      const cles = new Set(
+        lignes
+          .slice(0, 68)
+          .filter((ligne) => codeDe(ligne) === code)
+          .map(cle),
+      );
+      expect(cles.size, code).toBe(1);
+      expect([...cles][0], code).toBe('TEST     00000001');
+    }
+  });
+
+  it('donne une clé différente à chaque dossier et à la 000 et la 999', () => {
+    expect(cle(lignes[0]!)).toBe('TEST     00000001');
+    expect(cle(lignes[68]!)).toBe('TEST     00000002');
+    expect(cle(lignes[136]!)).toBe('TEST     00000000');
+    expect(cle(lignes[137]!)).toBe('TEST     00000000');
+  });
+
+  it('accepte une option dossiers', () => {
+    expect(lignesRejet({ dossiers: 3 })).toHaveLength(2 + 68 * 3);
+    expect(lignesRejet({ dossiers: 0 }).map(codeDe)).toEqual(['000', '999']);
+  });
+
+  it('ajoute les messages demandés d après le code et le rang, sans toucher aux autres lignes', () => {
+    const avec = lignesRejet({
+      message: (code, indice) => (code === '990' || indice === 1 ? `MSG${code}` : undefined),
+    });
+    expect(avec).toHaveLength(138);
+    avec.forEach((ligne, i) => {
+      const attendu = codes[i] === '990' ? 'MSG990' : i === 1 ? 'MSG110' : '';
+      expect(ligne.slice(718), `rang ${i}`).toBe(attendu);
+      expect(ligne.slice(0, 718)).toBe(lignes[i]);
+    });
+  });
+
+  it('accepte un message en octets Windows-1252', () => {
+    const avec = lignesRejet({ message: (code) => (code === '999' ? 'caf\xE9' : undefined) });
+    expect(avec.at(-1)?.slice(718)).toBe('caf\xE9');
   });
 });

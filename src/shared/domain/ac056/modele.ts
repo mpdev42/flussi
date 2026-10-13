@@ -1,9 +1,25 @@
 // Modèle d'un fichier AC056 lu : lignes dans l'ordre d'origine, hiérarchie par indices
 // (noms calqués sur `utypes.pas`), anomalies relevées à la lecture.
+import type { CodeRejet } from './codes-rejet';
 import type { CodeEntite } from './entites';
 import type { Octets } from './octets';
 
+/**
+ * Origine du fichier, fournie par l'appelant (d'après le préfixe du nom, jamais lue par le
+ * domaine) : `veos` (UTF-8, lignes de 700 octets) ou `rejet` (Windows-1252, lecture seule).
+ */
+export type Provenance = 'veos' | 'rejet';
+
 export type FinDeLigne = '\r\n' | '\n' | '\r' | '';
+
+/** Message MSP d'une ligne de rejet (octets 719 et suivants), avec son code `ERRxxx`. */
+export interface MessageRejet {
+  /** Texte décodé (Windows-1252), espaces de fin retirés, espaces de tête conservés. Jamais vide. */
+  readonly message: string;
+  /** null : message non reconnu (divergence 10). */
+  readonly code: CodeRejet | null;
+  readonly explication: string;
+}
 
 interface LigneCommune {
   /** Numéro de ligne d'origine, base 1, lignes vides comptées (comme Lazarus et Notepad++). */
@@ -11,9 +27,17 @@ interface LigneCommune {
   /** Octets lus, sans fin de ligne, jamais modifiés. */
   readonly origine: Octets;
   readonly finDeLigne: FinDeLigne;
+  /**
+   * Message MSP : présent seulement sur une ligne de rejet qui en porte un non vide, quelle que
+   * soit sa nature (une 990, une 995 ou une 411 garde le sien, que Lazarus perd : divergence 11).
+   */
+  readonly rejet?: MessageRejet;
 }
 
-/** Ligne de 700 octets d'une entité non brute, découpée en champs. */
+/**
+ * Ligne d'une entité non brute, découpée en champs. 700 octets pour un fichier VEOS ; dans un
+ * rejet, 718 octets ou plus, valeurs lues sur les octets 1 à 700.
+ */
 export interface LigneDecrite extends LigneCommune {
   readonly nature: 'decrite';
   readonly code: CodeEntite;
@@ -27,8 +51,8 @@ export interface LigneDecrite extends LigneCommune {
 }
 
 /**
- * Ligne conservée telle quelle : 000, 001, 990, 995 ou 999, ou ligne en anomalie (longueur ≠ 700
- * ou code inconnu), réécrite à l'identique.
+ * Ligne conservée telle quelle : 000, 001, 990, 995 ou 999, ou ligne en anomalie (longueur ≠ 700,
+ * ou < 718 dans un rejet, ou code inconnu), réécrite à l'identique.
  */
 export interface LigneBrute extends LigneCommune {
   readonly nature: 'brute';
@@ -66,12 +90,14 @@ export interface EvenementAc056 {
 }
 
 export interface DossierAc056 {
-  readonly e001: number;
+  /** null : dossier d'un rejet sans 001 (MSP la place après la 995, ou l'omet). */
+  readonly e001: number | null;
   readonly evenements: readonly EvenementAc056[];
   readonly e995: number | null;
 }
 
 export interface FichierAc056 {
+  readonly provenance: Provenance;
   readonly bom: boolean;
   /** Ordre d'origine, sans les lignes vides. Seule source de l'écrivain. */
   readonly lignes: readonly LigneAc056[];
@@ -85,6 +111,7 @@ export type CodeAnomalie =
   | 'fin-de-ligne-lf'
   | 'fin-de-ligne-cr'
   | 'ligne-vide'
+  | 'encodage-incoherent'
   | 'fichier-vide'
   | 'longueur-ligne'
   | 'entite-inconnue'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addCharR, strToIntFpc, trimFpc } from './fpc';
+import { addCharR, strToIntFpc, trimDroiteFpc, trimFpc } from './fpc';
 import { octetsDepuisTexte } from './octets';
 import type { Octets } from './octets';
 
@@ -169,5 +169,48 @@ describe('strToIntFpc', () => {
   it('retire les zéros de tête sans changer la valeur', () => {
     expect(strToIntFpc(binaire('000000000012'))).toBe(12);
     expect(strToIntFpc(binaire('-007'))).toBe(-7);
+  });
+});
+
+describe('trimDroiteFpc', () => {
+  it('retire les espaces en fin', () => {
+    expect(trimDroiteFpc(binaire('Message   '))).toBe('Message');
+  });
+
+  it('retire en fin tous les octets de 0x00 à 0x20 (espace, tabulation, NUL, CR, LF)', () => {
+    expect(trimDroiteFpc(binaire('A\x00\x01\x09\x0A\x0D\x1F\x20'))).toBe('A');
+  });
+
+  it('conserve les octets de tête, blancs compris', () => {
+    expect(trimDroiteFpc(binaire('  \x00 A  '))).toBe('  \x00 A');
+  });
+
+  it.each([
+    ['0x7F', '\x7F'],
+    ['0x80', '\x80'],
+    ['0xA0', '\xA0'],
+    ['0xFF', '\xFF'],
+  ])('conserve %s en fin', (_nom, octet) => {
+    expect(trimDroiteFpc(binaire(`A${octet}`))).toBe(`A${octet}`);
+  });
+
+  it('retire les blancs puis s arrête sur un octet à conserver', () => {
+    expect(trimDroiteFpc(binaire('A \xA0  '))).toBe('A \xA0');
+  });
+
+  it('conserve les blancs à l intérieur', () => {
+    expect(trimDroiteFpc(binaire('A  B\tC '))).toBe('A  B\tC');
+  });
+
+  it('renvoie une chaîne vide pour une chaîne vide', () => {
+    expect(trimDroiteFpc(binaire(''))).toBe('');
+  });
+
+  it('renvoie une chaîne vide pour une chaîne uniquement blanche', () => {
+    expect(trimDroiteFpc(binaire(' \t\x00 \r\n'))).toBe('');
+  });
+
+  it('laisse inchangée une valeur sans blanc en fin', () => {
+    expect(trimDroiteFpc(binaire('  DUPONT'))).toBe('  DUPONT');
   });
 });

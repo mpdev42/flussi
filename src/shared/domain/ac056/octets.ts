@@ -41,6 +41,28 @@ export function texteDepuisOctets(octets: Octets): string {
   return new TextDecoder('utf-8').decode(tableauDepuisOctets(octets));
 }
 
+const DECODEUR_WINDOWS_1252 = new TextDecoder('windows-1252');
+const DECODEUR_UTF8_STRICT = new TextDecoder('utf-8', { fatal: true });
+
+/**
+ * Décode des octets en Windows-1252 (messages des rejets MSP). Ne produit jamais U+FFFD : les
+ * 5 octets non définis de CP1252 (0x81, 0x8D, 0x8F, 0x90, 0x9D) deviennent des contrôles C1.
+ * Passe par `tableauDepuisOctets` : un décodage `latin1` de la chaîne serait faux (0x80 à 0x9F).
+ */
+export function texteWindows1252(octets: Octets): string {
+  return DECODEUR_WINDOWS_1252.decode(tableauDepuisOctets(octets));
+}
+
+/** Vrai si les octets forment de l'UTF-8 valide (l'ASCII pur l'est). */
+export function estUtf8Valide(tableau: Uint8Array): boolean {
+  try {
+    DECODEUR_UTF8_STRICT.decode(tableau);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Sous-chaîne d'octets (`slice` d'une chaîne perdrait la marque de type). */
 export function sousOctets(octets: Octets, debut: number, fin?: number): Octets {
   return octets.slice(debut, fin) as Octets;
