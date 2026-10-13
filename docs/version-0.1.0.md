@@ -58,7 +58,7 @@
 
 - `vitest.config.ts` charge uniquement les variables `AC056_*` du `.env` (`loadEnv` filtré, jamais les secrets). Mode `corpus` (`npm run test:corpus`) : seuls les `*.corpus.test.ts` sont lancés, `passWithNoTests: false`, corpus obligatoire.
 - Helper `src/shared/test/corpus.ts` : `resoudreCorpus` (disponible si `IN\` et `OUT\` existent), `decrireCorpus` (skip si indisponible), `listerCorpus`, `lireCorpus` (octets bruts), `localiserEcart` et `decrireEcart` (fichier, ligne, octet, jamais la valeur).
-- `docs/reference/** -text` dans `.gitattributes` : copies conformes à l'original à l'octet près (CRLF, encodage), vérifiées par comparaison binaire.
+- `docs/reference/** -text` dans `.gitattributes` : copies conformes à l'original à l'octet près (CRLF, encodage), vérifiées par comparaison binaire. Seule exception, constatée à la revue release : la ligne 743 de `uac056.pas` (`//s_ligne_400 := '…'`, en commentaire) contenait une ligne de rejet réelle (NIR, date de naissance). Son littéral est remplacé par un texte fictif, le reste du fichier est inchangé. Sans effet sur `entites.lazarus.test.ts`, qui ignore les commentaires.
 - Garde-fous `.gitignore` : `uconstantes*.pas`, `MATH_*.txt`, `AC056COUR_REJ_*`.
 - Les tests du domaine et du corpus portent `// @vitest-environment node` (environnement global `jsdom`). À trancher à l'item 2 : environnement par dossier ou docblock par fichier.
 - Non bloquant, reporté : `listerCorpus`, `lireCorpus` et `decrireCorpus` ne sont testés que sur le vrai corpus, pas sur un dossier temporaire.
@@ -396,7 +396,7 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
 
 **Description** — Lecture des fichiers de rejet MSP, décodage des messages en Windows-1252, rattachement de chaque message à son code `ERRxxx` et à son explication. **Lecture seule** : un rejet n'est jamais modifié ni redéposé, il sert uniquement à connaître la raison du rejet.
 
-**Constat Lazarus** : rejet reconnu par le préfixe `AC056COUR_REJ_`. Chaque ligne est décodée (`WinCPToUTF8`) puis épurée (`Trim`). `000`, `001` et `999` sont ignorées, puis un `000` `REJET` et des `001` sont fabriqués. Octets 1 à 700 : ligne AC056. Octets 701 à 718 : identification (ex. `000910643 ESACI643`). À partir de l'octet 719 : message. Les contrôles ne sont pas exécutés.
+**Constat Lazarus** : rejet reconnu par le préfixe `AC056COUR_REJ_`. Chaque ligne est décodée (`WinCPToUTF8`) puis épurée (`Trim`). `000`, `001` et `999` sont ignorées, puis un `000` `REJET` et des `001` sont fabriqués. Octets 1 à 700 : ligne AC056. Octets 701 à 718 : identification (ex. `000000001 TESTID01`, fictive). À partir de l'octet 719 : message. Les contrôles ne sont pas exécutés.
 
 **Décisions techniques** :
 
