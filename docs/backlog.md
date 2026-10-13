@@ -33,6 +33,7 @@ _(aucun pour l'instant)_
 
 ### v0.3.0 — Écran AC056
 
+- Au démarrage de la version, avant le premier item : créer `ac056-agent` (format AC056 et parité Lazarus, prévu au cadrage, jamais créé) — `.claude/agents/`, `docs/project-description.md` (v0.1.0, audit de finalisation)
 - Description des entités : `affiche` n'est figé par un test que pour une partie des champs, et les listes courtes (100, 120, 125, 130, 180, 400) ne sont pas vérifiées contre `fmain.lfm` — `src/shared/domain/ac056/entites/` (v0.1.0, item 2)
 - Modification réservée aux champs en erreur (parité Lazarus `VerrouillerComposants`, `MarquerControleErreur`), `maxLength` appliqué à la saisie — `src/shared/domain/ac056/modification.ts` (v0.1.0, item 3)
 - `texteDepuisOctets` retire un BOM en tête de valeur : passer `ignoreBOM: true` avant l'affichage — `src/shared/domain/ac056/octets.ts` (v0.1.0, item 3)

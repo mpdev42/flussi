@@ -178,7 +178,7 @@ Liste des modules ou entités principales du projet :
 - `Veos` : lancement du workflow d'export vers MSP dans VEOS (saisie des identifiants personnels, pilotage de la page cachée, détection des échecs de connexion).
 - `Iga` : liste des fichiers AC056 sur le FTP IGA, avertissement si le fichier n'est pas du jour, téléchargement vers le dossier IN.
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT.
-- `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 800, lecteur, écrivain, règles de contrôle).
+- `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, règles de contrôle).
 - `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, rangé dans `Journal\AAAA\MM\`, sans index commun), consultation de l'historique.
 - `Parametres` : mode actif, dossiers de travail (surcharge de `config.json`, enregistrée dans `%APPDATA%\Flussi\` : `%ProgramData%\Flussi\config.json` reste en lecture seule), saisie des secrets par l'administrateur.
 
@@ -206,7 +206,7 @@ Liste des modules ou entités principales du projet :
 
 ## Agents additionnels
 
-- `ac056-agent` : spécialiste du format AC056 et de la parité avec Lazarus. Ses références : le cahier des charges IGA (`Interface - AC056 - APIVIA - Cahier des charges IGA - 1.27.docx`) et le code Lazarus (`uac056.pas`, `utypes.pas`, `ucontrole.pas`, `urejetsdescription.pas`). Il porte ou vérifie les entités en largeur fixe (positions, longueurs, valeurs autorisées), les règles de contrôle et les codes de rejet dans `shared/domain/ac056`, avec leurs tests de non-régression.
+- `ac056-agent` : spécialiste du format AC056 et de la parité avec Lazarus. Ses références : le cahier des charges IGA (`Interface - AC056 - APIVIA - Cahier des charges IGA - 1.32.docx`) et le code Lazarus (`uac056.pas`, `utypes.pas`, `ucontrole.pas`, `urejetsdescription.pas`). Il porte ou vérifie les entités en largeur fixe (positions, longueurs, valeurs autorisées), les règles de contrôle et les codes de rejet dans `shared/domain/ac056`, avec leurs tests de non-régression.
 
 ---
 
