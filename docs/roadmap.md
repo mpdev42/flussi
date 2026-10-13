@@ -48,18 +48,6 @@ Objectif : le service peut charger, contrôler et corriger un fichier AC056 loca
 - Rejets rattachés : message par ligne et explication `ERRxxx`.
 - Liste récapitulative des erreurs (ligne, entité, champ, message ou `ERRxxx`). Un clic ouvre directement le champ concerné, et des raccourcis clavier passent à l'erreur suivante ou précédente. Objectif : corriger quinze erreurs au moins aussi vite que dans Lazarus.
 
-Points reportés de la v0.1.0 (détails dans `docs/version-0.1.0.md`, items 2 et 3) :
-
-- **Modification réservée aux champs en erreur** (parité Lazarus) :
-  - Lazarus verrouille tous les champs à l'ouverture (`VerrouillerComposants`) et ne déverrouille que ceux signalés par les contrôles (`MarquerControleErreur`).
-  - Le domaine (`modifierChamp`) accepte les 23 champs modifiables : c'est l'écran qui applique la restriction.
-  - Le `maxLength` de chaque champ est une limite de saisie de l'écran. Le domaine ne contrôle que la longueur en octets, par exemple 5 contre 10 pour le code postal.
-- **Affichage des valeurs** : `texteDepuisOctets` (`octets.ts`) retire un BOM en tête de valeur. Passer `ignoreBOM: true` au `TextDecoder` avant de s'en servir à l'écran.
-- **Rang saisi sur un seul chiffre** : Lazarus écrit « 10 » pour « 1 ». Question ouverte dans `docs/backlog.md`, à trancher avant l'écran.
-- **Description des entités** (revue de l'item 2) :
-  - l'indicateur `affiche` n'est figé par un test que pour les champs modifiables, avec `maxLength` ou avec liste de valeurs ;
-  - les listes courtes recopiées en ligne (100, 120, 125, 130, 180, 400) ne sont pas vérifiées contre `fmain.lfm`.
-
 ## v0.4.0 — IGA et VEOS
 
 Objectif : lancer l'export dans VEOS et récupérer le fichier AC056 sur le FTP IGA.
