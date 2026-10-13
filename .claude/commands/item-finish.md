@@ -129,6 +129,50 @@ Dans `docs/version-{VERSION}.md`, trouve l'item {ITEM} et change son statut :
 
 Note dans le même fichier les décisions importantes prises pendant l'implémentation (choix techniques retenus, cas particuliers rencontrés, limitations découvertes). Si rien à noter, n'ajoute rien.
 
+### Points ouverts
+
+<context>
+Règle : aucun point ouvert ne doit exister seulement dans le chat. Le fichier de version garde l'historique et le détail ; `docs/backlog.md` porte la liste d'actions, qui survit à l'archivage du fichier de version par `/version-finalize`. Les « Points reportés » sont des actions techniques ou des décisions issues d'un item livré — à ne pas confondre avec la section « Items différés » de `/backlog-bootstrap`, qui recense des idées de fonctionnalités écartées.
+</context>
+
+<instructions>
+Recense les points ouverts de l'item :
+- points non bloquants du rapport `/code-review item` de l'étape 3 (section 3 Points d'attention, 4 Qualité UI, 5 Qualité des tests, 6 Questions ouvertes, et points des sections 7 et 8 qui ne sont pas des bloquants) ;
+- limitations découvertes et décisions reportées pendant l'implémentation ;
+- points déjà notés sous l'item {ITEM} dans `docs/version-{VERSION}.md` pendant `/item-start`.
+
+Le détail de chaque point est noté sous l'item {ITEM} dans `docs/version-{VERSION}.md`. Classe ensuite chaque point dans l'un des trois cas suivants :
+
+1. **Pour un item suivant de la même version** : rubrique « Point d'attention pour l'item N » sous l'item {ITEM} (l'item qui soulève le point), dans `docs/version-{VERSION}.md`. Rien dans le backlog : `/item-start` de l'item N le retrouvera.
+2. **Pour plus tard** (une autre version, un module ou un service, une dette technique sans échéance) : en plus du détail dans le fichier de version, une entrée dans `docs/backlog.md`, section « Points reportés ».
+   - Entrées groupées par cible, une sous-section par cible : une version de la roadmap (`### v0.3.0 — {titre}`, titre repris de `docs/roadmap.md` s'il y figure), un module ou un service (`### Service {nom}`, `### Module {nom}`), ou `### Dette technique (sans échéance)`.
+   - Une entrée tient en 1 ou 2 lignes : l'action, le fichier concerné et l'origine. Le détail reste dans le fichier de version, sans être dupliqué.
+3. **Question pour l'utilisateur ou pour le métier** : une entrée dans `docs/backlog.md`, section « Questions ouvertes », même format que ci-dessus (fichier omis s'il n'y en a pas).
+
+Format d'une entrée de backlog :
+
+```
+- {action ou question} — `{fichier}` (v{VERSION}, item {ITEM})
+```
+
+Si la section « Points reportés » n'existe pas dans `docs/backlog.md`, crée-la (après « Questions ouvertes ») avec cette note :
+
+```markdown
+## Points reportés
+
+> Actions techniques et décisions issues d'items livrés, reportées hors de leur version.
+> Une entrée = l'action, le fichier concerné, l'origine. Le détail reste dans le fichier de
+> version d'origine (`docs/version-{X}.md`, puis `docs/archives/` une fois la version finalisée).
+> Ne pas confondre avec « Items différés » (idées de fonctionnalités écartées par `/backlog-bootstrap`).
+```
+
+Crée de même la sous-section cible ou la section « Questions ouvertes » si elles manquent, et `docs/backlog.md` lui-même s'il est absent (titre `# Backlog — {nom du projet}` puis la section nécessaire).
+
+Avant de passer à l'étape 6, vérifie que chaque point recensé est écrit à l'un de ces emplacements. Mémorise la liste `{point → emplacement}` (pour les étapes 6 et 9) et le fait que `docs/backlog.md` a été modifié ou non.
+
+Si aucun point ouvert n'a été relevé, n'écris rien et passe à l'étape suivante.
+</instructions>
+
 ## Étape 6 — Commit de l'item
 
 Récupère le titre court de l'item depuis `docs/version-{VERSION}.md`.
@@ -142,7 +186,7 @@ git status --porcelain
 <instructions>
 Analyse la sortie et classe chaque fichier modifié, ajouté ou supprimé en deux groupes :
 
-- **Liés à l'item** : tout ce qui constitue le scope de l'item — code applicatif produit ou modifié pour réaliser la fonctionnalité, tests associés, assets, et la mise à jour de `docs/version-{VERSION}.md` faite à l'étape 5.
+- **Liés à l'item** : tout ce qui constitue le scope de l'item — code applicatif produit ou modifié pour réaliser la fonctionnalité, tests associés, assets, la mise à jour de `docs/version-{VERSION}.md` faite à l'étape 5, et `docs/backlog.md` s'il a été modifié à l'étape 5 (points ouverts reportés). Ce dernier n'est jamais rangé par défaut parmi les fichiers transverses.
 - **Non liés à l'item** : modifications transverses qui se sont glissées pendant l'implémentation mais qui ne font pas partie du scope. Exemples typiques : skills et commands (`.claude/commands/`, `commands/`, `skills/`), agents (`.claude/agents/`, `agents/`), config projet globale (`CLAUDE.md`, `.gitignore`, configs d'outillage), refactos opportunistes hors périmètre, fichiers de template.
 
 En cas de doute sur un fichier, classe-le par défaut en "non lié" et signale-le explicitement.
@@ -155,9 +199,13 @@ Présente la séparation et demande validation :
 > **Fichiers laissés de côté (proposés pour un commit séparé à l'étape 8) :**
 > - {liste, ou "aucun"}
 >
+> **Points ouverts classés à l'étape 5 :**
+> - {point} → {emplacement}
+> - {ou "aucun"}
+>
 > Confirmer ? (`oui` / `ajuster <précisions>`)
 
-Si je réponds `ajuster`, applique mes précisions puis redemande validation.
+Si je réponds `ajuster`, applique mes précisions (sur la séparation des fichiers ou sur le classement d'un point, en déplaçant alors son entrée selon les règles de l'étape 5) puis redemande validation.
 
 Mémorise la liste des fichiers non liés pour l'étape 8.
 </instructions>
@@ -217,7 +265,11 @@ Présente :
 - Bloquants ignorés avec leur justification, si applicable
 - Commits créés (commit de l'item + éventuel commit de fichiers transverses)
 - Fichiers transverses laissés non commités, si applicable
-- Points ouverts pour les prochains items, si applicable
+- Points ouverts, si applicable : pour chacun, l'endroit où il a été écrit (`docs/version-{VERSION}.md` › Point d'attention pour l'item N, `docs/backlog.md` › Points reportés › {cible}, ou `docs/backlog.md` › Questions ouvertes)
+
+<instructions>
+Un point ouvert qui ne serait écrit nulle part est une erreur. Si tu en détectes un en rédigeant le résumé, signale-le explicitement comme tel, écris-le selon les règles de l'étape 5, et indique que le fichier modifié reste à commiter.
+</instructions>
 
 Termine le résumé par exactement cette ligne, mot pour mot :
 

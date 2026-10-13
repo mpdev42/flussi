@@ -420,7 +420,8 @@ _Aucune version planifiée pour l'instant. Lance `/version-start 0.1.0` pour dé
 # Backlog — {PROJECT_NAME}
 
 > Ce fichier centralise les idées d'évolution, bugs connus et questions ouvertes.
-> Quand un item est planifié dans une version, il est déplacé dans `docs/roadmap.md`.
+> Quand un item est planifié dans une version, il est déplacé dans `docs/roadmap.md`
+> (un point reporté rattaché par `/version-start` est déplacé dans `docs/version-{X}.md`).
 > Centraliser toutes les notes ici. Ne pas créer d'autre fichier de notes.
 
 ---
@@ -436,6 +437,15 @@ _(aucun pour l'instant)_
 ## Questions ouvertes
 
 _(aucune pour l'instant)_
+
+## Points reportés
+
+> Actions techniques et décisions issues d'items livrés, reportées hors de leur version.
+> Une entrée = l'action, le fichier concerné, l'origine. Le détail reste dans le fichier de
+> version d'origine (`docs/version-{X}.md`, puis `docs/archives/` une fois la version finalisée).
+> Ne pas confondre avec « Items différés » (idées de fonctionnalités écartées par `/backlog-bootstrap`).
+
+_(aucun pour l'instant)_
 ```
 
 ### `README.md`

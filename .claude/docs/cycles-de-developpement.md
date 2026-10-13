@@ -66,6 +66,8 @@ Selon le type d'évolution, le fichier à modifier change :
 
 `project-description.md` reste figé. `CLAUDE.md` évolue avec le projet. Les fichiers `docs/roadmap.md`, `docs/backlog.md`, `docs/version-{X}.md` sont alimentés par les cycles décrits ci-dessous.
 
+**Points ouverts d'un item** : aucun ne reste seulement dans le chat. `/item-finish` en note le détail dans `docs/version-{X}.md` ; ceux qui visent une autre version, un module ou service, la dette technique ou le métier reçoivent en plus une ligne dans `docs/backlog.md` (« Points reportés » ou « Questions ouvertes »), que `/version-start` repropose ensuite (`rattacher` / `laisser` / `abandonner`) — et `/version-finalize` vérifie avant l'archivage qu'aucun n'a été oublié. Ces « Points reportés » ne se confondent pas avec les « Items différés » de `/backlog-bootstrap` (idées de fonctionnalités écartées).
+
 Côté design : `DESIGN.md` (tokens), `design/patterns/` (patterns d'écran réutilisables produits via `/design-patterns-bootstrap`) et `design/handoff/` (écrans sur-mesure produits via `/design-screen-prompt`) sont également **figés** une fois en place. Le pontage vers le code projet (CSS variables shadcn, palette Tailwind, stubs `.tsx`) passe par `/design-system-adapt`, qui peut être rejouée à chaque évolution de `DESIGN.md`.
 
 ---
@@ -159,7 +161,7 @@ Tout le contenu de `Claude/` (dont `docs/`, donc ce fichier et `scaffolder-integ
 | 10 | `git push origin main` *(quand prêt à publier)* | manuel | — | Branche `main` publiée. |
 | 11 | Quand tous les items de la version sont terminés : `/version-finalize {version}` | `.claude/commands/version-finalize.md` | Opus high | Bump, build, smoke-test, `CHANGELOG.md`, `/document-release`, archive du fichier de version, tag git. |
 
-**Fichiers modifiés au cours du cycle** : `docs/roadmap.md`, `docs/backlog.md` (si `/backlog-bootstrap enrich`), `docs/version-{version}.md`, code source, tests, éventuellement schéma DB et migrations, `design/handoff/{ecran}.tsx` si l'item est `Pattern: custom`, `README.md` et docs utilisateur (via `/document-release` lors de la finalisation), éventuellement `docs/premortem/premortem-v{VERSION}-{date}.md`, éventuellement `docs/validation/cadrage-v{VERSION}-{date}.pdf`.
+**Fichiers modifiés au cours du cycle** : `docs/roadmap.md`, `docs/backlog.md` (si `/backlog-bootstrap enrich`, ou points ouverts reportés par `/item-finish` / `/version-finalize`, repris ou abandonnés par `/version-start`), `docs/version-{version}.md`, code source, tests, éventuellement schéma DB et migrations, `design/handoff/{ecran}.tsx` si l'item est `Pattern: custom`, `README.md` et docs utilisateur (via `/document-release` lors de la finalisation), éventuellement `docs/premortem/premortem-v{VERSION}-{date}.md`, éventuellement `docs/validation/cadrage-v{VERSION}-{date}.pdf`.
 
 **Variantes** :
 - Modification cosmétique simple → `/office-hours` peut être sauté.

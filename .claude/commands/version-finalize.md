@@ -165,6 +165,38 @@ Tente d'invoquer la skill `/document-release`.
   Attends ma confirmation que la doc est à jour avant de continuer.
 </instructions>
 
+## Étape 8 bis — Garde-fou des points ouverts
+
+<context>
+Une fois archivé, le fichier de version n'est plus relu par aucune skill : `/version-start` ne reprend que `docs/roadmap.md`, `CLAUDE.md` et `docs/backlog.md`. Un point ouvert noté seulement dans `docs/version-{VERSION}.md` serait donc perdu. Le format des entrées du backlog (section « Points reportés » et « Questions ouvertes ») est défini par `/item-finish` (étape 5).
+</context>
+
+<instructions>
+Relis `docs/version-{VERSION}.md` et `docs/backlog.md`.
+
+Liste les points reportés, non bloquants ou à trancher notés dans le fichier de version, quelle que soit la rubrique qui les porte (« Point d'attention pour l'item N », « Non bloquant, reporté », « Reporté en v{X} », limitations découvertes, décisions ou questions à trancher), qui ne sont :
+- **ni réglés par un item suivant** : un « Point d'attention pour l'item N » est considéré comme réglé si l'item N de cette version est `Terminé`, sauf si les notes de l'item N disent le contraire ;
+- **ni déjà présents dans `docs/backlog.md`** : compare l'origine `(v{VERSION}, item {N})` et le contenu de l'entrée.
+
+Si la liste est vide, passe à l'étape suivante sans rien afficher.
+
+Sinon, présente les entrées que tu proposes d'ajouter, au format défini par `/item-finish`, groupées par section (« Points reportés » et sa sous-section cible, ou « Questions ouvertes ») :
+
+> ⚠ Ces points ouverts de v{VERSION} ne sont repris nulle part hors du fichier de version, qui va être archivé :
+>
+> **Points reportés › {cible}**
+> - {action} — `{fichier}` (v{VERSION}, item {N})
+>
+> **Questions ouvertes**
+> - {question} — `{fichier}` (v{VERSION}, item {N})
+>
+> Réponds `ajouter` pour les écrire dans `docs/backlog.md`, ou `ajuster <précisions>` (retirer un point devenu obsolète, changer une cible, reformuler).
+
+Si je réponds `ajuster`, applique mes précisions et représente la liste. Ne continue pas avant un `ajouter`.
+
+Sur `ajouter` : écris les entrées dans `docs/backlog.md`, en créant la section « Points reportés » (avec sa note, cf. `/item-finish` étape 5), la sous-section cible ou la section « Questions ouvertes » si elles manquent. Ce fichier sera inclus dans le commit de l'étape 11. Mémorise le nombre d'entrées ajoutées pour le résumé final.
+</instructions>
+
 ## Étape 9 — Archiver le fichier de version
 
 ```bash
@@ -240,6 +272,7 @@ Présente, dans cet ordre :
 - Fichiers de version mis à jour (chemins explicites)
 - Entrée ajoutée dans `CHANGELOG.md`
 - Fichier archivé : `docs/archives/version-{VERSION}.md`
+- Points ouverts versés au backlog par le garde-fou de l'étape 8 bis : {N}, ou « aucun »
 - Tag git créé : `v{VERSION}`
 - Push à effectuer manuellement : `git push origin main --tags`
 - Artefact de build : chemin/nom (sortie de l'étape 5)

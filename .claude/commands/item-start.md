@@ -40,7 +40,7 @@ git checkout -b v{VERSION}/item-{ITEM}-{SLUG}
 ### 2.1 Lecture du contexte
 
 Lis dans cet ordre :
-1. `docs/version-{VERSION}.md` — trouve l'item {ITEM}, lis sa description complète, ses décisions, ses contraintes, ses fichiers impactés. **Note explicitement la valeur du champ `Pattern`** — elle déterminera la référence design utilisée par les sub-agents UI.
+1. `docs/version-{VERSION}.md` — trouve l'item {ITEM}, lis sa description complète, ses décisions, ses contraintes, ses fichiers impactés. **Note explicitement la valeur du champ `Pattern`** — elle déterminera la référence design utilisée par les sub-agents UI. Repère aussi, sous les items précédents, les rubriques « Point d'attention pour l'item {ITEM} » (posées par `/item-finish`) et la rubrique « Repris du backlog » de l'item : ce sont des contraintes de l'item.
 2. `CLAUDE.md` — conventions du projet (architecture, nommage, patterns, contraintes techniques, langue de l'interface, langue du code).
 
 ### 2.2 Résolution de la référence design
