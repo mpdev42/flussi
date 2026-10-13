@@ -1,11 +1,12 @@
-// Parité sur le corpus réel (P:, dossier IN) : lecture sans anomalie, hiérarchie complète et
-// réécriture identique à l'octet près. Aucune valeur du corpus n'est affichée : seuls fichier,
+// Parité sur le corpus réel (P:, dossier IN) : lecture sans anomalie, hiérarchie complète,
+// réécriture identique à l'octet près et performance de la lecture suivie du contrôle complet. Aucune valeur du corpus n'est affichée : seuls fichier,
 // ligne, octet, entité et champ sont rapportés. Les comparaisons se font par SHA-256.
 // Aucune E/S pendant la collecte : tout est lu dans les `it`.
 import { describe, expect, it } from 'vitest';
 import { decrireEcartAc056, empreinteSha256 } from '@shared/test/comparaison-ac056';
 import { decrireCorpus, listerCorpus, lireCorpus, localiserEcart } from '@shared/test/corpus';
 import { compterRattachements } from '@shared/test/rattachements-ac056';
+import { controlerAc056 } from './controle';
 import type { CodeEntite } from './entites';
 import { ecrireAc056 } from './ecrivain';
 import { lireAc056 } from './lecteur';
@@ -102,26 +103,32 @@ decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
   });
 
   describe('performance', () => {
-    it('lit le plus gros fichier de IN en moins d 1 s', async ({ annotate }) => {
+    it('lit et contrôle le plus gros fichier de IN en moins d 1 s', async ({ annotate }) => {
       const fichiers = listerCorpus('IN')
         .filter((nom) => nom.endsWith('.txt'))
         .map((nom) => ({ nom, octets: lireCorpus('IN', nom) }));
       const plusGros = fichiers.reduce((a, b) => (b.octets.length > a.octets.length ? b : a));
 
-      // Échauffement, puis médiane de 5 mesures.
-      const lignes = lireAc056(plusGros.octets).fichier.lignes.length;
+      // Échauffement, puis médiane de 5 mesures de la lecture suivie du contrôle complet.
+      const echauffement = lireAc056(plusGros.octets).fichier;
+      controlerAc056(echauffement);
+      const nombreLignes = echauffement.lignes.length;
       const durees: number[] = [];
+      const dureesLecture: number[] = [];
       for (let i = 0; i < 5; i++) {
         const debut = performance.now();
-        lireAc056(plusGros.octets);
+        const { fichier } = lireAc056(plusGros.octets);
+        const finLecture = performance.now();
+        controlerAc056(fichier);
         durees.push(performance.now() - debut);
+        dureesLecture.push(finLecture - debut);
       }
-      const mediane = durees.sort((a, b) => a - b)[2] ?? Number.NaN;
+      const mediane = (valeurs: number[]) => valeurs.sort((a, b) => a - b)[2] ?? Number.NaN;
 
       await annotate(
-        `${plusGros.nom} : ${plusGros.octets.length} octets, ${lignes} lignes, médiane ${mediane.toFixed(1)} ms sur 5 mesures.`,
+        `${plusGros.nom} : ${plusGros.octets.length} octets, ${nombreLignes} lignes, lecture + contrôle médiane ${mediane(durees).toFixed(1)} ms (lecture seule ${mediane(dureesLecture).toFixed(1)} ms) sur 5 mesures.`,
       );
-      expect(mediane).toBeLessThan(1000);
+      expect(mediane(durees)).toBeLessThan(1000);
     });
   });
 });
