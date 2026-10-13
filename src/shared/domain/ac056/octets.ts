@@ -50,3 +50,14 @@ export function sousOctets(octets: Octets, debut: number, fin?: number): Octets 
 export function joindreOctets(parties: readonly Octets[]): Octets {
   return parties.join('') as Octets;
 }
+
+/** Répète un octet (un caractère U+0000..U+00FF) `nombre` fois, sans passer par l'encodage UTF-8. */
+export function repeterOctet(caractere: string, nombre: number): Octets {
+  if (caractere.length !== 1 || caractere.charCodeAt(0) > 0xff) {
+    throw new Error('Octet invalide : un seul caractère U+0000..U+00FF est attendu.');
+  }
+  if (!Number.isInteger(nombre) || nombre < 0) {
+    throw new Error('Nombre de répétitions invalide : un entier positif ou nul est attendu.');
+  }
+  return caractere.repeat(nombre) as Octets;
+}

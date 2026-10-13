@@ -1,6 +1,6 @@
 // Lecture d'un fichier AC056 : découpage en lignes (parité ReadLn), découpage des lignes de
-// 700 octets en champs (parité `Copy` + `Trim` de `GetEntiteXXXLigne`), rattachement hiérarchique.
-// Ne lève jamais : les écarts de forme deviennent des anomalies.
+// 700 octets en champs (parité `Copy` + `Trim` de `GetEntiteXXXLigne`), rattachement hiérarchique,
+// contrôle de structure (anomalies bloquantes). Ne lève jamais : les écarts deviennent des anomalies.
 import { decouperLignes } from './decoupage';
 import {
   CODES_ENTITE,
@@ -15,6 +15,7 @@ import { trimFpc } from './fpc';
 import { construireHierarchie } from './hierarchie';
 import type { AnomalieAc056, FichierAc056, LectureAc056, LigneAc056 } from './modele';
 import { sousOctets, type Octets } from './octets';
+import { controlerStructure } from './structure';
 
 const CODES_CONNUS: ReadonlySet<string> = new Set(CODES_ENTITE);
 
@@ -109,6 +110,8 @@ export function lireAc056(octets: Uint8Array): LectureAc056 {
   ]) {
     if (anomalie) anomalies.push(anomalie);
   }
+
+  anomalies.push(...controlerStructure(lignes));
 
   // Niveau fichier d'abord, puis numéro de ligne croissant (tri stable).
   anomalies.sort((a, b) => (a.ligne ?? 0) - (b.ligne ?? 0));

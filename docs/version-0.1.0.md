@@ -189,7 +189,7 @@
 
 ### 4. Fichiers AC056 mal formés
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Détection des anomalies de structure, localisées par numéro de ligne, sans jamais perdre de ligne. Le reste du fichier reste consultable.
@@ -225,6 +225,48 @@
 - **Modèle** : étendre `CodeAnomalie` (`modele.ts`) et produire les nouvelles anomalies avec `bloquante: true`. Les anomalies de format (`bom`, `fin-de-ligne-lf`, `fin-de-ligne-cr`) et `ligne-vide` restent non bloquantes. L'absence de saut de ligne final n'est pas une anomalie (format VEOS).
 - **Performance** : `addCharR` (`fpc.ts`) passe par `TextEncoder` pour répéter un caractère ASCII, environ 45 000 appels sur le plus gros fichier. Le remplacer par une répétition directe dans `octets.ts` (par exemple `repeterOctet(caractere, n)`) avant de mesurer le critère d'1 s.
 - **Fabrique** : `src/shared/test/ac056-synthetique.ts` (`ligneSynthetique`, `fichierSynthetique`, `lignesCompletes`) produit les fichiers synthétiques de chaque cas. Son type `FinDeLigne` porte le même nom que celui du domaine avec un sens différent (sans `''`) : à renommer en passant.
+
+**Décisions d'implémentation** (2026-10-13) :
+
+- `controlerStructure` (`structure.ts`) : passe séparée de `construireHierarchie`, qui reste fidèle à Lazarus (le dernier gagne, aucun curseur fermé). `lireAc056` ajoute ses anomalies après celles de format, puis le tri reste le même (niveau fichier, puis numéro de ligne).
+- 6 anomalies, toutes bloquantes. Les messages ne contiennent jamais de valeur lue :
+  - `fichier-vide` : aucune ligne non vide. Émise seule ;
+  - `longueur-ligne` : toute ligne ≠ 700 octets, brutes comprises ;
+  - `entite-inconnue` : code inconnu sur une ligne d'au moins 25 octets. En dessous, `longueur-ligne` seule ;
+  - `entite-mal-placee` : hors d'un dossier, d'un évènement ou d'un bénéficiaire ; 000 ailleurs qu'en première ligne de code connu ; 999 ailleurs qu'en dernière ;
+  - `entite-en-double` : fille unique répétée, ou 990 / 995 répétée (« déjà ligne M », M = première occurrence) ;
+  - `entite-absente` : 000 ou 999 absente (niveau fichier), évènement sans 990 (sur la 100), dossier sans 995 (sur la 001).
+- Automate piloté par une table `{ parent, rôle }` par code (`ouvre`, `unique`, `multiple`, `ferme`), avec cas particuliers 000, 001 et 999 :
+  - une 100 ou une 400 mal placée ouvre quand même son niveau : ses filles ne sont pas signalées en cascade ;
+  - la 999 ne ferme rien : une 999 au milieu d'un évènement donne une seule anomalie ;
+  - une 001 absente donne une anomalie par 100 du dossier, plus la 995.
+- **Plus strict que Lazarus** : la 990 ferme l'évènement et la 995 le dossier. Lazarus accepte une 110 ou une 405 après la 990 et la rattache à l'évènement. Flussi la signale « mal placée », ce qui est conforme à « place non autorisée par la hiérarchie ».
+- **Non contrôlé** :
+  - ordre entre lignes sœurs (130 avant 110, 110 après une 400) : Lazarus l'accepte, Flussi conserve l'ordre (divergence 3) ;
+  - fichier `000 999` sans dossier, dossier `001 995` sans évènement : acceptés.
+- **Limites connues** :
+  - une 400 absente sur un bénéficiaire qui n'est pas le premier n'est vue que par le doublon d'une fille unique (405, 410, 411, 800). Les 485, 490 et 700 sont rattachées au bénéficiaire précédent sans anomalie ;
+  - seule une cohérence de l'en-tête (`numDossier`, `numEvt`, `rang`) le verrait. Lazarus ne la contrôle pas : hors périmètre.
+- **Garantie testée** : sans anomalie bloquante, chaque ligne est rattachée exactement une fois, avec la 000 en tête et la 999 en dernier. Vérifiée sur 177 155 suites exhaustives (longueur 5, 11 codes), 5 000 suites aléatoires et toutes les mutations d'une ligne de `lignesCompletes`.
+- `ecrireAc056` reste permissif : un fichier mal formé est réécrit à l'identique (divergence 6, testée sur chaque scénario). Le refus d'enregistrer et de déposer appartient aux services et à l'écran.
+- Note Lazarus : `AjouterEntite000` vide les dossiers et la 999. Pour deux fichiers concaténés, Lazarus perd le premier sans le dire. Flussi signale la seconde 000 et la première 999.
+- `addCharR` passe par `repeterOctet` (`octets.ts`) au lieu de `TextEncoder`. Cela n'agit que sur l'écrivain.
+- Helpers de test :
+  - `FinDeLigneSynthetique` (renommage) ;
+  - `lignesCompletes({ dossiers })` ;
+  - `lignesDepuisCodes` ;
+  - `compterRattachements` sorti du test corpus vers `src/shared/test/rattachements-ac056.ts`.
+- **Performance** (lecture et contrôle de structure, sans les contrôles de l'item 5) :
+  - plus gros fichier de `IN\` (386 800 octets, 551 lignes) : médiane de 18,7 ms, test corpus bloquant à 1 s ;
+  - fichier synthétique 10× (5 442 lignes, 3,8 Mo) : médiane d'environ 520 ms, garde-fou à 5 s dans `npm test`.
+  - À remesurer à l'item 5, avec le contrôle complet.
+- Résultats : `npm test` (1 042 tests) et `npm run test:corpus` (18 tests) passent. Aucune anomalie de structure sur les 9 fichiers de `IN\`.
+- **Reporté en v0.3.0** : l'écran affiche la consigne d'un fichier en anomalie bloquante. Il ne peut être ni enregistré ni déposé ; relancer l'export VEOS.
+- Non bloquant, reporté (revue d'item du 2026-10-13) :
+  - `CODES_FORMAT` est déclaré en double (`lecteur.test.ts`, `structure.test.ts`) et typé `string[]`. Le passer en un seul `readonly CodeAnomalie[]` dans `src/shared/test/`.
+  - `structure.ts` : deux `code as CodeEntite` dans des helpers déclarés avec `function`. Des fonctions fléchées déclarées après le test `code === null` les rendraient inutiles.
+  - `octets.test.ts` contient des caractères NUL littéraux : git le traite comme binaire. Passer à des échappements `'\x00'`.
+  - Écart des mesures de performance (18,7 ms pour 551 lignes sur le corpus, environ 520 ms pour 5 442 lignes en synthétique). Aucun terme quadratique trouvé ; la mesure synthétique a probablement été faite en parallèle d'autres tests. À remesurer dans les mêmes conditions à l'item 5.
 
 ---
 
@@ -299,6 +341,13 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
 - Synthétiques : rejet en UTF-8, fichier VEOS en Windows-1252.
 
 **Fichiers impactés** : `src/shared/domain/ac056/` (lecture des rejets, décodage) et leurs tests.
+
+**Point d'attention pour l'item 6** (laissé par l'item 4) :
+
+- `controlerStructure` (`structure.ts`) est conçu pour un fichier VEOS. Pour un rejet, il faut :
+  - accepter l'absence de `000`, `001` et `999` ;
+  - remplacer la longueur exacte de 700 octets par « au moins 718 octets ».
+- Les règles de placement sont dans la table `REGLES` et les cas particuliers 000, 001 et 999. C'est là qu'il faut adapter, d'après l'origine fournie par l'appelant. Aucun paramètre n'a été ajouté à l'item 4.
 
 ---
 

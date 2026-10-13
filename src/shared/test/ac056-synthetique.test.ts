@@ -7,6 +7,7 @@ import {
   fichierSynthetique,
   ligneSynthetique,
   lignesCompletes,
+  lignesDepuisCodes,
 } from './ac056-synthetique';
 
 /** Code d'entité (octets 23 à 25) d'une ligne. */
@@ -210,5 +211,55 @@ describe('lignesCompletes', () => {
       .filter((ligne) => codeDe(ligne) === '405')
       .map((ligne) => extraireChamp(ligne, '405', 'nom').trim());
     expect(new Set(noms)).toEqual(new Set(['DUPONT']));
+  });
+});
+
+describe('lignesCompletes avec dossiers', () => {
+  it('produit le même résultat sans option, avec {} et avec dossiers: 2', () => {
+    expect(lignesCompletes({})).toEqual(lignesCompletes());
+    expect(lignesCompletes({ dossiers: 2 })).toEqual(lignesCompletes());
+  });
+
+  it.each([0, 1, 3, 80])('produit 2 + 68 x %i lignes avec %i dossiers', (dossiers) => {
+    expect(lignesCompletes({ dossiers })).toHaveLength(2 + 68 * dossiers);
+  });
+
+  it('produit le squelette 000 et 999 sans dossier', () => {
+    expect(lignesCompletes({ dossiers: 0 }).map(codeDe)).toEqual(['000', '999']);
+  });
+
+  it('numérote les dossiers à partir de 1', () => {
+    const lignes = lignesCompletes({ dossiers: 3 });
+    const numeros = lignes
+      .filter((ligne) => codeDe(ligne) === '001')
+      .map((ligne) => extraireChamp(ligne, '001', 'numDossier'));
+    expect(numeros).toEqual(['00000001', '00000002', '00000003']);
+  });
+
+  it('produit des lignes de 700 caractères avec 80 dossiers', () => {
+    const lignes = lignesCompletes({ dossiers: 80 });
+    expect(lignes).toHaveLength(5442);
+    expect(lignes.every((ligne) => ligne.length === 700)).toBe(true);
+  });
+});
+
+describe('lignesDepuisCodes', () => {
+  it('produit la ligne synthétique de chaque code', () => {
+    expect(lignesDepuisCodes(['000', '405'])).toEqual([
+      ligneSynthetique('000'),
+      ligneSynthetique('405'),
+    ]);
+  });
+
+  it('produit 700 espaces pour null', () => {
+    expect(lignesDepuisCodes([null])).toEqual([' '.repeat(700)]);
+  });
+
+  it('produit un tableau vide sans code', () => {
+    expect(lignesDepuisCodes([])).toEqual([]);
+  });
+
+  it('conserve l ordre des codes', () => {
+    expect(lignesDepuisCodes(['999', null, '000']).map(codeDe)).toEqual(['999', '   ', '000']);
   });
 });
