@@ -37,6 +37,11 @@ export function contenuLigne(ligne: LigneAc056): Octets {
 }
 
 export function ecrireAc056(fichier: FichierAc056): Uint8Array {
+  // Erreur de programmation (comme l'invariant des 700 octets) : l'écran ne propose jamais
+  // d'enregistrer un rejet.
+  if (fichier.provenance === 'rejet') {
+    throw new Error('Un fichier de rejet est en lecture seule : il ne se réécrit jamais.');
+  }
   const corps = tableauDepuisOctets(
     joindreOctets(
       fichier.lignes.flatMap((ligne) => [contenuLigne(ligne), FINS_DE_LIGNE[ligne.finDeLigne]]),

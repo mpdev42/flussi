@@ -883,7 +883,12 @@ function verifierGarantie(codes: readonly Code[]): BilanGarantie {
   const lignes = codes.map((code, i) => ligneDeCode(code, i + 1));
   if (controlerStructure(lignes).length > 0) return { sansAnomalie: false, violation: null };
 
-  const fichier: FichierAc056 = { bom: false, lignes, ...construireHierarchie(lignes) };
+  const fichier: FichierAc056 = {
+    provenance: 'veos',
+    bom: false,
+    lignes,
+    ...construireHierarchie(lignes),
+  };
   const comptes = compterRattachements(fichier);
   const defauts: string[] = [];
   comptes.forEach((compte, i) => {

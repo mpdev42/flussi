@@ -46,6 +46,40 @@ describe('Table des codes de rejet', () => {
   it('reprend les explications provisoires du fichier d’origine', () => {
     for (const d of REJETS) expect(d.explication).toBe(`Aide ${d.code}`);
   });
+
+  describe('gel en profondeur', () => {
+    it('gèle le tableau', () => {
+      expect(Object.isFrozen(REJETS)).toBe(true);
+    });
+
+    it('gèle chaque description', () => {
+      expect(REJETS.filter((d) => !Object.isFrozen(d)).map((d) => d.code)).toEqual([]);
+    });
+
+    it('gèle la liste des recherches de chaque description', () => {
+      expect(REJETS.filter((d) => !Object.isFrozen(d.recherches)).map((d) => d.code)).toEqual([]);
+    });
+
+    it('gèle chaque recherche', () => {
+      const nonGelees = REJETS.flatMap((d) =>
+        d.recherches.filter((r) => !Object.isFrozen(r)).map(() => d.code),
+      );
+      expect(nonGelees).toEqual([]);
+    });
+
+    it('refuse en mode strict la modification d’une description, d’une liste et d’une recherche', () => {
+      const d = REJETS[0]!;
+      expect(() => {
+        (d as { explication: string }).explication = 'autre';
+      }).toThrow(TypeError);
+      expect(() => (d.recherches as unknown[]).push({})).toThrow(TypeError);
+      expect(() => {
+        (d.recherches[0] as { texte: string }).texte = 'autre';
+      }).toThrow(TypeError);
+      expect(() => (REJETS as unknown[]).push({})).toThrow(TypeError);
+      expect(d.explication).toBe('Aide ERR001');
+    });
+  });
 });
 
 describe('Identification d’un rejet', () => {

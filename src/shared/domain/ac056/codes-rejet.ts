@@ -1,8 +1,9 @@
 // Codes de rejet MSP `ERR001` à `ERR027` : parité de `uRejetsDescription.pas` (Lazarus), table
-// `charger_rejets_description` et recherche `get_description`. Utilisé par l'item 6 (lecture des
-// rejets MSP). Le message attendu est préparé par l'appelant comme Lazarus le fait (ligne entière
-// décodée puis rognée, puis à partir de l'octet 719) : ce n'est pas le rôle de cette fonction, qui
-// compare le message tel quel (aucun Trim, aucune normalisation, casse et doubles espaces compris).
+// `charger_rejets_description` et recherche `get_description`. Utilisé par la lecture des rejets
+// MSP (`rejet.ts`). Le message attendu est préparé par l'appelant comme Lazarus le fait (espaces de
+// tête conservés, espaces de fin retirés, à partir de l'octet 719) : ce n'est pas le rôle de cette
+// fonction, qui compare le message tel quel (aucun Trim, aucune normalisation, casse et doubles
+// espaces compris). La table est gelée en profondeur.
 //
 // Les explications sont celles de `Rejets - Explications.txt` : textes provisoires repris tels
 // quels (parité). Le fichier texte n'est plus lu, une évolution éventuelle se fera dans ce code.
@@ -57,27 +58,31 @@ export interface DescriptionRejet {
 export const MESSAGE_REJET_INCONNU = 'Erreur inconnue. Contactez le service informatique.';
 
 function debut(texte: string): RechercheRejet {
-  return { texte, mode: 'debut' };
+  return Object.freeze({ texte, mode: 'debut' });
 }
 
 function contenu(texte: string): RechercheRejet {
-  return { texte, mode: 'contenu' };
+  return Object.freeze({ texte, mode: 'contenu' });
 }
 
 function fin(texte: string): RechercheRejet {
-  return { texte, mode: 'fin' };
+  return Object.freeze({ texte, mode: 'fin' });
 }
 
 function egalite(texte: string): RechercheRejet {
-  return { texte, mode: 'egalite' };
+  return Object.freeze({ texte, mode: 'egalite' });
 }
 
 function rejet(code: CodeRejet, ...recherches: RechercheRejet[]): DescriptionRejet {
-  return { code, recherches, explication: `Aide ${code}` };
+  return Object.freeze({
+    code,
+    recherches: Object.freeze(recherches),
+    explication: `Aide ${code}`,
+  });
 }
 
 /** Dans l'ordre de Lazarus : le premier code qui correspond l'emporte. */
-export const REJETS: readonly DescriptionRejet[] = [
+export const REJETS: readonly DescriptionRejet[] = Object.freeze([
   rejet(
     'ERR001',
     debut("Acte de gestion  Modification d assure non traversable pour l'assuré de rang"),
@@ -196,7 +201,7 @@ export const REJETS: readonly DescriptionRejet[] = [
     contenu("de l'assuré de rang"),
     contenu("ne peut etre radiée car elle n'existe pas pour le contrat"),
   ),
-];
+]);
 
 function correspond(message: string, recherche: RechercheRejet): boolean {
   switch (recherche.mode) {

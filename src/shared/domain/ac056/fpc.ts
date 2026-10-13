@@ -12,6 +12,13 @@ export function trimFpc(valeur: Octets): Octets {
   return sousOctets(valeur, debut, fin);
 }
 
+/** Côté droit de `Trim` FPC : retire en fin tout octet <= 0x20, garde la tête (même définition). */
+export function trimDroiteFpc(valeur: Octets): Octets {
+  let fin = valeur.length;
+  while (fin > 0 && valeur.charCodeAt(fin - 1) <= 0x20) fin--;
+  return sousOctets(valeur, 0, fin);
+}
+
 /** `AddCharR` : bourrage à droite jusqu'à `longueur`, jamais de troncature. */
 export function addCharR(caractere: Bourrage, valeur: Octets, longueur: number): Octets {
   if (valeur.length >= longueur) return valeur;

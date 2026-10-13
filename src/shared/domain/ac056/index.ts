@@ -1,5 +1,5 @@
-// Domaine pur AC056 : description des entités, lecture, écriture, modification d'un champ et
-// contrôle.
+// Domaine pur AC056 : description des entités, lecture (fichier VEOS ou rejet MSP en lecture
+// seule), écriture, modification d'un champ et contrôle.
 export * from './entites';
 export { CODES_REJET, MESSAGE_REJET_INCONNU, REJETS, identifierRejet } from './codes-rejet';
 export type { CodeRejet, DescriptionRejet, ModeRecherche, RechercheRejet } from './codes-rejet';
@@ -18,6 +18,8 @@ export type {
   LigneAc056,
   LigneBrute,
   LigneDecrite,
+  MessageRejet,
+  Provenance,
 } from './modele';
 export { modifierChamp } from './modification';
 export type {

@@ -189,3 +189,86 @@ export function lignesCompletes({ dossiers = 2 }: { dossiers?: number } = {}): s
 export function lignesDepuisCodes(codes: readonly (CodeEntite | null)[]): string[] {
   return codes.map((code) => (code === null ? ' '.repeat(700) : ligneSynthetique(code)));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fichiers de rejet MSP : ligne AC056 de 700 octets, identification MSP de 18 octets (701 à 718),
+// message en Windows-1252 (719 et suivants). Une ligne sans message fait 718 octets.
+// ---------------------------------------------------------------------------------------------
+
+/** Identification MSP fictive (octets 701 à 718) : 9 chiffres, un espace, 8 alphanumériques. */
+export const IDENTIFICATION_MSP_FICTIVE = '000000001 TESTID01';
+
+/** Caractères hors Latin-1 de Windows-1252 utiles aux tests (octets 0x80 à 0x9F). */
+const WINDOWS_1252_SPECIAUX: Readonly<Record<string, string>> = { '€': '\x80', '’': '\x92' };
+
+/**
+ * Texte → chaîne binaire Windows-1252 (1 caractère = 1 octet). Les caractères Latin-1 (é, à…) ont
+ * le même octet qu'en Unicode, plus « € » (0x80) et « ’ » (0x92). Lève sur tout autre caractère.
+ */
+export function enWindows1252(texte: string): string {
+  return Array.from(texte, (caractere) => {
+    const special = WINDOWS_1252_SPECIAUX[caractere];
+    if (special !== undefined) return special;
+    const code = caractere.codePointAt(0) ?? 0;
+    if (code > 0xff || (code >= 0x80 && code <= 0x9f)) {
+      throw new Error(`enWindows1252 : caractère non géré U+${code.toString(16).toUpperCase()}`);
+    }
+    return caractere;
+  }).join('');
+}
+
+/** Ligne de rejet : ligne AC056 de 700 caractères, identification MSP fictive et message éventuel. */
+export function ligneRejet(ligne: string, message = ''): string {
+  if (ligne.length !== 700)
+    throw new Error(`ligneRejet : ${ligne.length} caractères au lieu de 700`);
+  verifierOctets(message, 'ligneRejet, message');
+  return ligne + IDENTIFICATION_MSP_FICTIVE + message;
+}
+
+/**
+ * Ligne de rejet fictive d'une entité d'un dossier : émetteur TEST et numéro de dossier sur 8
+ * chiffres (octets 1 à 17, clé de dossier). Utiliser le dossier 0 pour la 000 et la 999, comme
+ * `lignesCompletes`.
+ */
+export function ligneRejetSynthetique(code: CodeEntite, dossier: number, message = ''): string {
+  const cle = { numEmetteur: 'TEST', numDossier: String(dossier).padStart(8, '0') };
+  return ligneRejet(ligneSynthetique(code, cle), message);
+}
+
+export interface OptionsLignesRejet {
+  /** Nombre de dossiers de `lignesCompletes`. Défaut : 2. */
+  readonly dossiers?: number;
+  /**
+   * Message (chaîne binaire Windows-1252) d'une ligne, d'après son code et son rang (base 0) dans
+   * le fichier de rejet. Aucun message si la fonction renvoie `undefined` (ligne de 718 octets).
+   */
+  readonly message?: (code: CodeEntite, indice: number) => string | undefined;
+}
+
+/**
+ * Fichier de rejet fictif dans l'ordre réel de MSP, d'après `lignesCompletes` : pour chaque
+ * dossier, les évènements (100 … 990), la 995, puis la 001 ; la 000 et la 999 à la fin. Chaque
+ * ligne reçoit l'identification MSP fictive, puis son message éventuel.
+ */
+export function lignesRejet({ dossiers = 2, message }: OptionsLignesRejet = {}): string[] {
+  const corps: string[] = [];
+  let ligne000 = '';
+  let ligne999 = '';
+  let ligne001: string | null = null;
+  for (const ligne of lignesCompletes({ dossiers })) {
+    const code = ligne.slice(22, 25);
+    if (code === '000') ligne000 = ligne;
+    else if (code === '999') ligne999 = ligne;
+    else if (code === '001') ligne001 = ligne;
+    else {
+      corps.push(ligne);
+      if (code === '995' && ligne001 !== null) {
+        corps.push(ligne001);
+        ligne001 = null;
+      }
+    }
+  }
+  return [...corps, ligne000, ligne999].map((ligne, indice) =>
+    ligneRejet(ligne, message?.(ligne.slice(22, 25) as CodeEntite, indice)),
+  );
+}

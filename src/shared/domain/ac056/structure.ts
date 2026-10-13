@@ -3,13 +3,25 @@
 // `construireHierarchie` (qui reste fidèle à Lazarus : le dernier gagne, aucun curseur fermé).
 // Toutes les anomalies sont bloquantes. Les messages ne contiennent que des numéros de ligne,
 // des codes d'entité connus et des longueurs, jamais une valeur lue dans le fichier.
+//
+// Fichier de rejet MSP : même automate avec les adaptations de la divergence 7.
+// - Longueur : au moins 718 octets (ligne AC056, identification MSP, message éventuel).
+// - Dossier : suite de lignes de mêmes 17 premiers octets, ouvert implicitement (comme dans
+//   `construireHierarchie`, qui doit garder la même notion de dossier). Un changement de clé ferme
+//   l'ancien dossier, dont l'absence de 990 et de 995 est signalée.
+// - 000 et 999 : ni place ni absence contrôlées (MSP les range en fin de fichier), mais une seconde
+//   occurrence est un doublon (la hiérarchie garde la dernière).
+// - 001 : place non contrôlée (MSP la place après la 995), absence normale, doublon signalé dans le
+//   dossier ; elle ne ferme et n'ouvre rien.
 import {
   LONGUEUR_CODE_ENTITE,
   LONGUEUR_LIGNE,
   POSITION_CODE_ENTITE,
   type CodeEntite,
 } from './entites';
-import type { AnomalieAc056, CodeAnomalie, LigneAc056 } from './modele';
+import type { AnomalieAc056, CodeAnomalie, LigneAc056, Provenance } from './modele';
+import type { Octets } from './octets';
+import { cleDossierRejet, LONGUEUR_MINIMALE_REJET } from './rejet';
 
 type Parent = 'dossier' | 'evenement' | 'beneficiaire';
 
@@ -78,7 +90,11 @@ function anomalie(code: CodeAnomalie, ligne: number | null, message: string): An
   return Object.freeze({ code, ligne, message, bloquante: true });
 }
 
-export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056[] {
+export function controlerStructure(
+  lignes: readonly LigneAc056[],
+  provenance: Provenance = 'veos',
+): AnomalieAc056[] {
+  const rejet = provenance === 'rejet';
   if (lignes.length === 0) {
     return [anomalie('fichier-vide', null, 'Le fichier est vide : aucune ligne AC056.')];
   }
@@ -98,6 +114,10 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
   let dossier: Niveau | null = null;
   let evt: Evenement | null = null;
   let benef: Beneficiaire | null = null;
+  // Rejet seulement : clé du dossier courant, numéro de sa 001, 000 et 999 déjà vues.
+  let cleDossier: Octets | null = null;
+  let numero001: number | null = null;
+  const premieres000999 = new Map<CodeEntite, number>();
 
   function fermerEvenement(): void {
     if (evt && !evt.ferme) {
@@ -136,12 +156,14 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
   lignes.forEach((ligne, i) => {
     const { numero, origine, code } = ligne;
 
-    if (origine.length !== LONGUEUR_LIGNE) {
+    if (rejet ? origine.length < LONGUEUR_MINIMALE_REJET : origine.length !== LONGUEUR_LIGNE) {
       anomalies.push(
         anomalie(
           'longueur-ligne',
           numero,
-          `Ligne ${numero} : ${origine.length} octets au lieu de ${LONGUEUR_LIGNE}.`,
+          rejet
+            ? `Ligne ${numero} : ${origine.length} octets au lieu d'au moins ${LONGUEUR_MINIMALE_REJET}.`
+            : `Ligne ${numero} : ${origine.length} octets au lieu de ${LONGUEUR_LIGNE}.`,
         ),
       );
     }
@@ -185,6 +207,27 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
       if (premiere === undefined) uniques.set(code, numero);
       else enDouble(premiere);
     };
+
+    if (rejet) {
+      if (code === '000' || code === '999') {
+        enregistrerUnique(premieres000999);
+        return;
+      }
+      const cle = cleDossierRejet(origine);
+      if (dossier === null || cle !== cleDossier) {
+        fermerDossier();
+        dossier = { numero, ferme: false, numeroFin: null };
+        cleDossier = cle;
+        numero001 = null;
+        evt = null;
+        benef = null;
+      }
+      if (code === '001') {
+        if (numero001 === null) numero001 = numero;
+        else enDouble(numero001);
+        return;
+      }
+    }
 
     switch (code) {
       case '000':
@@ -240,6 +283,7 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
   });
 
   fermerDossier();
+  if (rejet) return anomalies;
   if (!lignes.some((ligne) => ligne.code === '000')) {
     anomalies.push(
       anomalie(
