@@ -5,14 +5,15 @@
 //   `Octets` du domaine.
 import { ENTITES, type CodeEntite } from '@shared/domain/ac056/entites';
 
-export type FinDeLigne = '\r\n' | '\n' | '\r';
+/** Fin de ligne d'un fichier synthétique (le `FinDeLigne` du domaine admet aussi ''). */
+export type FinDeLigneSynthetique = '\r\n' | '\n' | '\r';
 
 export interface OptionsFichierSynthetique {
   /**
    * Fin de ligne : une valeur pour toutes les lignes, ou un tableau avec une fin par ligne
    * (de même taille que `lignes`). Défaut : CRLF.
    */
-  readonly fin?: FinDeLigne | readonly FinDeLigne[];
+  readonly fin?: FinDeLigneSynthetique | readonly FinDeLigneSynthetique[];
   /** Préfixe BOM UTF-8 (EF BB BF). Défaut : false. */
   readonly bom?: boolean;
   /**
@@ -158,17 +159,23 @@ function lignesEvenement(dossier: number, evenement: number): string[] {
 }
 
 /**
- * Fichier complet fictif de 138 lignes : 000, puis 2 dossiers (001 … 995) de 2 évènements
+ * Fichier complet fictif : 000, puis `dossiers` dossiers (001 … 995, 2 par défaut) de 2 évènements
  * (100, 110, 115, 120, 125 x2, 130, 135, 155, 180, 2 bénéficiaires, 990), puis 999.
  * Un bénéficiaire : 400, 405, 410, 411, 485 x2, 490 x2, 700 x2, 800 (11 lignes).
+ * Par défaut 138 lignes ; chaque dossier en ajoute 68.
  */
-export function lignesCompletes(): string[] {
+export function lignesCompletes({ dossiers = 2 }: { dossiers?: number } = {}): string[] {
   const lignes = [ligneSynthetique('000', entete(0, 0, '00'))];
-  for (const dossier of [1, 2]) {
+  for (let dossier = 1; dossier <= dossiers; dossier++) {
     lignes.push(ligneSynthetique('001', entete(dossier, 0, '00')));
     for (const evenement of [1, 2]) lignes.push(...lignesEvenement(dossier, evenement));
     lignes.push(ligneSynthetique('995', entete(dossier, 0, '00')));
   }
   lignes.push(ligneSynthetique('999', entete(0, 0, '00')));
   return lignes;
+}
+
+/** Une ligne synthétique par code ; `null` donne une ligne de 700 espaces (code inconnu). */
+export function lignesDepuisCodes(codes: readonly (CodeEntite | null)[]): string[] {
+  return codes.map((code) => (code === null ? ' '.repeat(700) : ligneSynthetique(code)));
 }

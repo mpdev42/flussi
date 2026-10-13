@@ -10,7 +10,7 @@ import {
 } from '@shared/test/ac056-synthetique';
 import { CODES_ENTITE, ENTITES } from './entites';
 import { codeEntite, lireAc056, lireValeurs } from './lecteur';
-import type { LigneAc056, LigneDecrite } from './modele';
+import type { LectureAc056, LigneAc056, LigneDecrite } from './modele';
 import type { Octets } from './octets';
 
 const binaire = (chaine: string) => chaine as Octets;
@@ -18,6 +18,13 @@ const binaire = (chaine: string) => chaine as Octets;
 /** Lit un fichier synthétique construit à partir de lignes. */
 function lire(lignes: readonly string[], options?: OptionsFichierSynthetique) {
   return lireAc056(fichierSynthetique(lignes, options));
+}
+
+const CODES_FORMAT: readonly string[] = ['bom', 'fin-de-ligne-lf', 'fin-de-ligne-cr', 'ligne-vide'];
+
+/** Anomalies de format, filtrées par code (et non par `bloquante`, pour détecter une erreur de niveau). */
+function anomaliesDeFormat(lecture: LectureAc056) {
+  return lecture.anomalies.filter((a) => CODES_FORMAT.includes(a.code));
 }
 
 function decrite(ligne: LigneAc056 | undefined): LigneDecrite {
@@ -119,21 +126,21 @@ describe('lireValeurs', () => {
 
 describe('lireAc056', () => {
   describe('fichier vide ou minimal', () => {
-    it('lit un fichier vide sans ligne ni anomalie', () => {
+    it('lit un fichier vide sans ligne, avec la seule anomalie fichier-vide', () => {
       const { fichier, anomalies } = lireAc056(new Uint8Array());
       expect(fichier.bom).toBe(false);
       expect(fichier.lignes).toEqual([]);
       expect(fichier.e000).toBeNull();
       expect(fichier.dossiers).toEqual([]);
       expect(fichier.e999).toBeNull();
-      expect(anomalies.map((a) => a.code)).toEqual([]);
+      expect(anomalies.map((a) => a.code)).toEqual(['fichier-vide']);
     });
 
-    it('lit un BOM seul : aucune ligne, une anomalie bom', () => {
+    it('lit un BOM seul : aucune ligne, les anomalies bom et fichier-vide', () => {
       const { fichier, anomalies } = lireAc056(new Uint8Array([0xef, 0xbb, 0xbf]));
       expect(fichier.bom).toBe(true);
       expect(fichier.lignes).toEqual([]);
-      expect(anomalies.map((a) => a.code)).toEqual(['bom']);
+      expect(anomalies.map((a) => a.code)).toEqual(['bom', 'fichier-vide']);
     });
 
     it('ne lève jamais, même sur des octets quelconques', () => {
@@ -189,13 +196,13 @@ describe('lireAc056', () => {
       expect(ligne?.code).toBeNull();
     });
 
-    it('garde brute une ligne d espaces, avec un code null et sans anomalie', () => {
-      const { fichier, anomalies } = lire([' '.repeat(700), ' '.repeat(10)]);
-      expect(fichier.lignes.map((l) => [l.nature, l.code])).toEqual([
+    it('garde brute une ligne d espaces, avec un code null et sans anomalie de format', () => {
+      const lecture = lire([' '.repeat(700), ' '.repeat(10)]);
+      expect(lecture.fichier.lignes.map((l) => [l.nature, l.code])).toEqual([
         ['brute', null],
         ['brute', null],
       ]);
-      expect(anomalies).toEqual([]);
+      expect(anomaliesDeFormat(lecture)).toEqual([]);
     });
 
     it('décrit chaque entité non brute avec son code', () => {
@@ -245,9 +252,9 @@ describe('lireAc056', () => {
 
   describe('lignes vides', () => {
     it('retire la ligne vide de lignes et signale une anomalie', () => {
-      const { fichier, anomalies } = lire([L400, '', L405]);
-      expect(fichier.lignes).toHaveLength(2);
-      expect(anomalies).toEqual([
+      const lecture = lire([L400, '', L405]);
+      expect(lecture.fichier.lignes).toHaveLength(2);
+      expect(anomaliesDeFormat(lecture)).toEqual([
         {
           code: 'ligne-vide',
           ligne: 2,
@@ -263,18 +270,18 @@ describe('lireAc056', () => {
     });
 
     it('signale une ligne vide finale terminée par un saut', () => {
-      const { fichier, anomalies } = lire([L400, ''], { sautFinal: true });
-      expect(fichier.lignes).toHaveLength(1);
-      expect(anomalies.map((a) => [a.code, a.ligne])).toEqual([['ligne-vide', 2]]);
+      const lecture = lire([L400, ''], { sautFinal: true });
+      expect(lecture.fichier.lignes).toHaveLength(1);
+      expect(anomaliesDeFormat(lecture).map((a) => [a.code, a.ligne])).toEqual([['ligne-vide', 2]]);
     });
 
     it('signale une anomalie ligne-vide par ligne vide, triées par numéro', () => {
       // Lignes vides : 2 et 4 (non consécutives), 6 et 7 (consécutives).
-      const { fichier, anomalies } = lire([L400, '', L405, '', L400, '', '', L405], {
+      const lecture = lire([L400, '', L405, '', L400, '', '', L405], {
         sautFinal: true,
       });
-      expect(fichier.lignes.map((l) => l.numero)).toEqual([1, 3, 5, 8]);
-      expect(anomalies).toEqual(
+      expect(lecture.fichier.lignes.map((l) => l.numero)).toEqual([1, 3, 5, 8]);
+      expect(anomaliesDeFormat(lecture)).toEqual(
         [2, 4, 6, 7].map((n) => ({
           code: 'ligne-vide',
           ligne: n,
@@ -286,8 +293,11 @@ describe('lireAc056', () => {
   });
 
   describe('anomalies de format', () => {
+    const formats = (lignes: readonly string[], options?: OptionsFichierSynthetique) =>
+      anomaliesDeFormat(lire(lignes, options));
+
     it('signale le BOM, sans ligne et non bloquant', () => {
-      const { anomalies } = lire([L400], { bom: true });
+      const anomalies = formats([L400], { bom: true });
       expect(anomalies).toEqual([
         {
           code: 'bom',
@@ -299,7 +309,7 @@ describe('lireAc056', () => {
     });
 
     it('signale les fins LF à partir de la première, avec leur nombre', () => {
-      const { anomalies } = lire([L400, L405, L400], { fin: '\n', sautFinal: true });
+      const anomalies = formats([L400, L405, L400], { fin: '\n', sautFinal: true });
       expect(anomalies).toEqual([
         {
           code: 'fin-de-ligne-lf',
@@ -312,13 +322,13 @@ describe('lireAc056', () => {
     });
 
     it('n inclut pas la dernière ligne sans fin dans le compte LF', () => {
-      const { anomalies } = lire([L400, L405, L400], { fin: '\n' });
+      const anomalies = formats([L400, L405, L400], { fin: '\n' });
       expect(anomalies).toHaveLength(1);
       expect(anomalies[0]?.message).toContain('à partir de la ligne 1 (2 lignes)');
     });
 
     it('accorde « ligne » au singulier pour une seule fin LF', () => {
-      const { anomalies } = lire([L400, L405, L400], {
+      const anomalies = formats([L400, L405, L400], {
         fin: ['\r\n', '\n', '\r\n'],
       });
       expect(anomalies).toEqual([
@@ -333,7 +343,7 @@ describe('lireAc056', () => {
     });
 
     it('signale la première ligne LF et compte toutes les lignes LF', () => {
-      const { anomalies } = lire([L400, L405, L400, L405], {
+      const anomalies = formats([L400, L405, L400, L405], {
         fin: ['\r\n', '\n', '\r\n', '\n'],
         sautFinal: true,
       });
@@ -343,7 +353,7 @@ describe('lireAc056', () => {
     });
 
     it('signale les fins CR avec le mot CR', () => {
-      const { anomalies } = lire([L400, L405, L400], {
+      const anomalies = formats([L400, L405, L400], {
         fin: ['\r\n', '\r', '\r'],
         sautFinal: true,
       });
@@ -359,7 +369,7 @@ describe('lireAc056', () => {
     });
 
     it('accorde « ligne » au singulier pour une seule fin CR', () => {
-      const { anomalies } = lire([L400, L405], { fin: ['\r', '\r\n'], sautFinal: true });
+      const anomalies = formats([L400, L405], { fin: ['\r', '\r\n'], sautFinal: true });
       expect(anomalies[0]?.message).toBe(
         "Fin de ligne CR au lieu de CRLF à partir de la ligne 1 (1 ligne), conservée à l'enregistrement.",
       );
@@ -374,12 +384,12 @@ describe('lireAc056', () => {
     });
 
     it('ne signale pas l absence de saut final', () => {
-      expect(lire([L400]).anomalies).toEqual([]);
+      expect(formats([L400])).toEqual([]);
     });
 
-    it('signale une anomalie par type, toutes non bloquantes, triées null puis par ligne', () => {
+    it('signale une anomalie de format par type, toutes non bloquantes, triées null puis par ligne', () => {
       // ligne 1 CRLF, 2 LF, 3 CRLF, 4 vide (CRLF), 5 CR
-      const { anomalies } = lire([L400, L405, L400, '', L405], {
+      const anomalies = formats([L400, L405, L400, '', L405], {
         bom: true,
         fin: ['\r\n', '\n', '\r\n', '\r\n', '\r'],
         sautFinal: true,
@@ -390,6 +400,7 @@ describe('lireAc056', () => {
         ['ligne-vide', 4],
         ['fin-de-ligne-cr', 5],
       ]);
+      expect(anomalies).toHaveLength(4);
       expect(anomalies.every((a) => a.bloquante === false)).toBe(true);
     });
   });

@@ -5,10 +5,11 @@
 import { describe, expect, it } from 'vitest';
 import { decrireEcartAc056, empreinteSha256 } from '@shared/test/comparaison-ac056';
 import { decrireCorpus, listerCorpus, lireCorpus, localiserEcart } from '@shared/test/corpus';
+import { compterRattachements } from '@shared/test/rattachements-ac056';
 import type { CodeEntite } from './entites';
 import { ecrireAc056 } from './ecrivain';
 import { lireAc056 } from './lecteur';
-import type { FichierAc056, LectureAc056 } from './modele';
+import type { LectureAc056 } from './modele';
 
 const CODES_BRUTS_ADMIS: readonly (CodeEntite | null)[] = ['000', '001', '990', '995', '999'];
 
@@ -26,34 +27,6 @@ function lireTousLesFichiers(): FichierLu[] {
       const octets = lireCorpus('IN', nom);
       return { nom, octets, lecture: lireAc056(octets) };
     });
-}
-
-/** Indices de `lignes` rattachés à la hiérarchie, avec leur nombre d'occurrences. */
-function compterRattachements(fichier: FichierAc056): number[] {
-  const comptes = new Array<number>(fichier.lignes.length).fill(0);
-  const compter = (indice: number | null) => {
-    if (indice !== null) comptes[indice] = (comptes[indice] ?? 0) + 1;
-  };
-  compter(fichier.e000);
-  for (const dossier of fichier.dossiers) {
-    compter(dossier.e001);
-    for (const evt of dossier.evenements) {
-      compter(evt.e100);
-      [evt.e110, evt.e115, evt.e120, evt.e130, evt.e135, evt.e155, evt.e180].forEach(compter);
-      evt.e125.forEach(compter);
-      for (const benef of evt.beneficiaires) {
-        compter(benef.e400);
-        [benef.e405, benef.e410, benef.e411, benef.e800].forEach(compter);
-        benef.e485.forEach(compter);
-        benef.e490.forEach(compter);
-        benef.e700.forEach(compter);
-      }
-      compter(evt.e990);
-    }
-    compter(dossier.e995);
-  }
-  compter(fichier.e999);
-  return comptes;
 }
 
 decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
@@ -125,6 +98,30 @@ decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
         );
       }
       expect(ecarts).toEqual([]);
+    });
+  });
+
+  describe('performance', () => {
+    it('lit le plus gros fichier de IN en moins d 1 s', async ({ annotate }) => {
+      const fichiers = listerCorpus('IN')
+        .filter((nom) => nom.endsWith('.txt'))
+        .map((nom) => ({ nom, octets: lireCorpus('IN', nom) }));
+      const plusGros = fichiers.reduce((a, b) => (b.octets.length > a.octets.length ? b : a));
+
+      // Échauffement, puis médiane de 5 mesures.
+      const lignes = lireAc056(plusGros.octets).fichier.lignes.length;
+      const durees: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        const debut = performance.now();
+        lireAc056(plusGros.octets);
+        durees.push(performance.now() - debut);
+      }
+      const mediane = durees.sort((a, b) => a - b)[2] ?? Number.NaN;
+
+      await annotate(
+        `${plusGros.nom} : ${plusGros.octets.length} octets, ${lignes} lignes, médiane ${mediane.toFixed(1)} ms sur 5 mesures.`,
+      );
+      expect(mediane).toBeLessThan(1000);
     });
   });
 });

@@ -22,8 +22,8 @@ export interface LigneDecrite extends LigneCommune {
 }
 
 /**
- * Ligne conservée telle quelle : 000/001/990/995/999, ou (provisoirement, l'item 4 ajoutera les
- * anomalies) longueur ≠ 700 ou code inconnu.
+ * Ligne conservée telle quelle : 000, 001, 990, 995 ou 999, ou ligne en anomalie (longueur ≠ 700
+ * ou code inconnu), réécrite à l'identique.
  */
 export interface LigneBrute extends LigneCommune {
   readonly nature: 'brute';
@@ -75,8 +75,18 @@ export interface FichierAc056 {
   readonly e999: number | null;
 }
 
-/** Étendu par les items 4 et 5. */
-export type CodeAnomalie = 'bom' | 'fin-de-ligne-lf' | 'fin-de-ligne-cr' | 'ligne-vide';
+/** Étendu par l'item 5. */
+export type CodeAnomalie =
+  | 'bom'
+  | 'fin-de-ligne-lf'
+  | 'fin-de-ligne-cr'
+  | 'ligne-vide'
+  | 'fichier-vide'
+  | 'longueur-ligne'
+  | 'entite-inconnue'
+  | 'entite-mal-placee'
+  | 'entite-en-double'
+  | 'entite-absente';
 
 export interface AnomalieAc056 {
   readonly code: CodeAnomalie;
