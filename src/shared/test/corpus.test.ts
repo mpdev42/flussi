@@ -1,8 +1,15 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { decrireEcart, localiserEcart, resoudreCorpus } from './corpus';
+import {
+  decrireEcart,
+  listerCorpus,
+  localiserEcart,
+  lireCorpus,
+  resoudreCorpus,
+  resoudreSousDossierCorpus,
+} from './corpus';
 
 const octets = (...valeurs: number[]) => new Uint8Array(valeurs);
 const LF = 0x0a;
@@ -73,6 +80,112 @@ describe('resoudreCorpus', () => {
       AC056_CORPUS_OBLIGATOIRE: '1',
     });
     expect(resolution.dossier).toBe(racine);
+  });
+});
+
+describe('resoudreSousDossierCorpus', () => {
+  let racine: string;
+
+  /** Environnement pointant sur le corpus temporaire (IN et OUT présents). */
+  const env = (obligatoire = false): NodeJS.ProcessEnv => ({
+    AC056_CORPUS_DIR: racine,
+    ...(obligatoire && { AC056_CORPUS_OBLIGATOIRE: '1' }),
+  });
+
+  beforeEach(() => {
+    racine = mkdtempSync(join(tmpdir(), 'flussi-corpus-'));
+    mkdirSync(join(racine, 'IN'));
+    mkdirSync(join(racine, 'OUT'));
+  });
+
+  afterEach(() => {
+    rmSync(racine, { recursive: true, force: true });
+  });
+
+  it('est indisponible si le corpus l est, avec la raison du corpus', () => {
+    const resolution = resoudreSousDossierCorpus('MODIFIES', {});
+    expect(resolution.dossier).toBeNull();
+    expect('raison' in resolution && resolution.raison).toContain('AC056_CORPUS_DIR');
+  });
+
+  it('est indisponible si le sous-dossier est absent', () => {
+    const resolution = resoudreSousDossierCorpus('MODIFIES', env());
+    expect(resolution.dossier).toBeNull();
+    expect('raison' in resolution && resolution.raison).toBe(
+      'sous-dossier MODIFIES absent ou vide',
+    );
+  });
+
+  it('est indisponible si le sous-dossier est vide', () => {
+    mkdirSync(join(racine, 'MODIFIES'));
+    expect(resoudreSousDossierCorpus('MODIFIES', env()).dossier).toBeNull();
+  });
+
+  it('est indisponible si le sous-dossier ne contient que des dossiers', () => {
+    mkdirSync(join(racine, 'MODIFIES', 'autre'), { recursive: true });
+    expect(resoudreSousDossierCorpus('MODIFIES', env()).dossier).toBeNull();
+  });
+
+  it('est disponible si le sous-dossier contient un fichier, et renvoie la racine du corpus', () => {
+    mkdirSync(join(racine, 'MODIFIES'));
+    writeFileSync(join(racine, 'MODIFIES', 'X.txt'), 'x');
+    expect(resoudreSousDossierCorpus('MODIFIES', env())).toEqual({ dossier: racine });
+  });
+
+  it('lève une erreur explicite si obligatoire et sous-dossier absent', () => {
+    expect(() => resoudreSousDossierCorpus('MODIFIES', env(true))).toThrow(
+      'Corpus AC056 obligatoire (npm run test:corpus) mais sous-dossier MODIFIES absent ou vide',
+    );
+  });
+
+  it('lève une erreur explicite si obligatoire et sous-dossier vide', () => {
+    mkdirSync(join(racine, 'MODIFIES'));
+    expect(() => resoudreSousDossierCorpus('MODIFIES', env(true))).toThrow(
+      /mais sous-dossier MODIFIES absent ou vide/,
+    );
+  });
+
+  it('ne lève rien si obligatoire et sous-dossier rempli', () => {
+    mkdirSync(join(racine, 'MODIFIES'));
+    writeFileSync(join(racine, 'MODIFIES', 'X.txt'), 'x');
+    expect(resoudreSousDossierCorpus('MODIFIES', env(true)).dossier).toBe(racine);
+  });
+
+  it('s applique aussi à IN', () => {
+    expect(resoudreSousDossierCorpus('IN', env()).dossier).toBeNull();
+    writeFileSync(join(racine, 'IN', 'A.txt'), 'a');
+    expect(resoudreSousDossierCorpus('IN', env()).dossier).toBe(racine);
+  });
+});
+
+describe('listerCorpus et lireCorpus sur MODIFIES', () => {
+  let racine: string;
+  let ancienneValeur: string | undefined;
+
+  beforeEach(() => {
+    racine = mkdtempSync(join(tmpdir(), 'flussi-corpus-'));
+    mkdirSync(join(racine, 'IN'));
+    mkdirSync(join(racine, 'OUT'));
+    mkdirSync(join(racine, 'MODIFIES'));
+    writeFileSync(join(racine, 'MODIFIES', 'B.txt'), 'b');
+    writeFileSync(join(racine, 'MODIFIES', 'A.txt'), octets(0xe9, 0xff));
+    mkdirSync(join(racine, 'MODIFIES', 'sous-dossier'));
+    ancienneValeur = process.env.AC056_CORPUS_DIR;
+    process.env.AC056_CORPUS_DIR = racine;
+  });
+
+  afterEach(() => {
+    if (ancienneValeur === undefined) delete process.env.AC056_CORPUS_DIR;
+    else process.env.AC056_CORPUS_DIR = ancienneValeur;
+    rmSync(racine, { recursive: true, force: true });
+  });
+
+  it('liste les fichiers triés, sans les sous-dossiers', () => {
+    expect(listerCorpus('MODIFIES')).toEqual(['A.txt', 'B.txt']);
+  });
+
+  it('lit les octets bruts sans décodage', () => {
+    expect(lireCorpus('MODIFIES', 'A.txt')).toEqual(octets(0xe9, 0xff));
   });
 });
 

@@ -16,7 +16,10 @@ _(aucun pour l'instant)_
 
 ## Questions ouvertes
 
-_(aucune pour l'instant)_
+- **Rang saisi sur un seul chiffre (écran AC056, v0.3.0)**.
+  - Lazarus écrit « 10 » quand on saisit « 1 » dans un rang : `AddCharR` bourre avec `'0'` à droite. Constaté le 2026-10-13 sur `CORPUS-DEV\MODIFIES\`.
+  - Le domaine conserve cette parité (v0.1.0, item 3).
+  - À trancher pour l'écran : imposer 2 chiffres à la saisie, compléter par un zéro à gauche (divergence à valider), ou garder la parité.
 
 ## Décisions
 

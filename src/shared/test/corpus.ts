@@ -11,7 +11,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe } from 'vitest';
 
-export type SousDossierCorpus = 'IN' | 'OUT' | 'PIEGES';
+export type SousDossierCorpus = 'IN' | 'OUT' | 'PIEGES' | 'MODIFIES';
 
 export type ResolutionCorpus = { dossier: string } | { dossier: null; raison: string };
 
@@ -46,6 +46,44 @@ export function resoudreCorpus(env: NodeJS.ProcessEnv = process.env): Resolution
 /** `describe` ignoré (skip) si le corpus est indisponible. */
 export function decrireCorpus(nom: string, fn: () => void): void {
   describe.skipIf(resoudreCorpus().dossier === null)(nom, fn);
+}
+
+function contientUnFichier(chemin: string): boolean {
+  try {
+    return readdirSync(chemin, { withFileTypes: true }).some((entree) => entree.isFile());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Comme `resoudreCorpus`, mais exige en plus que le sous-dossier existe et contienne au moins un
+ * fichier (cas de MODIFIES\, absent d'un corpus ancien). `dossier` reste la racine du corpus.
+ * Lève une erreur si indisponible et rendu obligatoire.
+ */
+export function resoudreSousDossierCorpus(
+  sousDossier: SousDossierCorpus,
+  env: NodeJS.ProcessEnv = process.env,
+): ResolutionCorpus {
+  const resolution = resoudreCorpus(env);
+  if (resolution.dossier === null) return resolution;
+
+  if (contientUnFichier(join(resolution.dossier, sousDossier))) return resolution;
+
+  const raison = `sous-dossier ${sousDossier} absent ou vide`;
+  if (env.AC056_CORPUS_OBLIGATOIRE === '1') {
+    throw new Error(`Corpus AC056 obligatoire (npm run test:corpus) mais ${raison}`);
+  }
+  return { dossier: null, raison };
+}
+
+/** `describe` ignoré (skip) si le corpus ou le sous-dossier est indisponible. */
+export function decrireSousDossierCorpus(
+  sousDossier: SousDossierCorpus,
+  nom: string,
+  fn: () => void,
+): void {
+  describe.skipIf(resoudreSousDossierCorpus(sousDossier).dossier === null)(nom, fn);
 }
 
 function dossierCorpus(sousDossier: SousDossierCorpus): string {

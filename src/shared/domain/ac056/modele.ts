@@ -1,0 +1,92 @@
+// Modèle d'un fichier AC056 lu : lignes dans l'ordre d'origine, hiérarchie par indices
+// (noms calqués sur `utypes.pas`), anomalies relevées à la lecture.
+import type { CodeEntite } from './entites';
+import type { Octets } from './octets';
+
+export type FinDeLigne = '\r\n' | '\n' | '\r' | '';
+
+interface LigneCommune {
+  /** Numéro de ligne d'origine, base 1, lignes vides comptées (comme Lazarus et Notepad++). */
+  readonly numero: number;
+  /** Octets lus, sans fin de ligne, jamais modifiés. */
+  readonly origine: Octets;
+  readonly finDeLigne: FinDeLigne;
+}
+
+/** Ligne de 700 octets d'une entité non brute, découpée en champs. */
+export interface LigneDecrite extends LigneCommune {
+  readonly nature: 'decrite';
+  readonly code: CodeEntite;
+  /** Clé = DescriptionChamp.nom. Copy puis trimFpc si `trim`. */
+  readonly valeurs: Readonly<Record<string, Octets>>;
+}
+
+/**
+ * Ligne conservée telle quelle : 000/001/990/995/999, ou (provisoirement, l'item 4 ajoutera les
+ * anomalies) longueur ≠ 700 ou code inconnu.
+ */
+export interface LigneBrute extends LigneCommune {
+  readonly nature: 'brute';
+  /** null : code inconnu ou ligne de moins de 25 octets. */
+  readonly code: CodeEntite | null;
+}
+
+export type LigneAc056 = LigneDecrite | LigneBrute;
+
+// Hiérarchie : indices dans `FichierAc056.lignes` (pas les numéros d'origine).
+
+export interface BeneficiaireAc056 {
+  readonly e400: number;
+  readonly e405: number | null;
+  readonly e410: number | null;
+  readonly e411: number | null;
+  readonly e800: number | null;
+  readonly e485: readonly number[];
+  readonly e490: readonly number[];
+  readonly e700: readonly number[];
+}
+
+export interface EvenementAc056 {
+  readonly e100: number;
+  readonly e110: number | null;
+  readonly e115: number | null;
+  readonly e120: number | null;
+  readonly e130: number | null;
+  readonly e135: number | null;
+  readonly e155: number | null;
+  readonly e180: number | null;
+  readonly e125: readonly number[];
+  readonly beneficiaires: readonly BeneficiaireAc056[];
+  readonly e990: number | null;
+}
+
+export interface DossierAc056 {
+  readonly e001: number;
+  readonly evenements: readonly EvenementAc056[];
+  readonly e995: number | null;
+}
+
+export interface FichierAc056 {
+  readonly bom: boolean;
+  /** Ordre d'origine, sans les lignes vides. Seule source de l'écrivain. */
+  readonly lignes: readonly LigneAc056[];
+  readonly e000: number | null;
+  readonly dossiers: readonly DossierAc056[];
+  readonly e999: number | null;
+}
+
+/** Étendu par les items 4 et 5. */
+export type CodeAnomalie = 'bom' | 'fin-de-ligne-lf' | 'fin-de-ligne-cr' | 'ligne-vide';
+
+export interface AnomalieAc056 {
+  readonly code: CodeAnomalie;
+  /** Numéro de ligne d'origine ; null = niveau fichier. */
+  readonly ligne: number | null;
+  readonly message: string;
+  readonly bloquante: boolean;
+}
+
+export interface LectureAc056 {
+  readonly fichier: FichierAc056;
+  readonly anomalies: readonly AnomalieAc056[];
+}
