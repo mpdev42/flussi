@@ -212,6 +212,20 @@
 
 **Fichiers impactés** : lecteur (`src/shared/domain/ac056/`), tests synthétiques par cas.
 
+**Point d'attention pour l'item 4** (laissé par l'item 3, voir ses décisions d'implémentation) :
+
+- **Point de départ** : ces cas sont déjà conservés à leur place et réécrits à l'identique (divergence 6 acquise). Il reste à produire les anomalies bloquantes.
+  - Toute ligne de longueur différente de 700 octets ou de code inconnu est aujourd'hui une `LigneBrute` (`nature: 'brute'`), sans anomalie. Une ligne d'espaces est brute avec un code `null`.
+  - La hiérarchie (`hierarchie.ts`) rattache d'après le code, quelle que soit la nature de la ligne.
+  - Une fille sans parent courant n'est pas rattachée.
+  - Pour une entité unique en double, la dernière gagne et la précédente reste dans `lignes` sans être rattachée.
+- **Repérer ces cas** :
+  - lignes non rattachées : comptage des rattachements, comme `compterRattachements` dans `lecteur-ecrivain.corpus.test.ts` ;
+  - lignes brutes hors 000, 001, 990, 995 et 999.
+- **Modèle** : étendre `CodeAnomalie` (`modele.ts`) et produire les nouvelles anomalies avec `bloquante: true`. Les anomalies de format (`bom`, `fin-de-ligne-lf`, `fin-de-ligne-cr`) et `ligne-vide` restent non bloquantes. L'absence de saut de ligne final n'est pas une anomalie (format VEOS).
+- **Performance** : `addCharR` (`fpc.ts`) passe par `TextEncoder` pour répéter un caractère ASCII, environ 45 000 appels sur le plus gros fichier. Le remplacer par une répétition directe dans `octets.ts` (par exemple `repeterOctet(caractere, n)`) avant de mesurer le critère d'1 s.
+- **Fabrique** : `src/shared/test/ac056-synthetique.ts` (`ligneSynthetique`, `fichierSynthetique`, `lignesCompletes`) produit les fichiers synthétiques de chaque cas. Son type `FinDeLigne` porte le même nom que celui du domaine avec un sens différent (sans `''`) : à renommer en passant.
+
 ---
 
 ### 5. Règles de contrôle, jeu de caractères et codes de rejet ERRxxx
@@ -250,6 +264,15 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
 - Synthétiques : une règle par test. Caractère interdit au début, au milieu et à la fin d'un champ, au premier et au dernier octet de la ligne. Caractères de 2, 3 et 4 octets (`é`, `€`, emoji). Caractère interdit dans un champ non contrôlé par Lazarus et dans une ligne brute (`000`, `990`, `995`, `999`).
 
 **Fichiers impactés** : `src/shared/domain/ac056/` (contrôles, jeux de caractères, `ERRxxx`, explications) et leurs tests.
+
+**Point d'attention pour l'item 5** (laissé par l'item 3) :
+
+- **`PIEGES\`** : `decrireSousDossierCorpus('PIEGES', …)` (`src/shared/test/corpus.ts`) est prêt. Le `describe` est ignoré par `npm test` si le dossier est absent ou vide, et lève une erreur avec `npm run test:corpus`. Exemple d'usage : `modification.corpus.test.ts`, inventaire des paires et notes lues uniquement dans les `it`.
+- **Valeurs en octets** : les valeurs lues sont des `Octets` (`octets.ts`), une chaîne binaire à un caractère par octet, jamais décodée. Les contrôles de jeu de caractères et d'octet ≥ `0x80` se font directement dessus (`charCodeAt`, regex ASCII), sans décodage.
+  - `Trim` déjà appliqué : les champs `trim` sont lus avec `trimFpc`, qui retire les octets ≤ `0x20` en bordure. Un caractère de contrôle en bordure d'un champ `trim` a donc déjà disparu de la valeur. Pour le signaler (divergence 5), contrôler aussi `origine`, la ligne lue et jamais modifiée.
+- **Rang du bénéficiaire** : le type d'assuré de la 400 se trouve par la hiérarchie (`beneficiaires[].e400`, indices dans `fichier.lignes`).
+- **Contrôle d'un champ** : à la sortie d'un champ, il s'appliquera à la valeur produite par `modifierChamp` (`modification.ts`).
+- **Écarts dans le corpus** : `comparaison-ac056.ts` (`decrireEcartAc056`) les décrit par fichier, ligne, octet, entité et champ, sans valeur.
 
 ---
 
