@@ -498,6 +498,40 @@ describe('modifierChamp', () => {
       expect(apres.valeurs.prenom1).toBe(avant.valeurs.prenom1);
     });
 
+    it('consigne le champ modifié dans champsModifies', () => {
+      const fichier = fichierDe([L400, L405]);
+      const res = reussir(modifierChamp(fichier, { ligne: 2, champ: 'nom' }, 'MARTIN'));
+      expect(res.lignes[1]).toMatchObject({ champsModifies: ['nom'] });
+      expect(Object.isFrozen((res.lignes[1] as { champsModifies: unknown }).champsModifies)).toBe(
+        true,
+      );
+    });
+
+    it('n ajoute pas de doublon quand le même champ est modifié deux fois', () => {
+      const un = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, 'MARTIN'));
+      const deux = reussir(modifierChamp(un, { ligne: 1, champ: 'nom' }, 'DURAND'));
+      expect(deux.lignes[0]).toMatchObject({ champsModifies: ['nom'] });
+    });
+
+    it('accumule les champs modifiés dans l ordre des modifications', () => {
+      const un = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'prenom1' }, 'JEAN'));
+      const deux = reussir(modifierChamp(un, { ligne: 1, champ: 'nom' }, 'MARTIN'));
+      expect(deux.lignes[0]).toMatchObject({ champsModifies: ['prenom1', 'nom'] });
+    });
+
+    it('ne consigne rien sur les autres lignes ni sur le fichier d entrée', () => {
+      const fichier = fichierDe([L400, L405]);
+      const res = reussir(modifierChamp(fichier, { ligne: 2, champ: 'nom' }, 'MARTIN'));
+      expect(res.lignes[0]).not.toHaveProperty('champsModifies');
+      expect(fichier.lignes[1]).not.toHaveProperty('champsModifies');
+    });
+
+    it('ne consigne rien quand la modification est refusée', () => {
+      const fichier = fichierDe([L405]);
+      expect(modifierChamp(fichier, { ligne: 1, champ: 'prenom2' }, 'X').ok).toBe(false);
+      expect(fichier.lignes[0]).not.toHaveProperty('champsModifies');
+    });
+
     it('conserve le BOM', () => {
       const fichier = fichierDe([L400, L405], { bom: true });
       const res = reussir(modifierChamp(fichier, { ligne: 2, champ: 'nom' }, 'MARTIN'));

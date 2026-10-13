@@ -159,7 +159,7 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
       return;
     }
 
-    function malPlacee(detail: string): void {
+    const malPlacee = (detail: string): void => {
       anomalies.push(
         anomalie(
           'entite-mal-placee',
@@ -167,9 +167,9 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
           `Ligne ${numero} : entité ${code} mal placée, ${detail}.`,
         ),
       );
-    }
+    };
 
-    function enDouble(premiere: number): void {
+    const enDouble = (premiere: number): void => {
       anomalies.push(
         anomalie(
           'entite-en-double',
@@ -177,14 +177,14 @@ export function controlerStructure(lignes: readonly LigneAc056[]): AnomalieAc056
           `Ligne ${numero} : entité ${code} en double (déjà ligne ${premiere}).`,
         ),
       );
-    }
+    };
 
     /** Enregistre une entité unique dans `uniques`, ou signale le doublon (première occurrence). */
-    function enregistrerUnique(uniques: Map<CodeEntite, number>): void {
-      const premiere = uniques.get(code as CodeEntite);
-      if (premiere === undefined) uniques.set(code as CodeEntite, numero);
+    const enregistrerUnique = (uniques: Map<CodeEntite, number>): void => {
+      const premiere = uniques.get(code);
+      if (premiere === undefined) uniques.set(code, numero);
       else enDouble(premiere);
-    }
+    };
 
     switch (code) {
       case '000':

@@ -8,6 +8,7 @@ import {
   lignesCompletes,
   type OptionsFichierSynthetique,
 } from '@shared/test/ac056-synthetique';
+import { CODES_FORMAT } from '@shared/test/codes-anomalies-ac056';
 import { CODES_ENTITE, ENTITES } from './entites';
 import { codeEntite, lireAc056, lireValeurs } from './lecteur';
 import type { LectureAc056, LigneAc056, LigneDecrite } from './modele';
@@ -19,8 +20,6 @@ const binaire = (chaine: string) => chaine as Octets;
 function lire(lignes: readonly string[], options?: OptionsFichierSynthetique) {
   return lireAc056(fichierSynthetique(lignes, options));
 }
-
-const CODES_FORMAT: readonly string[] = ['bom', 'fin-de-ligne-lf', 'fin-de-ligne-cr', 'ligne-vide'];
 
 /** Anomalies de format, filtrées par code (et non par `bloquante`, pour détecter une erreur de niveau). */
 function anomaliesDeFormat(lecture: LectureAc056) {

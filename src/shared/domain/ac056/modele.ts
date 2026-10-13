@@ -19,6 +19,11 @@ export interface LigneDecrite extends LigneCommune {
   readonly code: CodeEntite;
   /** Clé = DescriptionChamp.nom. Copy puis trimFpc si `trim`. */
   readonly valeurs: Readonly<Record<string, Octets>>;
+  /**
+   * Noms des champs réécrits par `modifierChamp`, sans doublon. Absent tant que rien n'a été
+   * modifié. Le contrôle juge alors la valeur saisie et non plus les octets d'origine.
+   */
+  readonly champsModifies?: readonly string[];
 }
 
 /**
@@ -75,7 +80,6 @@ export interface FichierAc056 {
   readonly e999: number | null;
 }
 
-/** Étendu par l'item 5. */
 export type CodeAnomalie =
   | 'bom'
   | 'fin-de-ligne-lf'
@@ -86,7 +90,13 @@ export type CodeAnomalie =
   | 'entite-inconnue'
   | 'entite-mal-placee'
   | 'entite-en-double'
-  | 'entite-absente';
+  | 'entite-absente'
+  | 'caractere-non-autorise'
+  | 'caractere-interdit'
+  | 'code-postal-longueur'
+  | 'rang-incoherent'
+  | 'rang-non-numerique'
+  | 'valeur-imposee';
 
 export interface AnomalieAc056 {
   readonly code: CodeAnomalie;
@@ -94,6 +104,8 @@ export interface AnomalieAc056 {
   readonly ligne: number | null;
   readonly message: string;
   readonly bloquante: boolean;
+  /** Nom Flussi du champ en cause (anomalies de contrôle uniquement). */
+  readonly champ?: string;
 }
 
 export interface LectureAc056 {

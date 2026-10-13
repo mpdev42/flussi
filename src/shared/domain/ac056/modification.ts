@@ -1,6 +1,7 @@
 // Modification d'un champ AC056 : parité de `ModifierDonnee` (le texte du contrôle est affecté tel
 // quel, sans Trim ni bourrage ; le bourrage vient à l'écriture). Les messages ne contiennent jamais
-// la valeur saisie (donnée personnelle). Le fichier d'entrée n'est jamais modifié.
+// la valeur saisie (donnée personnelle). Le fichier d'entrée n'est jamais modifié. Chaque champ
+// réécrit est consigné dans `champsModifies` de la ligne : le contrôle juge alors la valeur saisie.
 import { ENTITES } from './entites';
 import type { FichierAc056, LigneDecrite } from './modele';
 import { octetsDepuisTexte } from './octets';
@@ -75,9 +76,14 @@ export function modifierChamp(
     );
   }
 
+  const dejaModifies = ligne.champsModifies ?? [];
+  const champsModifies = dejaModifies.includes(champ.nom)
+    ? dejaModifies
+    : Object.freeze([...dejaModifies, champ.nom]);
   const nouvelle: LigneDecrite = Object.freeze({
     ...ligne,
     valeurs: Object.freeze({ ...ligne.valeurs, [champ.nom]: octets }),
+    champsModifies,
   });
   const lignes = Object.freeze(fichier.lignes.map((l, i) => (i === indice ? nouvelle : l)));
   return Object.freeze({ ok: true as const, fichier: Object.freeze({ ...fichier, lignes }) });

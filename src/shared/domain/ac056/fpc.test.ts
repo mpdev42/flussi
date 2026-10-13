@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addCharR, trimFpc } from './fpc';
+import { addCharR, strToIntFpc, trimFpc } from './fpc';
+import { octetsDepuisTexte } from './octets';
 import type { Octets } from './octets';
 
 const binaire = (chaine: string) => chaine as Octets;
@@ -80,5 +81,93 @@ describe('addCharR', () => {
 
   it('conserve les blancs et octets de la valeur', () => {
     expect(addCharR(' ', binaire('  A\xFF'), 6)).toBe('  A\xFF  ');
+  });
+});
+
+describe('strToIntFpc', () => {
+  it.each([
+    ['01', 1],
+    [' 5', 5],
+    ['\t5', 5],
+    ['  \t 12', 12],
+    ['+5', 5],
+    ['-1', -1],
+    ['00', 0],
+    ['0', 0],
+    ['-0', 0],
+    ['99', 99],
+    ['5\x00', 5],
+    ['5\x00X', 5],
+    ['0\x00', 0],
+    ['00\x00', 0],
+  ])('lit %j comme %j', (texte, attendu) => {
+    expect(strToIntFpc(binaire(texte))).toBe(attendu);
+  });
+
+  it.each([
+    ['$A', 10],
+    ['$a', 10],
+    ['$1F', 31],
+    ['xF', 15],
+    ['XF', 15],
+    ['0x1F', 31],
+    ['0X1F', 31],
+    ['%1', 1],
+    ['%101', 5],
+    ['&7', 7],
+    ['&17', 15],
+    ['-$A', -10],
+  ])('lit le préfixe de base de %j comme %j', (texte, attendu) => {
+    expect(strToIntFpc(binaire(texte))).toBe(attendu);
+  });
+
+  it.each([
+    [''],
+    ['  '],
+    ['\t'],
+    ['5 '],
+    ['5\t'],
+    ['0x'],
+    ['-'],
+    ['+'],
+    ['$'],
+    ['%'],
+    ['&'],
+    ['\x00\x00'],
+    ['\x00'],
+    [' \x00'],
+    ['-\x00'],
+    ['AB'],
+    ['1A'],
+    ['%2'],
+    ['&8'],
+    ['$G'],
+    ['5X'],
+    ['1 2'],
+    ['--1'],
+    ['+-1'],
+    ['- 1'],
+    ['1,5'],
+    ['1.5'],
+    [' ' + '5'],
+  ])('refuse %j', (texte) => {
+    expect(strToIntFpc(binaire(texte))).toBeNull();
+  });
+
+  it('refuse un caractère accentué encodé en UTF-8', () => {
+    expect(strToIntFpc(octetsDepuisTexte('é'))).toBeNull();
+  });
+
+  it('lit jusqu aux bornes d un entier 32 bits signé', () => {
+    expect(strToIntFpc(binaire('2147483647'))).toBe(2147483647);
+    expect(strToIntFpc(binaire('-2147483648'))).toBe(-2147483648);
+    expect(strToIntFpc(binaire('2147483648'))).toBeNull();
+    expect(strToIntFpc(binaire('-2147483649'))).toBeNull();
+    expect(strToIntFpc(binaire('99999999999999999999'))).toBeNull();
+  });
+
+  it('retire les zéros de tête sans changer la valeur', () => {
+    expect(strToIntFpc(binaire('000000000012'))).toBe(12);
+    expect(strToIntFpc(binaire('-007'))).toBe(-7);
   });
 });

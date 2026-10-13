@@ -17,6 +17,7 @@
 | 7 | Rejets : pas de lignes 000/001 fabriquées | 6 |
 | 8 | Format d'origine conservé : fins de ligne (CRLF, LF, CR), BOM, saut de ligne final (Lazarus réécrit tout en CRLF, sans BOM, avec un CRLF après la dernière ligne) | 3 |
 | 9 | Zone non décrite (fin de ligne non lue par Lazarus) réécrite telle quelle (Lazarus la réécrit en espaces) | 3 |
+| 10 | Rejet non reconnu : explication « Erreur inconnue. Contactez le service informatique. » (Lazarus affiche une explication vide, par bug) | 5 |
 
 ---
 
@@ -272,7 +273,7 @@
 
 ### 5. Règles de contrôle, jeu de caractères et codes de rejet ERRxxx
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Portage à l'identique des contrôles de Lazarus, contrôle du jeu de caractères sur tous les champs, table des codes de rejet `ERRxxx` avec leur explication. Fusion des items 4 et 5 de la roadmap.
@@ -316,6 +317,75 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
 - **Contrôle d'un champ** : à la sortie d'un champ, il s'appliquera à la valeur produite par `modifierChamp` (`modification.ts`).
 - **Écarts dans le corpus** : `comparaison-ac056.ts` (`decrireEcartAc056`) les décrit par fichier, ligne, octet, entité et champ, sans valeur.
 
+**Décisions d'implémentation** (2026-10-13) :
+
+- **Constats Lazarus** (`ucontrole.pas`, `fmain.pas`, `utypes.pas`) :
+  - `ControlerEvenements` tourne au chargement d'un fichier VEOS et avant l'enregistrement, refusé s'il reste une erreur. Jamais avant le dépôt, jamais sur un rejet.
+  - `s_type_assure` des 405, 410, 485, 490, 700 et 800 est celui de la 400 : aucun de ces records n'a ce champ, le `with` imbriqué se résout vers la 400.
+  - `StrToInt` n'est évalué que pour les types `ASSPRI`, `CONJOI` et `ENFANT` (évaluation courte). Pour un autre type, un rang n'est jamais contrôlé, même non numérique.
+  - Jeux relus dans `uconstantes.pas` (l. 70 à 74), contrôle octet par octet.
+- **API** :
+  - `controlerAc056(fichier)` : contrôle complet, passe séparée de `lireAc056`. Les rejets de l'item 6 ne sont jamais contrôlés, et l'écran recontrôle après une modification.
+  - `controlerChamp(fichier, cible)` : contrôle complet filtré sur une ligne et un champ.
+  - Le résultat est une liste d'`AnomalieAc056`, toutes bloquantes, avec le nouveau champ `champ`.
+- **Codes d'anomalie** :
+  - règles Lazarus : `caractere-non-autorise`, `code-postal-longueur`, `rang-incoherent`, `valeur-imposee` ;
+  - divergences : `rang-non-numerique` (4) et `caractere-interdit` (5).
+  - Le tri se fait par ligne, puis position du champ, puis ordre des règles de `ControlerEvenement`.
+- **Règles Lazarus** : table déclarative `REGLES` (`controle.ts`), parcourue par la hiérarchie.
+  - Une ligne brute de code connu (≠ 700 octets) est lue par `lireValeurs` aux positions de Lazarus.
+  - Le `s_num_dossier_n <> ''` est porté littéralement, mais il est impossible sur une ligne lue.
+- **Divergence 5** :
+  - octet < 0x20, 0x7F ou ≥ 0x80, dans tout champ de toute ligne de code connu, entités brutes comprises ;
+  - examiné dans `origine`, ce qui signale aussi un octet de contrôle retiré par `trimFpc` en bordure ;
+  - pour un champ modifié, c'est la valeur saisie qui est examinée : `LigneDecrite.champsModifies` est posé par `modifierChamp` ;
+  - les octets au-delà de 700 sont rattachés au dernier champ ;
+  - une ligne de code inconnu n'est pas contrôlée ;
+  - un seul message par champ : rien de plus si la règle Lazarus a déjà signalé le champ.
+- **Libellés** :
+  - formulation Lazarus pour les champs qu'il nomme (« le nom », « le rang de bénéficiaire », « le code »…) ;
+  - « le champ {nom} (octets X à Y) » pour tous les autres ;
+  - les vrais libellés des champs affichés viendront avec l'écran (v0.3.0).
+- **`strToIntFpc`** (`fpc.ts`) : port de `Val` (FPC 3.2). Il accepte les espaces et tabulations de tête, le signe, les préfixes `$ x X % &` et `0x`, et s'arrête sur `#0`. Il échoue sur `''` et sur un espace de fin. Un rang non numérique (divergence 4) donne « Entité NNN : rang non numérique », pour `rang` comme pour `rangPersonne` : c'est le champ qui les distingue.
+- **Codes de rejet** (`codes-rejet.ts`) :
+  - Table `REJETS` des 27 codes, dans l'ordre Lazarus, avec les modes `debut`, `contenu`, `fin` et `egalite`.
+  - `identifierRejet(message)` retient le premier code dont toutes les recherches correspondent. Le message est pris tel quel.
+  - Explications « Aide ERRxxx » reprises mot pour mot. Ce sont des textes provisoires, à réécrire dans le code.
+  - Un message vide ou non reconnu donne « Erreur inconnue. Contactez le service informatique. » (divergence 10).
+  - Chevauchements figés par les tests : ERR010 l'emporte sur ERR027, ERR013 sur ERR014.
+- **Tests de parité Lazarus** :
+  - `controle.lazarus.test.ts` : les 28 contrôles et messages extraits de `ucontrole.pas` sont vérifiés par le comportement. La réciproque est vérifiée aussi : la table produit exactement ces 28 messages.
+  - `codes-rejet.lazarus.test.ts` : les 27 appels de `urejetsdescription.pas` et l'algorithme d'explication sont rejoués.
+- **Corpus** (`controle.corpus.test.ts`) :
+  - Aucune anomalie de contrôle sur les 9 fichiers de `IN\` ni sur les 3 de `MODIFIES\`, enregistrés par Lazarus.
+  - `PIEGES\` : relevé lu par `lireReleveLazarus` (`src/shared/test/releve-lazarus.ts`), au format RTF de WordPad ou en texte. Comparaison en multiensemble (dossier, évènement, message), hors codes de divergence.
+  - `MATH_20260923_054813` : 34 erreurs Lazarus, 34 Flussi, aucun écart. Le fichier couvre 22 des 28 messages.
+- **Performance** (lecture + contrôle complet, mesures isolées) :
+  - plus gros fichier de `IN\` (551 lignes) : 25 à 30 ms, dont 19 à 22 ms de lecture ;
+  - synthétique 10× (5 442 lignes) : 270 à 285 ms ;
+  - coût linéaire d'environ 37 µs par ligne : le contrôle ajoute environ 30 % à la lecture.
+  - L'écart de l'item 4 (18,7 ms contre environ 520 ms) venait de la taille (9,9×) et de la charge des tests lancés en parallèle.
+- **Dette de l'item 4 soldée** :
+  - `CODES_FORMAT` unique (`src/shared/test/codes-anomalies-ac056.ts`) ;
+  - plus de `as CodeEntite` dans `structure.ts` ;
+  - NUL de `octets.test.ts` échappés.
+- **Fabrique** : `lignesCompletes()` est conforme aux contrôles (code postal, 485 `COEFCO`/`COUPLE`, 490 `COEFCO`/`REDAN` + `NON`, types d'assuré `ASSPRI`/`CONJOI`).
+- **Résultats** : `npm test` (1 530 tests) et `npm run test:corpus` (24 tests) passent.
+- **Reste à couvrir dans `PIEGES\`**, par un second fichier piégé, non bloquant :
+  - 120 : complément géographique, numéro de voie, lieu-dit ;
+  - 405 : numéro INSEE, nom de jeune fille ;
+  - 800 : rang de personne ;
+  - `ENFANT` ≥ 40, et 21 à 39 sans erreur ;
+  - 490 `REDAN` ;
+  - divergence 5 : tabulation en tête d'un nom, accent dans un champ non contrôlé.
+- **Reporté en v0.3.0** (écran) et aux services :
+  - Lazarus ne contrôle pas avant le dépôt : l'écart avec Flussi reste à trancher au dépôt MSP.
+  - À la sortie d'un champ, Lazarus vide toutes les erreurs de l'évènement et ne recrée que celles du champ et des 485/490 (défaut d'écran). Le domaine ne le reproduit pas : l'écran remplacera seulement les anomalies du champ modifié.
+- Non bloquant, reporté (revue d'item du 2026-10-13) :
+  - `strToIntFpc` renvoie `null` au-delà de 2^31 - 1 en base 16, 8 ou 2, là où FPC étend le signe (`$FFFFFFFF` → -1). Ce cas est inatteignable : les rangs font 2 octets, et `modifierChamp` refuse une valeur plus longue que le champ. Seul le commentaire, qui annonce « comme `Integer` de FPC », est à préciser.
+  - `REJETS` n'est pas gelé en profondeur, alors que les anomalies et le résultat d'`identifierRejet` le sont. À geler avant que l'item 6 ne le consomme.
+  - `REGLES`, `Verdict` et `RegleLazarus` sont exportés de `controle.ts` pour les tests de parité seulement (pas par `index.ts`).
+
 ---
 
 ### 6. Fichiers de rejet MSP (Windows-1252)
@@ -348,6 +418,12 @@ Non contrôlés par Lazarus et non ajoutés : entités `100`, `110`, `130`, `135
   - accepter l'absence de `000`, `001` et `999` ;
   - remplacer la longueur exacte de 700 octets par « au moins 718 octets ».
 - Les règles de placement sont dans la table `REGLES` et les cas particuliers 000, 001 et 999. C'est là qu'il faut adapter, d'après l'origine fournie par l'appelant. Aucun paramètre n'a été ajouté à l'item 4.
+
+**Point d'attention pour l'item 6** (laissé par l'item 5) :
+
+- `identifierRejet` (`codes-rejet.ts`) prend le message tel quel. Lazarus le prépare ainsi : ligne entière décodée (`WinCPToUTF8`), puis `Trim` de **toute la ligne**, puis `Copy(ligne, 719, …)`. Les espaces de tête du message sont donc conservés, ceux de fin retirés. Un message qui commence par un espace ne correspond à aucun mode `debut`.
+- Dans Lazarus, le décodage précède le `Copy` : un caractère accentué dans les octets 1 à 718 décale le début du message. Le décodage par zones de l'item 6 (divergence déjà prévue) ne reproduit pas ce décalage.
+- `controlerAc056` ne doit jamais être appelé sur un rejet (parité : `if not FFichierRejet then ControlerEvenements`).
 
 ---
 

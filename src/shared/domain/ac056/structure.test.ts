@@ -10,8 +10,10 @@ import {
   lignesDepuisCodes,
   type OptionsFichierSynthetique,
 } from '@shared/test/ac056-synthetique';
+import { CODES_FORMAT } from '@shared/test/codes-anomalies-ac056';
 import { empreinteSha256 } from '@shared/test/comparaison-ac056';
 import { compterRattachements } from '@shared/test/rattachements-ac056';
+import { controlerAc056 } from './controle';
 import { CODES_ENTITE, type CodeEntite } from './entites';
 import { ecrireAc056 } from './ecrivain';
 import { construireHierarchie } from './hierarchie';
@@ -49,8 +51,6 @@ const messageSansEvenementFin = (numero: number) =>
 const MESSAGE_000_ABSENTE = 'Entité 000 absente : le fichier doit commencer par une 000.';
 const MESSAGE_999_ABSENTE = 'Entité 999 absente : le fichier doit se terminer par une 999.';
 const MESSAGE_FICHIER_VIDE = 'Le fichier est vide : aucune ligne AC056.';
-
-const CODES_FORMAT: readonly string[] = ['bom', 'fin-de-ligne-lf', 'fin-de-ligne-cr', 'ligne-vide'];
 
 function lireLignes(lignes: readonly string[], options?: OptionsFichierSynthetique): LectureAc056 {
   return lireAc056(fichierSynthetique(lignes, options));
@@ -716,7 +716,7 @@ describe('controlerStructure via lireAc056', () => {
         sautFinal: true,
       });
       const codes = new Set(lecture.anomalies.map((a) => a.code));
-      for (const code of CODES_FORMAT) expect(codes.has(code as never)).toBe(true);
+      for (const code of CODES_FORMAT) expect(codes.has(code)).toBe(true);
       expect(codes.has('entite-mal-placee')).toBe(true);
       expect(codes.has('entite-absente')).toBe(true);
       for (const anomalie of lecture.anomalies) {
@@ -1030,7 +1030,7 @@ describe('garantie : sans anomalie bloquante, chaque ligne est rattachée exacte
   });
 });
 
-describe('performance du lecteur sur un fichier synthétique 10 fois plus gros', () => {
+describe('performance de la lecture et du contrôle sur un fichier synthétique 10 fois plus gros', () => {
   const REPETITIONS = 3;
 
   function mediane(valeurs: readonly number[]): number {
@@ -1038,23 +1038,29 @@ describe('performance du lecteur sur un fichier synthétique 10 fois plus gros',
     return triees[Math.floor(triees.length / 2)] ?? Number.NaN;
   }
 
-  it('lit environ 5 400 lignes sans dérive quadratique (garde-fou large, mesure indicative)', async ({
+  it('lit et contrôle environ 5 400 lignes sans dérive quadratique (garde-fou large, mesure indicative)', async ({
     annotate,
   }) => {
     const octets = fichierSynthetique(lignesCompletes({ dossiers: 80 }));
-    expect(lireAc056(octets).fichier.lignes).toHaveLength(5442);
+    const echauffement = lireAc056(octets);
+    expect(echauffement.fichier.lignes).toHaveLength(5442);
+    expect(controlerAc056(echauffement.fichier)).toEqual([]);
 
     const durees: number[] = [];
+    const dureesLecture: number[] = [];
     for (let i = 0; i < REPETITIONS; i++) {
       const debut = performance.now();
       const lecture = lireAc056(octets);
+      const finLecture = performance.now();
+      const anomalies = controlerAc056(lecture.fichier);
       durees.push(performance.now() - debut);
+      dureesLecture.push(finLecture - debut);
       expect(lecture.anomalies).toEqual([]);
+      expect(anomalies).toEqual([]);
     }
-    const ms = mediane(durees);
     await annotate(
-      `Lecture synthétique 10x : ${octets.length} octets, 5442 lignes, médiane ${ms.toFixed(0)} ms sur ${REPETITIONS} mesures.`,
+      `Lecture + contrôle synthétique 10x : ${octets.length} octets, 5442 lignes, médiane ${mediane(durees).toFixed(0)} ms (lecture seule ${mediane(dureesLecture).toFixed(0)} ms) sur ${REPETITIONS} mesures.`,
     );
-    expect(ms).toBeLessThan(5000);
+    expect(mediane(durees)).toBeLessThan(5000);
   });
 });

@@ -125,14 +125,19 @@ function lignesBeneficiaire(dossier: number, evenement: number, rang: number): s
   const r = String(rang).padStart(2, '0');
   const e = entete(dossier, evenement, r);
   return [
-    ligneSynthetique('400', { ...e, rangPersonne: r, refExterne: `REF${rang}` }),
+    ligneSynthetique('400', {
+      ...e,
+      rangPersonne: r,
+      refExterne: `REF${rang}`,
+      typeAssure: rang === 1 ? 'ASSPRI' : 'CONJOI',
+    }),
     ligneSynthetique('405', { ...e, nom: 'DUPONT', prenom1: 'TEST', numInsee: '1000000000000' }),
     ligneSynthetique('410', e),
     ligneSynthetique('411', e),
-    ligneSynthetique('485', { ...e, code: 'TST485', valeur: '1' }),
-    ligneSynthetique('485', { ...e, code: 'TST485', valeur: '2' }),
-    ligneSynthetique('490', { ...e, code: 'TST490', valeur: '1' }),
-    ligneSynthetique('490', { ...e, code: 'TST490', valeur: '2' }),
+    ligneSynthetique('485', { ...e, code: 'COEFCO', valeur: 'COUPLE' }),
+    ligneSynthetique('485', { ...e, code: 'COEFCO', valeur: 'COUPLE' }),
+    ligneSynthetique('490', { ...e, code: 'COEFCO', valeur: 'NON' }),
+    ligneSynthetique('490', { ...e, code: 'REDAN', valeur: 'NON' }),
     ligneSynthetique('700', { ...e, codeAssureur: 'TEST', codeProduit: 'PRODUIT1' }),
     ligneSynthetique('700', { ...e, codeAssureur: 'TEST', codeProduit: 'PRODUIT2' }),
     ligneSynthetique('800', { ...e, rangPersonne: r, refExterne: `EXT${rang}` }),
@@ -145,7 +150,12 @@ function lignesEvenement(dossier: number, evenement: number): string[] {
     ligneSynthetique('100', { ...e, numContratIndiv: `CTR${dossier}`, echPrinc: '0101' }),
     ligneSynthetique('110', e),
     ligneSynthetique('115', { ...e, nom: 'DUPONT', prenom1: 'TEST' }),
-    ligneSynthetique('120', { ...e, libelleVoie: 'RUE DE TEST', libelleLocalite: 'TESTVILLE' }),
+    ligneSynthetique('120', {
+      ...e,
+      libelleVoie: 'RUE DE TEST',
+      codePostalLocalite: '99999',
+      libelleLocalite: 'TESTVILLE',
+    }),
     ligneSynthetique('125', { ...e, valeurCoordonneeCommunication: 'test1@example.invalid' }),
     ligneSynthetique('125', { ...e, valeurCoordonneeCommunication: 'test2@example.invalid' }),
     ligneSynthetique('130', e),
@@ -159,7 +169,7 @@ function lignesEvenement(dossier: number, evenement: number): string[] {
 }
 
 /**
- * Fichier complet fictif : 000, puis `dossiers` dossiers (001 … 995, 2 par défaut) de 2 évènements
+ * Fichier complet fictif, conforme aux contrôles (aucune anomalie de `controlerAc056`) : 000, puis `dossiers` dossiers (001 … 995, 2 par défaut) de 2 évènements
  * (100, 110, 115, 120, 125 x2, 130, 135, 155, 180, 2 bénéficiaires, 990), puis 999.
  * Un bénéficiaire : 400, 405, 410, 411, 485 x2, 490 x2, 700 x2, 800 (11 lignes).
  * Par défaut 138 lignes ; chaque dossier en ajoute 68.

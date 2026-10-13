@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { controlerAc056 } from '@shared/domain/ac056/controle';
 import { CODES_ENTITE, ENTITES } from '@shared/domain/ac056/entites';
+import { lireAc056 } from '@shared/domain/ac056/lecteur';
 import {
   enChaineBinaire,
   enOctetsBruts,
@@ -204,6 +206,11 @@ describe('lignesCompletes', () => {
 
   it('contient 8 bénéficiaires (400)', () => {
     expect(codes.filter((code) => code === '400')).toHaveLength(8);
+  });
+
+  it('ne produit aucune anomalie de contrôle', () => {
+    const { fichier } = lireAc056(fichierSynthetique(lignes));
+    expect(controlerAc056(fichier)).toEqual([]);
   });
 
   it('n utilise que des données fictives', () => {
