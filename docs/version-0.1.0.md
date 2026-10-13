@@ -15,6 +15,8 @@
 | 5 | Octet non ASCII ou caractère de contrôle signalé dans tout champ (Lazarus ne contrôle que certains champs) | 5 |
 | 6 | Aucune ligne perdue : une ligne en anomalie est conservée et réécrite à l'identique (Lazarus la perd) | 4 |
 | 7 | Rejets : pas de lignes 000/001 fabriquées | 6 |
+| 8 | Format d'origine conservé : fins de ligne (CRLF, LF, CR), BOM, saut de ligne final (Lazarus réécrit tout en CRLF, sans BOM, avec un CRLF après la dernière ligne) | 3 |
+| 9 | Zone non décrite (fin de ligne non lue par Lazarus) réécrite telle quelle (Lazarus la réécrit en espaces) | 3 |
 
 ---
 
@@ -27,10 +29,10 @@
 
 **Dossier du corpus** : `P:\Siege\Service administratif\MATH\APIVIA Transfert\Transferts\CORPUS-DEV\`
 
-- `IN\` : 9 fichiers VEOS de 2026, de 4 Ko à 387 Ko, ASCII pur, sans BOM, CRLF, lignes de 700 caractères. Les fichiers corrigés dans Lazarus (écrasés à l'enregistrement) ne se distinguent pas des originaux.
+- `IN\` : 9 fichiers VEOS de 2026, de 4 Ko à 387 Ko, ASCII pur, sans BOM, CRLF, lignes de 700 caractères, **sans saut de ligne après la dernière ligne** (constaté le 2026-10-13). Les fichiers corrigés dans Lazarus (écrasés à l'enregistrement) se distinguent des originaux par le CRLF final que Lazarus ajoute toujours.
 - `OUT\` : 3 rejets MSP (09/09, 17/09, 23/09), Windows-1252, CRLF, lignes de 817 à 829 caractères, chacun rattaché à un fichier de `IN`.
 - `PIEGES\` : créé par l'utilisateur le moment voulu (avant l'item 5). Copies de fichiers du corpus avec erreurs volontaires, accompagnées du relevé manuel des messages affichés par Lazarus. Lazarus n'enregistre pas un fichier en erreur.
-- Fichiers modifiés par Lazarus : 2 ou 3 copies dont un champ est modifié puis enregistré dans Lazarus, avec la modification notée. Référence de l'écrivain (item 3), créées par l'utilisateur le moment voulu.
+- `MODIFIES\` : fichiers modifiés par Lazarus, référence de l'écrivain (item 3). 3 cas créés le 2026-10-13, convention dans les décisions d'implémentation de l'item 3.
 - Couverture des entités 000 à 999 : vérifiée plus tard, si nécessaire. Les cas absents du corpus (BOM, LF, accents, fichiers mal formés) sont couverts par des fichiers synthétiques.
 
 **Décisions techniques** :
@@ -116,14 +118,14 @@
 
 ### 3. Lecteur et écrivain AC056, réécriture identique à l'octet près
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Lecture d'un fichier AC056 (octets → structure + anomalies), écriture (structure → octets), modification d'un champ. Un fichier lu puis réécrit sans modification est identique à l'original, octet par octet. Fusion des items 3 et 6 de la roadmap.
 
 **Constat Lazarus** (`ChargerFichierAc056` et `EnregistrerFichierAc056` dans `fmain.pas`) :
 
-- Lecture ligne par ligne (`ReadLn` : CRLF et LF), lignes vides ignorées, et fichier aussitôt réenregistré au chargement s'il en contenait.
+- Lecture ligne par ligne (`ReadLn` : CRLF, LF et CR seul), lignes vides ignorées, et fichier aussitôt réenregistré au chargement s'il en contenait. Une ligne faite d'espaces n'est pas vide : elle est traitée comme une entité inconnue.
 - Écriture par régénération des lignes à partir des champs, dans un ordre canonique fixe, entités absentes sautées. `AddCharR(' ', ligne, 700)` sauf pour `000` et `001`, écrites brutes. CRLF, y compris après la dernière ligne, sans BOM.
 
 **Décisions techniques** :
@@ -142,6 +144,46 @@
 - Synthétiques : LF, BOM, absence de saut de ligne final, lignes vides, valeur trop longue.
 
 **Fichiers impactés** : `src/shared/domain/ac056/` (lecteur, écrivain, modèle, modification) et leurs tests.
+
+**Décisions d'implémentation** (2026-10-13) :
+
+- Modèle :
+  - valeurs gardées en octets, jamais décodées : type marqué `Octets`, chaîne binaire à un caractère par octet. `TextDecoder('latin1')` est interdit (c'est du windows-1252) ;
+  - liste plate `lignes` dans l'ordre d'origine, seule source de l'écrivain, plus une hiérarchie par indices calquée sur `utypes.pas` (`e000`, `dossiers`, `evenements`, `beneficiaires`, `e110`…) ;
+  - chaque ligne garde `numero` (base 1, lignes vides comptées), `origine` (octets lus) et sa propre fin de ligne.
+- Nature des lignes :
+  - ligne décrite : 700 octets d'une entité non brute ;
+  - ligne brute, réécrite à l'identique : 000, 001, 990, 995 et 999, plus provisoirement toute ligne de longueur différente de 700 ou de code inconnu, en attendant l'item 4.
+  - Le rattachement à la hiérarchie se fait d'après le code, quelle que soit la nature de la ligne. Une entité unique en double : la dernière gagne, comme dans Lazarus, et la précédente reste à sa place sans être rattachée.
+- Parité Free Pascal : `trimFpc` retire tout octet inférieur ou égal à `0x20`. `addCharR` bourre à droite sans jamais tronquer.
+- Fins de ligne : un CR seul est reconnu comme fin de ligne (parité `ReadLn`).
+- Anomalies non bloquantes : BOM, fins de ligne LF ou CR, lignes vides. **L'absence de saut de ligne final n'est pas une anomalie** : c'est le format normal des fichiers VEOS.
+- `modifierChamp` :
+  - limité aux 23 champs modifiables ; valeur encodée en UTF-8 sans Trim ;
+  - refus d'une valeur plus longue que le champ (divergence 1) ou contenant un CR ou un LF. Le `TEdit` de Lazarus est monoligne : ce n'est pas une divergence ;
+  - les messages d'erreur ne contiennent jamais la valeur.
+- **Règle d'écran reportée en v0.3.0** : dans Lazarus, tous les champs sont verrouillés à l'ouverture (`VerrouillerComposants`). Seuls les champs signalés par les contrôles sont déverrouillés (`MarquerControleErreur`). Le domaine ne l'impose pas : c'est l'écran AC056 qui ne rendra modifiables que les champs en erreur.
+- Corpus `MODIFIES\`, deux fichiers par cas :
+  - `X.txt` : le fichier enregistré par Lazarus ;
+  - `X.modification.txt` : `original=`, `ligne=`, `champ=` (nom Flussi exact), `valeur=` (texte saisi, tel quel).
+  - Pour déverrouiller le champ dans Lazarus, on le piège au préalable dans une copie. Le test applique la modification à `IN\<original>` et ajoute un CRLF final si l'original n'en a pas (divergence 8), puis compare par SHA-256.
+- Contrôle préalable des 3 cas de `MODIFIES\` le 2026-10-13, par simulation, sur les positions seulement :
+  - une seule ligne diffère de l'original, en plus du CRLF final ;
+  - la régénération de Lazarus est donc sans effet sur ces 3 fichiers VEOS ;
+  - le rang de personne saisi « 1 » est écrit « 10 ».
+- Résultats du 2026-10-13 :
+  - corpus `IN\` : les 9 fichiers relus puis réécrits sont identiques à l'original par SHA-256, sans aucune anomalie, et chaque ligne est rattachée à la hiérarchie. Le Trim de Lazarus n'a donc aucun effet sur les fichiers VEOS réels ;
+  - corpus `MODIFIES\` : les 3 cas reproduisent Lazarus octet par octet, au CRLF final près (divergence 8).
+  - Tests : `npm test` (822 tests) et `npm run test:corpus` (17 tests) passent.
+- Helpers de test ajoutés :
+  - `src/shared/test/ac056-synthetique.ts` : lignes et fichiers synthétiques construits depuis `ENTITES` ;
+  - `src/shared/test/comparaison-ac056.ts` : SHA-256 et écart localisé par entité et champ, sans valeur ;
+  - `decrireSousDossierCorpus` (dans `src/shared/test/corpus.ts`) : sous-dossier du corpus ignoré s'il est absent ou vide, obligatoire en mode corpus. Il resservira pour `PIEGES\` à l'item 5.
+- Non bloquant, reporté (revue d'item du 2026-10-13) :
+  - `addCharR` passe par `TextEncoder` pour répéter un caractère ASCII. Le remplacer par une répétition directe dans `octets.ts` au plus tard à l'item 4, qui fixe un critère de performance.
+  - `texteDepuisOctets` retire un BOM en tête de valeur : passer `ignoreBOM: true` avant l'affichage en v0.3.0.
+  - Le type `FinDeLigne` de la fabrique synthétique a le même nom que celui du domaine, avec un sens différent : à renommer.
+  - Le test corpus « sans saut final » vérifie la donnée VEOS, pas le code. Il sert de sentinelle du format.
 
 ---
 
