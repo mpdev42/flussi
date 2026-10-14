@@ -1,25 +1,47 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+
+import { CadreApplication, type EntreeNavigation } from '@/components/cadre-application';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useConfiguration } from '@/hooks/use-configuration';
+import { Accueil } from '@/pages/accueil';
+
+// Pour ajouter un écran : une entrée ici et la page correspondante dans ECRANS.
+const NAVIGATION: EntreeNavigation[] = [{ id: 'accueil', libelle: 'Accueil' }];
+
+const ECRANS: Record<string, ReactNode> = {
+  accueil: <Accueil />,
+};
 
 function App() {
-  const [reponse, setReponse] = useState<string | null>(null);
+  const { configuration, erreur } = useConfiguration();
+  const [actif, setActif] = useState('accueil');
 
-  // Smoke-test de la chaîne IPC : le main doit répondre « pong »
-  async function testerPing() {
-    setReponse(await window.api.ping());
+  if (erreur) {
+    return (
+      <div className="p-10">
+        <Alert variant="destructive">
+          <AlertTitle>Configuration indisponible</AlertTitle>
+          <AlertDescription>
+            Flussi n&apos;a pas pu lire sa configuration. Contactez le service informatique.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
+  // Chargement (très bref, IPC local) : conteneur vide, pas de flash de contenu
+  if (!configuration) return <div className="h-screen" />;
+
   return (
-    <main className="flex min-h-screen flex-col items-start gap-4 p-8">
-      <h1 className="text-2xl font-semibold">Hello Flussi</h1>
-      <button
-        type="button"
-        onClick={testerPing}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-      >
-        Tester la chaîne IPC
-      </button>
-      {reponse && <p className="text-muted-foreground">Réponse du main : {reponse}</p>}
-    </main>
+    <CadreApplication
+      environnement={configuration.mode}
+      version={configuration.version}
+      navigation={NAVIGATION}
+      actif={actif}
+      onNaviguer={setActif}
+    >
+      {ECRANS[actif]}
+    </CadreApplication>
   );
 }
 
