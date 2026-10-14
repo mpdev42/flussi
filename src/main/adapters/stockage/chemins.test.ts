@@ -86,7 +86,28 @@ describe('decouperCheminRelatif — noms refusés', () => {
     'dossier/CON',
     'CON/fichier.txt',
     'a.b/nul.tar.gz',
+    'COM0',
+    'com0.txt',
+    'LPT0',
+    'COM¹',
+    'COM²',
+    'COM³',
+    'LPT¹',
+    'LPT³',
+    'lpt²',
+    'CONIN$',
+    'CONOUT$',
+    'conout$.txt',
+    'conin$.log',
+    'dossier/CONOUT$',
   ])('refuse le nom réservé %j', (nom) => {
     expect(raisonDe(nom)).toBe('nom réservé par Windows');
   });
+
+  it.each(['COM10', 'COM10.txt', 'LPT10', 'CONIN', 'CONOUT', 'CONIN$X', 'XCONOUT$', 'COM¹0'])(
+    'accepte le nom %j, qui n’est pas réservé',
+    (nom) => {
+      expect(decouperCheminRelatif(nom)).toEqual({ ok: true, segments: [nom] });
+    },
+  );
 });

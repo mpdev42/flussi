@@ -164,8 +164,10 @@ export function creerStockageDisque(
       if (infos.isFile()) return 'fichier';
       if (infos.isDirectory()) return 'dossier';
     } catch (erreur) {
-      // Un verrou remonte (nouvelles tentatives puis erreur) ; un lien cassé est ignoré
-      if (estCodeVerrou(codeSysteme(erreur))) throw erreur;
+      // Seul un lien cassé (ENOENT) est ignoré. Toute autre erreur remonte : un verrou passe par
+      // les nouvelles tentatives, le reste devient l'erreur typée de `lister`, pour qu'une entrée
+      // illisible ne disparaisse jamais de la liste sans erreur.
+      if (codeSysteme(erreur) !== 'ENOENT') throw erreur;
     }
     return null;
   }

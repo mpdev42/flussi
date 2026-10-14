@@ -20,6 +20,11 @@ export interface CadreApplicationProps {
   /** Identifiant de l'entrée active. */
   actif: string;
   onNaviguer: (id: string) => void;
+  /**
+   * Alerte globale et permanente, affichée sous l'en-tête sur tous les écrans, hors de la zone qui
+   * défile, par exemple le bandeau "Journal non enregistré". Rien n'est rendu si absente.
+   */
+  alerte?: React.ReactNode;
   /** Écran courant. */
   children: React.ReactNode;
 }
@@ -31,7 +36,8 @@ const LIBELLES_ENVIRONNEMENT: Record<Environment, string> = {
 
 /**
  * Cadre commun à tous les écrans : bandeau Recette (rien en production), en-tête bleu marine avec
- * la navigation principale, puis l'écran courant sur toute la hauteur restante de la fenêtre.
+ * la navigation principale, alerte globale facultative, puis l'écran courant sur toute la hauteur
+ * restante de la fenêtre.
  */
 export function CadreApplication({
   environnement,
@@ -39,8 +45,11 @@ export function CadreApplication({
   navigation,
   actif,
   onNaviguer,
+  alerte,
   children,
 }: CadreApplicationProps) {
+  // false (motif `condition && <Alerte />`) est traité comme une absence : pas de conteneur vide.
+  const avecAlerte = alerte != null && typeof alerte !== 'boolean';
   return (
     <div className="flex h-screen flex-col">
       <EnvironmentBanner environment={environnement} />
@@ -75,6 +84,7 @@ export function CadreApplication({
           <span className="text-xs text-navy-100">Flussi {version}</span>
         </div>
       </header>
+      {avecAlerte && <div className="shrink-0">{alerte}</div>}
       <main className="min-h-0 flex-1 overflow-auto bg-background">{children}</main>
     </div>
   );

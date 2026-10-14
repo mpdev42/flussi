@@ -3,17 +3,25 @@ import { useState, type ReactNode } from 'react';
 import { CadreApplication, type EntreeNavigation } from '@/components/cadre-application';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useConfiguration } from '@/hooks/use-configuration';
+import { useEtatJournal } from '@/hooks/use-etat-journal';
 import { Accueil } from '@/pages/accueil';
+import { BandeauJournal } from '@/pages/journal/bandeau-journal';
+import { Journal } from '@/pages/journal/journal';
 
 // Pour ajouter un écran : une entrée ici et la page correspondante dans ECRANS.
-const NAVIGATION: EntreeNavigation[] = [{ id: 'accueil', libelle: 'Accueil' }];
+const NAVIGATION: EntreeNavigation[] = [
+  { id: 'accueil', libelle: 'Accueil' },
+  { id: 'journal', libelle: 'Journal' },
+];
 
 const ECRANS: Record<string, ReactNode> = {
   accueil: <Accueil />,
+  journal: <Journal />,
 };
 
 function App() {
   const { configuration, erreur } = useConfiguration();
+  const etatJournal = useEtatJournal();
   const [actif, setActif] = useState('accueil');
 
   if (erreur) {
@@ -39,6 +47,10 @@ function App() {
       navigation={NAVIGATION}
       actif={actif}
       onNaviguer={setActif}
+      alerte={
+        etatJournal &&
+        !etatJournal.enregistre && <BandeauJournal lignesEnAttente={etatJournal.lignesEnAttente} />
+      }
     >
       {ECRANS[actif]}
     </CadreApplication>

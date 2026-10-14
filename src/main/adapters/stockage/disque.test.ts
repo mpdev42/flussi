@@ -554,6 +554,30 @@ describe('creerStockageDisque — lister', () => {
       expect(elements.map((e) => e.nom)).toEqual(['ok.txt']);
     });
 
+    it.each([
+      ['EACCES', 'acces-refuse'],
+      ['EIO', 'erreur-systeme'],
+    ])(
+      'fait échouer lister quand le stat de l’entrée échoue en %s (jamais de disparition silencieuse)',
+      async (code, attendu) => {
+        writeFileSync(join(dossiers.in, 'ok.txt'), 'x');
+        const { stockage, delais } = creerStockage(
+          [{ operation: 'stat', chemin: join(dossiers.in, 'illisible.txt'), code }],
+          {
+            readdir: async () => [
+              { name: 'ok.txt', isFile: () => true, isDirectory: () => false },
+              entreeInconnue('illisible.txt'),
+            ],
+          },
+        );
+
+        const erreur = erreurDe(await stockage.lister('in'));
+
+        expect(erreur).toMatchObject({ code: attendu, emplacement: 'in' });
+        expect(delais).toEqual([]);
+      },
+    );
+
     it('rejoue l’opération quand le stat de l’entrée est verrouillé (EBUSY)', async () => {
       writeFileSync(join(dossiers.in, 'nuage.txt'), 'x');
       const { stockage, delais } = creerStockage(

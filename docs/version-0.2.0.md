@@ -205,7 +205,7 @@
 
 ### 4. Module `Journal` : fichier de session et historique
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : list
 
 **Description** — Arborescence de Lazarus conservée (`Journal\AAAA\MM\`, mois de `01` à `12`), un fichier par session, sans index commun, nommé `AAAAMMJJ-HHMMSS-{compte Windows}.txt` (ex. `20261002-141425-c.mathevon.txt`), écrit en ajout seul. Consultation de l'historique en parcourant les dossiers. La version de l'application est inscrite dans chaque fichier (partie de l'item 9 de la roadmap).
@@ -242,6 +242,33 @@
 **Tests** : unitaires (nommage, format des lignes, en-tête, tampon en cas d'échec, filtrage des fichiers hors nommage, ordre de l'historique) ; e2e de l'écran d'historique.
 
 **Fichiers impactés** : `src/main/services/journal/`, `src/main/ipc/journal/`, `src/preload/index.ts`, `src/shared/schemas/journal.ts`, `src/renderer/src/services/journal.ts`, `src/renderer/src/hooks/`, `src/renderer/src/pages/` (historique), tests unitaires et e2e.
+
+**Décisions d'implémentation** (2026-10-14) :
+
+- **Écran Historique** (précisions de l'utilisateur au check-point) : choix de la période par **boutons**, pas de liste déroulante (plus direct). Un bouton par dossier `AAAA` du journal, plus l'année en cours, du plus ancien au plus récent ; 12 boutons de mois toujours affichés (« Janv. » … « Déc. », nom complet pour les lecteurs d'écran) ; année et mois en cours sélectionnés par défaut ; changer d'année garde le mois. Tableau **Date | Heure | Compte | Statut**, jamais le nom de fichier ; ni calendrier ni arborescence (pattern `list`). Statut : « En cours » (session de ce lancement, toujours en tête), « Copie de conflit » (avertissement). Une ligne ouvre le détail dans une vue séparée (« Retour à l'historique » retrouve la même période).
+- **Détail d'une session** : tableau Heure | Niveau | Message, ligne non conforme affichée en brut. Ajout proposé et gardé : avertissement « Pas de ligne « Fin de session » » sur une session qui n'est pas en cours (plantage, arrêt du poste, ou session encore ouverte sur un autre poste).
+- **Format** : en-tête en lignes d'évènement (`TITRE Début de session le JJ/MM/AAAA à HH:MM:SS`, puis `INFO` compte Windows, poste, mode, version de Flussi), fin `TITRE Fin de session`. `\r`, `\n` et tabulations d'un message remplacés par une espace. Compte : `os.userInfo().username` (repli `USERNAME`, puis `inconnu`), nettoyé pour le nom de fichier seulement (caractères interdits remplacés par `_`, points et espaces de fin retirés) ; poste : `os.hostname()`.
+- **Session** (`src/main/services/journal/session.ts`) : écritures en file pour garder l'ordre ; tout le tampon est écrit en un seul ajout. L'en-tête passe par le tampon : « Réessayer » au démarrage ne le duplique pas et garde le même nom. `terminer()` n'ajoute « Fin de session » qu'une fois ; tout `ajouter` après une fin réussie est ignoré. L'état n'est « non enregistré » qu'après un échec (pas de clignotement du bandeau à chaque ligne) ; les abonnés ne sont notifiés qu'au changement.
+- **Fermeture** : l'évènement `close` de la fenêtre est retenu le temps d'écrire « Fin de session » ; en échec, boîte modale « Réessayer » / « Quitter quand même » avec le nombre de lignes perdues. `app.close()` de Playwright passe par ce chemin sans blocage (vérifié par l'e2e).
+- **Historique** (`historique.ts`) : seuls les fichiers au format Flussi sont gardés (journaux Lazarus RTF `AAAAMMJJ-HHMMSS.txt` et index ignorés) ; les copies de conflit sont recalculées sur ces seuls noms (point d'attention de l'item 3 : `…-cmathevon.txt` n'est plus pris pour une copie du journal Lazarus de la même seconde) ; dossier de mois absent = liste vide. Expression régulière du nom de session unique, dans `src/shared/schemas/journal.ts` (schéma zod de `journal:lire` et service).
+- **IPC** : `journal:annees`, `journal:sessions` (`{ annee, mois }`), `journal:lire` (`AAAA/MM/nom`), `journal:etat`, entrées validées par zod (entrée invalide = appel rejeté), erreurs de stockage renvoyées typées ; `journal:etat-change` du main vers l'écran (`window.api.journal.surEtat`).
+- **Points d'attention de l'item 3 traités** : types qui traversent l'IPC déplacés dans `src/shared/types/stockage.ts` (réexportés par l'adapter) ; noms réservés étendus (`COM0`–`COM9`, `LPT0`–`LPT9`, `COM¹²³`, `LPT¹²³`, `CONIN$`, `CONOUT$`) ; `classerParStat` n'ignore plus que `ENOENT`.
+- **Cadre** : nouvelle prop `alerte` de `CadreApplication` (entre l'en-tête et l'écran, hors défilement) pour le bandeau « Journal non enregistré ».
+- **Manques design relevés** (non inlinés) : `StatusBadge` n'accepte ni ton ni icône libres (badge local `Pastille` dans `pages/journal/`, candidat à un composant partagé) ; `Alert` sans variantes `warning` ni `error` (surcharges locales par tokens) ; `AlertTitle` rend un `h5` (saut de niveau après le `h1`) ; toujours pas de largeur maximale de colonne d'écran (1600 px). À traiter par `/design-system-adapt` ou `component-agent` si besoin.
+- **Tests** : 2 418 unitaires (format, session, historique, IPC, schémas, stockage, composants de l'écran par `renderToStaticMarkup`), 5 e2e (historique avec journal Lazarus, copie de conflit et année vide ; fichier de session à la fermeture : sans BOM, CRLF, « Fin de session » ; un seul fichier de session après un second lancement). Non couverts automatiquement : boîtes natives (création impossible au démarrage, « Fin de session » impossible à la fermeture), bandeau en conditions réelles (aucun module n'écrit en cours de session avant l'item 7), fermeture de la session Windows avec Flussi ouvert (« Fin de session » peut manquer). L'e2e de l'historique peut échouer s'il tourne exactement au changement de mois.
+- **Vérification manuelle** : tests validés par l'utilisateur (2026-10-14).
+- **Revue d'item** (`OK POUR MERGE`, aucun bloquant) :
+  - Si seule la lecture des années échoue, l'alerte d'erreur remplace le tableau du mois pourtant chargé (`src/renderer/src/hooks/use-historique-journal.ts`) ; `analyserNomSession` appelée deux fois par fichier (`src/main/services/journal/historique.ts`).
+  - `Pastille` (`src/renderer/src/pages/journal/elements-tableau.tsx`) duplique la recette de `StatusBadge` ; `AlertTitle` rend un `h5` ; explication de « Copie de conflit » en `title`, inaccessible au clavier et aux lecteurs d'écran ; ligne `<tr>` cliquable non annoncée comme interactive (conforme au pattern `list`).
+  - Non testés unitairement : replis de `identite.ts` ; hooks `use-chargement-stockage` (réponse périmée) et `use-etat-journal` (aucun environnement DOM de test, couverts par l'e2e).
+  - Écriture partielle possible si un ajout est interrompu (coupure réseau pendant un `appendFile`) : les lignes du tampon sont alors réécrites, en double.
+  - `terminer()` sans délai maximal : sur un partage qui ne répond plus, la fermeture attend le délai système sans retour visible.
+  - Une entrée illisible (`stat` en erreur autre que `ENOENT`) rend tout le mois (ou la liste des années) indisponible : conséquence voulue de l'item 3 (pas de disparition silencieuse).
+  - Session ouverte le dernier jour du mois et restée ouverte après minuit : rangée dans le mois de son démarrage, l'écran rouvert affiche le nouveau mois sans « En cours ».
+
+**Point d'attention pour l'item 5** : au test pilote sur `P:`, observer la durée de fermeture (écriture de « Fin de session », `terminer()` sans délai maximal) et l'écran Journal sur le vrai dossier (une entrée OneDrive « à la demande » dont le `stat` échoue rendrait le mois indisponible). Voir « Revue d'item » ci-dessus.
+
+**Point d'attention pour l'item 7** : premier module qui écrit en cours de session (« Mot de passe … remplacé ») : le service `parametres` reçoit la session du journal (`SessionEcriture.ajouter`, `src/main/services/journal/session.ts`, instance créée dans `src/main/index.ts`). Vérifier alors en conditions réelles le bandeau « Journal non enregistré » (dossier `Journal` rendu inaccessible pendant la session).
 
 ---
 

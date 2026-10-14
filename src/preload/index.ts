@@ -1,10 +1,32 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import type { ConfigurationPublique } from '@shared/types';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type {
+  ConfigurationPublique,
+  EtatJournal,
+  LigneJournal,
+  ResultatStockage,
+  SessionJournal,
+} from '@shared/types';
 
 const api = {
   ping: (): Promise<string> => ipcRenderer.invoke('app:ping'),
   config: {
     lire: (): Promise<ConfigurationPublique> => ipcRenderer.invoke('config:lire'),
+  },
+  journal: {
+    annees: (): Promise<ResultatStockage<string[]>> => ipcRenderer.invoke('journal:annees'),
+    sessions: (annee: string, mois: string): Promise<ResultatStockage<SessionJournal[]>> =>
+      ipcRenderer.invoke('journal:sessions', { annee, mois }),
+    lire: (chemin: string): Promise<ResultatStockage<LigneJournal[]>> =>
+      ipcRenderer.invoke('journal:lire', chemin),
+    etat: (): Promise<EtatJournal> => ipcRenderer.invoke('journal:etat'),
+    /** Abonnement à `journal:etat-change` ; renvoie la fonction de désabonnement. */
+    surEtat: (rappel: (etat: EtatJournal) => void): (() => void) => {
+      const ecouteur = (_event: IpcRendererEvent, etat: EtatJournal): void => rappel(etat);
+      ipcRenderer.on('journal:etat-change', ecouteur);
+      return () => {
+        ipcRenderer.removeListener('journal:etat-change', ecouteur);
+      };
+    },
   },
 };
 
