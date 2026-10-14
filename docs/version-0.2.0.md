@@ -72,7 +72,7 @@
 - **En dev, le mode `prod` est refusé** : l'application refuse de démarrer si `FLUSSI_ENV=prod`. Le travail réel en production se fait avec Flussi installé.
 - **Le mode n'est pas modifiable dans l'interface** : il vient seulement de `config.json` ou du `.env`. Pas de surcharge dans `%APPDATA%\Flussi\` (ni pour le mode, ni pour les dossiers).
 - Valeurs par défaut de `prod` : racine de travail `P:\Siege\Service administratif\MATH\APIVIA Transfert\Transferts` (dossiers `IN`, `OUT`, `Journal` dérivés, voir item 3). **Aucun dossier par défaut en `recette`** : ils sont obligatoires dans le `.env` (dev) ou dans `config.json`. Les valeurs par défaut des services VEOS, IGA et MSP arrivent avec leurs versions (v0.4.0, v0.5.0).
-- Format de `config.json` : clés à plat, mêmes noms que les variables (`{ "FLUSSI_ENV": "prod", "STOCKAGE_DOSSIER_IN": "…" }`). BOM UTF-8 accepté (PowerShell 5.1 en écrit un).
+- Format de `config.json` : clés à plat, mêmes noms que les variables (`{ "FLUSSI_ENV": "prod", "STOCKAGE_DOSSIER_TRAVAIL": "…" }`). BOM UTF-8 accepté (PowerShell 5.1 en écrit un).
 - Validation par un schéma zod (`src/shared/schemas/config.ts`). Les secrets n'y figurent jamais (item 7).
 - Canal IPC `config:lire` : renvoie la configuration résolue non secrète.
 
@@ -116,7 +116,7 @@
 
 - **`.env` lu par `util.parseEnv`**, pas par `process.loadEnvFile` : la détection des clés inconnues exige la liste des clés du fichier (`process.env` contient des centaines de variables étrangères), et les mots de passe de dev ne sont pas versés dans `process.env` (ni hérités par les processus enfants). `.env` lu dans le répertoire courant (`process.cwd()`, la racine avec `npm run dev`).
 - **Correctif après la vérification manuelle : en dev, le `.env` seul** (variables du processus ignorées pour la configuration). Constat : avec le réglage utilisateur `"python.terminal.useEnvFile": true`, l'extension VS Code Python Environments injecte le `.env` dans chaque terminal ; la priorité prévue au cadrage (processus avant `.env`) faisait lire une copie figée à la création du terminal (`FLUSSI_ENV` retiré du `.env` mais toujours lu). Corrigé de deux façons : `.vscode/settings.json` fixe `"python.terminal.useEnvFile": false` (le `.env`, mots de passe compris, n'est plus injecté dans les terminaux du projet), et la résolution ne lit plus que le `.env` en dev. Au second lancement, le processus qui s'arrête l'écrit dans le terminal (« Flussi est déjà ouvert… ») : sans cela, une relance qui ne fait que ramener la fenêtre existante passe inaperçue.
-- **Dérivation `{TRAVAIL}\IN`, `OUT`, `Journal` avancée de l'item 3 à l'item 2** : le contrôle « dossiers de recette manquants » en dépend. Recette valide avec `STOCKAGE_DOSSIER_TRAVAIL`, ou avec les trois dossiers (`travail: null`). L'item 3 garde l'adapter `stockage` (accès disque).
+- **Dérivation `{TRAVAIL}\IN`, `OUT`, `Journal` avancée de l'item 3 à l'item 2** : le contrôle « dossiers de recette manquants » en dépend. Recette valide avec `STOCKAGE_DOSSIER_TRAVAIL`, ~~ou avec les trois dossiers (`travail: null`)~~ (clés des trois dossiers supprimées à l'item 3). L'item 3 garde l'adapter `stockage` (accès disque).
 - **Clés VEOS, IGA et MSP connues mais pas résolues** : acceptées dans `config.json` et le `.env` (pas de refus « clé inconnue » sur un `.env` copié de `.env.example`), valeurs par défaut et validation en v0.4.0 et v0.5.0. Une clé ajoutée à `.env.example` doit l'être aussi dans `src/shared/schemas/config.ts`.
 - **Règles de validation** : valeur vide = absente ; chemins de dossier absolus Windows (`X:\…` ou `\\serveur\partage\…`, barres obliques refusées) ; `config.json` en texte seulement (`MSP_SFTP_PORT: 10022` refusé, « texte attendu ») ; seule la valeur de `FLUSSI_ENV` est citée dans les messages. Toutes les erreurs sont affichées d'un coup, sous le chemin du fichier en cause. Exception : tant que `FLUSSI_ENV` est absent ou invalide, l'erreur « dossiers manquants » n'est pas émise (on ne sait pas si le défaut `prod` s'applique) ; un second refus est donc possible après correction du mode.
 - **Démarrage** : profil dev (`%APPDATA%\Flussi-dev`), verrou, puis `whenReady` → configuration → handlers IPC → fenêtre. La configuration est lue après `whenReady` pour que les boîtes de dialogue de l'item 3 (« Réessayer » / « Quitter ») suivent le même chemin. Titre fixé par le main, `page-title-updated` bloqué (sinon la balise `<title>` de la page l'écrase).
@@ -138,13 +138,13 @@
 
 **Point d'attention pour l'item 5** : le premier lancement installé est le premier test réel de la lecture de `%ProgramData%\Flussi\config.json` (BOM de PowerShell 5.1, refus si absent ou invalide) : à vérifier explicitement au déroulé du test pilote.
 
-**Point d'attention pour l'item 6** : en `prod`, `dossiers.travail` vaut la racine par défaut même si les trois dossiers sont surchargés (`src/main/adapters/config/resolution.ts`). À traiter avec l'affichage des origines : `travail` à `null` ou origine « non utilisée ».
+**Point d'attention pour l'item 6** : ~~en `prod`, `dossiers.travail` vaut la racine par défaut même si les trois dossiers sont surchargés (`src/main/adapters/config/resolution.ts`). À traiter avec l'affichage des origines : `travail` à `null` ou origine « non utilisée ».~~ Sans objet depuis l'item 3 : les trois dossiers sont toujours dérivés de la racine de travail.
 
 ---
 
 ### 3. Adapter `stockage` et `P:` instable
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Emplacements logiques `in`, `out`, `journal` vers des dossiers configurables, et comportement sûr quand `P:` est indisponible ou instable (non monté, déconnecté, verrou OneDrive `EBUSY`/`EPERM`, copies de conflit). Jamais d'échec silencieux ni d'écrasement. Fusion des items 3 et 4 de la roadmap.
@@ -153,7 +153,7 @@
 
 **Décisions techniques** :
 
-- `STOCKAGE_DOSSIER_TRAVAIL` est la racine : `IN`, `OUT` et `Journal` valent par défaut `{TRAVAIL}\IN`, `{TRAVAIL}\OUT`, `{TRAVAIL}\Journal`, chacun surchargeable séparément (`STOCKAGE_DOSSIER_IN`…) dans `config.json` ou le `.env`.
+- `STOCKAGE_DOSSIER_TRAVAIL` est la racine : `IN`, `OUT` et `Journal` valent ~~par défaut~~ **toujours** `{TRAVAIL}\IN`, `{TRAVAIL}\OUT`, `{TRAVAIL}\Journal`~~, chacun surchargeable séparément (`STOCKAGE_DOSSIER_IN`…) dans `config.json` ou le `.env`~~ (corrigé à l'implémentation, voir « Décisions d'implémentation »).
 - **Octets bruts** : l'adapter lit et écrit des octets, jamais du texte décodé (parité AC056 : UTF-8, Windows-1252, CRLF, BOM). Le décodage reste au domaine.
 - **Chemins** : les services passent un emplacement logique et un nom relatif (`('journal', '2026/10/20261014-091500-c.mathevon.txt')`). L'adapter refuse les chemins absolus, les `..` et les caractères interdits sous Windows : aucun service ne sort de son dossier.
 - **Opérations (YAGNI)** : `lister` (fichiers et sous-dossiers), `lire`, `ajouter` (ajout seul, avec création des sous-dossiers `AAAA\MM` du journal), vérification d'accès. L'écriture d'un fichier entier sans écrasement arrive avec les téléchargements IGA et rejets (v0.4.0, v0.5.0).
@@ -171,6 +171,35 @@
 **Tests** : unitaires sur un dossier temporaire (`os.tmpdir()`), sans `P:` : résolution des emplacements, refus des chemins, nouvelles tentatives sur verrou simulé, détection des copies de conflit.
 
 **Fichiers impactés** : `src/main/adapters/stockage/`, `src/shared/schemas/config.ts` (racine de travail), `.env.example` (commentaire de `STOCKAGE_DOSSIER_TRAVAIL`), tests unitaires.
+
+**Décisions d'implémentation** (2026-10-14) :
+
+- **Clés `STOCKAGE_DOSSIER_IN`, `STOCKAGE_DOSSIER_OUT` et `STOCKAGE_DOSSIER_JOURNAL` supprimées** (écart avec le cadrage de l'item 2, décidé par l'utilisateur). Constat à la vérification manuelle : avec les trois clés renseignées, un `STOCKAGE_DOSSIER_TRAVAIL` sur un lecteur inexistant (`Q:\…`) était ignoré en silence et Flussi démarrait. Désormais `IN`, `OUT` et `Journal` sont toujours `{TRAVAIL}\IN`, `{TRAVAIL}\OUT`, `{TRAVAIL}\Journal` (noms fixes, disposition de Lazarus, du défaut `prod` et de la recette du poste pilote) ; `STOCKAGE_DOSSIER_TRAVAIL` est obligatoire en recette ; `dossiers.travail` n'est plus jamais `null`. Une des trois clés encore présente est refusée comme « clé inconnue ». La surcharge par dossier était un vestige de la surcharge locale de l'écran Paramètres, abandonnée au cadrage. `CLAUDE.md` mis à jour.
+- **Adapter** `src/main/adapters/stockage/` : `types.ts` (interface `Stockage`, `SystemeFichiers` injectable), `chemins.ts` et `conflits.ts` (purs), `erreurs.ts` (traduction des codes système, texte de la boîte), `disque.ts` (implémentation sur `node:fs/promises`). Résultats en union `{ ok, valeur } | { ok, erreur }` plutôt qu'exceptions, comme `ResultatConfiguration`. Types côté main pour l'instant.
+- **Codes d'erreur** : les quatre du cadrage, plus `introuvable` (fichier ou sous-dossier absent dans un emplacement présent), `chemin-refuse` (nom relatif refusé, sans accès disque) et `erreur-systeme` (tout autre code, cité). `EPERM` encore présent après les 3 nouvelles tentatives donne `acces-refuse`, avec un message qui cite aussi un verrou OneDrive (Windows renvoie `EPERM` dans les deux cas) : un vrai refus de droits attend donc environ 3,5 s par dossier avant la boîte de démarrage.
+- **Diagnostic d'un `ENOENT`** : `stat` de la racine de l'emplacement, puis de la racine du lecteur (`P:\` ou `\\serveur\partage\`). Tout échec sur la racine du lecteur, quel que soit le code, donne `lecteur-indisponible` (corrigé à la relecture : un code `UNKNOWN` sur un partage injoignable donnait « dossier absent »). Constat sous Windows : un chemin qui traverse un fichier (`fichier.txt\x`) renvoie `ENOENT`, pas `ENOTDIR` ; le diagnostic conclut correctement `introuvable`.
+- **Nouvelles tentatives** sur l'opération entière (le plafond de ~3,5 s tient pour `ajouter`, qui crée les sous-dossiers puis ajoute).
+- **`ajouter`** : sous-dossiers créés niveau par niveau par `mkdir` non récursif, jamais la racine (un `mkdir` récursif recréerait `Journal` disparu).
+- **`lister`** : une entrée ni fichier ni dossier pour le `Dirent` est classée par `stat` (les fichiers OneDrive « à la demande » sont des points d'analyse, que libuv présente comme liens symboliques).
+- **Noms relatifs refusés** : vide, absolu, segment vide, `.` et `..`, `< > : " | ? *`, caractères de contrôle, point ou espace final, `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` (avec ou sans extension).
+- **Copies de conflit** : `base-SUITE.ext` à côté de `base.ext`, SUITE = `POSTE` ou `POSTE-n`, POSTE en lettres, chiffres et tirets, au moins une lettre, 15 caractères au plus (corrigé à la relecture : sans la lettre obligatoire, `Rejets-20261014.txt` à côté de `Rejets.txt` était marqué).
+- **Configuration** (point d'attention de l'item 2) : `estCheminDossier` refuse tout caractère U+0000 à U+001F ; message dédié selon le contexte (pas de guillemets doubles dans le `.env`, barres obliques inverses doublées dans `config.json`). `.env.example` le déconseille et rappelle que `IN`, `OUT` et `Journal` doivent exister.
+- **Démarrage** : `verifierAcces` après la configuration, boucle sur la boîte native « Réessayer » / « Quitter » (`app.exit(1)`). Fixture e2e : crée `IN`, `OUT` et `Journal`. Vérifié à la main par l'utilisateur (2026-10-14) : lecteur `Q:` absent, dossier absent, « Réessayer », « Quitter ».
+- **Tests** : 2 098 unitaires (158 pour l'adapter : faux `SystemeFichiers` qui délègue au disque temporaire et injecte des erreurs, `attendre` simulé, octets exacts, racine jamais créée, confidentialité), 3 e2e. Non couverts automatiquement : la boîte native, un vrai verrou OneDrive et de vraies copies de conflit sur `P:`.
+- **Revue d'item** (`OK POUR MERGE`, aucun bloquant) :
+  - `classerParStat` (`disque.ts`) ignore une entrée sur toute erreur autre qu'un verrou, pas seulement sur `ENOENT` (lien cassé) : une entrée dont le `stat` échoue en `EACCES` ou `ETIMEDOUT` disparaîtrait de la liste sans erreur.
+  - `COM0`, `LPT0`, `CONIN$` et `CONOUT$` non refusés par `chemins.ts` (documentation Microsoft récente) ; une jonction ou un lien symbolique dans un emplacement serait suivi par `lister` et `lire`. Sans risque tant que les noms viennent des services.
+  - Un compte Windows sans point (`cmathevon`) ferait marquer `20261014-091500-cmathevon.txt` comme copie de conflit à côté d'un journal Lazarus `20261014-091500.txt` de la même seconde (improbable, disparaît avec l'archivage des journaux Lazarus).
+  - Message `verrou` « fichier verrouillé » même pour un dossier ; même cause répétée trois fois dans la boîte quand `P:` n'est pas monté.
+  - `docs/project-description.md` cite encore les clés retirées : document de cadrage historique, laissé tel quel.
+
+**Point d'attention pour l'item 4** :
+
+- Le journal est le premier à exposer l'adapter par l'IPC (historique, lecture d'un fichier de session) : déplacer dans `src/shared/types/` les types qui traversent l'IPC (`ElementStockage`, `ErreurStockage`, `ResultatStockage`), valider les noms reçus par zod puis par `decouperCheminRelatif`, et ajouter `COM0`, `LPT0`, `CONIN$`, `CONOUT$` aux noms réservés de `src/main/adapters/stockage/chemins.ts`.
+- L'historique repose sur `lister` : dans `classerParStat` (`src/main/adapters/stockage/disque.ts`), n'ignorer que `ENOENT` et relancer les autres erreurs, pour qu'une entrée illisible ne disparaisse pas en silence.
+- Nommage du fichier de session : la détection des copies de conflit suppose un point dans le compte Windows pour ne pas confondre un journal Flussi avec un journal Lazarus de la même seconde (voir « Revue d'item » ci-dessus) ; le vérifier ou filtrer les noms hors nommage Flussi avant `trouverCopiesConflit`.
+
+**Point d'attention pour l'item 5** : au test pilote sur `P:`, observer un vrai verrou OneDrive (`EBUSY`/`EPERM`) et une vraie copie de conflit, pour confirmer les codes et le motif de nom supposés par l'adapter (`src/main/adapters/stockage/`), et le premier démarrage avec `P:` monté en retard (« Réessayer »).
 
 ---
 
@@ -236,7 +265,7 @@
 **Poste pilote** :
 
 - Poste de l'utilisateur, avec son compte utilisateur standard. L'emballage, le déploiement Intune et la saisie des secrets se font avec son compte administrateur dédié (il est le service informatique).
-- `config.json` **de recette** : `FLUSSI_ENV=recette`, dossiers `P:\Siege\Service administratif\MATH\APIVIA Transfert\Transferts\RECETTE\IN`, `OUT` et `Journal` (à créer). Le vrai `Transferts\Journal` n'est pas pollué avant l'archivage de la v1.0.0.
+- `config.json` **de recette** : `FLUSSI_ENV=recette`, `STOCKAGE_DOSSIER_TRAVAIL=P:\Siege\Service administratif\MATH\APIVIA Transfert\Transferts\RECETTE`, avec ses dossiers `IN`, `OUT` et `Journal` (à créer). Le vrai `Transferts\Journal` n'est pas pollué avant l'archivage de la v1.0.0.
 
 **Déroulé du test pilote** (résultats tracés dans les décisions d'implémentation) :
 

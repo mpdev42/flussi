@@ -4,6 +4,7 @@ import {
   CLES_DEV,
   CLES_SECRETES,
   MODES,
+  contientCaractereControle,
   estCheminDossier,
   type CleConfiguration,
   type Configuration,
@@ -40,8 +41,22 @@ export type ResultatConfiguration =
 export const DOSSIER_TRAVAIL_PROD =
   'P:\\Siege\\Service administratif\\MATH\\APIVIA Transfert\\Transferts';
 
+/** Noms fixes des sous-dossiers de la racine de travail (disposition de Lazarus). */
+const SOUS_DOSSIER_IN = 'IN';
+const SOUS_DOSSIER_OUT = 'OUT';
+const SOUS_DOSSIER_JOURNAL = 'Journal';
+
+const MESSAGE_TRAVAIL_MANQUANT =
+  'manquant : chemin absolu du dossier de travail attendu (il contient IN, OUT et Journal).';
+
 const MESSAGE_CHEMIN =
   'chemin absolu attendu (lecteur « X:\\… » ou réseau « \\\\serveur\\partage\\… »).';
+
+const MESSAGE_CONTROLE_DEV =
+  "caractère de contrôle dans le chemin (saut de ligne ?) : dans le .env, n'entourez pas le chemin de guillemets doubles.";
+
+const MESSAGE_CONTROLE_INSTALLEE =
+  'caractère de contrôle dans le chemin (saut de ligne ?) : dans config.json, chaque barre oblique inverse doit être doublée (\\\\).';
 
 function contient(liste: readonly string[], cle: string): boolean {
   return liste.includes(cle);
@@ -103,11 +118,16 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
     }
   }
 
-  // 4 et 5. Dossiers : valeurs par défaut du mode, puis dérivation depuis la racine de travail
-  const verifier = (cle: CleConfiguration): string | undefined => {
+  // 4. Racine de travail : valeur vérifiée, sinon défaut du mode prod. IN, OUT et Journal en sont dérivés.
+  const verifierTravail = (): string | undefined => {
+    const cle: CleConfiguration = 'STOCKAGE_DOSSIER_TRAVAIL';
     if (clesEnErreur.has(cle)) return undefined;
     const retenue = lire(cle);
     if (!retenue) return undefined;
+    if (contientCaractereControle(retenue)) {
+      signaler(fichier, cle, enDev ? MESSAGE_CONTROLE_DEV : MESSAGE_CONTROLE_INSTALLEE);
+      return undefined;
+    }
     if (!estCheminDossier(retenue)) {
       signaler(fichier, cle, MESSAGE_CHEMIN);
       return undefined;
@@ -115,41 +135,14 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
     return retenue;
   };
 
-  const travailExplicite = verifier('STOCKAGE_DOSSIER_TRAVAIL');
-  const travail = travailExplicite ?? (mode === 'prod' ? DOSSIER_TRAVAIL_PROD : undefined);
-  const racine = travail !== undefined && !clesEnErreur.has('STOCKAGE_DOSSIER_TRAVAIL');
+  const travail = verifierTravail() ?? (mode === 'prod' ? DOSSIER_TRAVAIL_PROD : undefined);
 
-  const dossierIn = verifier('STOCKAGE_DOSSIER_IN');
-  const dossierOut = verifier('STOCKAGE_DOSSIER_OUT');
-  const dossierJournal = verifier('STOCKAGE_DOSSIER_JOURNAL');
-
-  const resolus = {
-    in: dossierIn ?? (racine ? win32.join(travail, 'IN') : undefined),
-    out: dossierOut ?? (racine ? win32.join(travail, 'OUT') : undefined),
-    journal: dossierJournal ?? (racine ? win32.join(travail, 'Journal') : undefined),
-  };
-
-  const manquant =
-    ((resolus.in === undefined && !clesEnErreur.has('STOCKAGE_DOSSIER_IN')) ||
-      (resolus.out === undefined && !clesEnErreur.has('STOCKAGE_DOSSIER_OUT')) ||
-      (resolus.journal === undefined && !clesEnErreur.has('STOCKAGE_DOSSIER_JOURNAL'))) &&
-    !clesEnErreur.has('STOCKAGE_DOSSIER_TRAVAIL') &&
-    mode !== null;
-  if (manquant) {
-    signaler(
-      fichier,
-      undefined,
-      'STOCKAGE_DOSSIER_TRAVAIL manquant (ou les trois STOCKAGE_DOSSIER_IN, STOCKAGE_DOSSIER_OUT, STOCKAGE_DOSSIER_JOURNAL).',
-    );
+  // Racine absente en recette. Tant que le mode est inconnu, on ignore si le défaut prod s'applique.
+  if (travail === undefined && mode !== null && !clesEnErreur.has('STOCKAGE_DOSSIER_TRAVAIL')) {
+    signaler(fichier, 'STOCKAGE_DOSSIER_TRAVAIL', MESSAGE_TRAVAIL_MANQUANT);
   }
 
-  if (
-    erreurs.length > 0 ||
-    mode === null ||
-    resolus.in === undefined ||
-    resolus.out === undefined ||
-    resolus.journal === undefined
-  ) {
+  if (erreurs.length > 0 || mode === null || travail === undefined) {
     return { ok: false, erreurs };
   }
 
@@ -158,10 +151,10 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
     configuration: {
       mode,
       dossiers: {
-        travail: travail ?? null,
-        in: resolus.in,
-        out: resolus.out,
-        journal: resolus.journal,
+        travail,
+        in: win32.join(travail, SOUS_DOSSIER_IN),
+        out: win32.join(travail, SOUS_DOSSIER_OUT),
+        journal: win32.join(travail, SOUS_DOSSIER_JOURNAL),
       },
     },
   };

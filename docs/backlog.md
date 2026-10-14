@@ -79,6 +79,7 @@ _(aucun pour l'instant)_
 - À la première PR de sécurité qui toucherait un paquet bloqué, vérifier que les règles `ignore` par `versions` sont respectées (non documenté par GitHub) ; sinon, s'appuyer sur la procédure de `CLAUDE.md` — `.github/dependabot.yml` (v0.2.0, item 1)
 - Tokens de design manquants, à combler par `/design-system-adapt` : couleurs sémantiques `bg-header` et `text-on-brand`, largeur maximale d'écran 1600 px, `ls-tight` (-0.01em) des titres, `tracking-[0.01em]` des légendes — `tailwind.config.js`, `DESIGN.md` (v0.2.0, item 2)
 - Vérifier que la règle `Read(//p/**/CORPUS-DEV/**)` bloque réellement la lecture du corpus (format des chemins `P:` dans les règles de permission non confirmé) — `.claude/settings.json` (v0.2.0, item 2)
+- Messages du stockage : « élément verrouillé » plutôt que « fichier verrouillé » quand la cible est un dossier, et regrouper dans la boîte de démarrage les dossiers qui ont la même cause (`P:` non monté répété trois fois) — `src/main/adapters/stockage/erreurs.ts` (v0.2.0, item 3)
 
 ## Décisions
 

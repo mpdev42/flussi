@@ -9,9 +9,6 @@ export type Mode = (typeof MODES)[number];
 export const CLES_CONFIGURATION = [
   'FLUSSI_ENV',
   'STOCKAGE_DOSSIER_TRAVAIL',
-  'STOCKAGE_DOSSIER_IN',
-  'STOCKAGE_DOSSIER_OUT',
-  'STOCKAGE_DOSSIER_JOURNAL',
   // Connues mais pas encore résolues : valeurs par défaut et validation en v0.4.0 et v0.5.0
   'VEOS_URL',
   'VEOS_WORKFLOW_EXPORT_ID',
@@ -39,8 +36,21 @@ export const CLES_DEV = ['AC056_CORPUS_DIR'] as const;
 /** Chemin absolu Windows : lecteur (`X:\…`) ou UNC (`\\serveur\partage\…`). */
 const CHEMIN_DOSSIER = /^(?:[A-Za-z]:\\|\\\\[^\\/:*?"<>|]+\\[^\\/:*?"<>|]+)/;
 
+/**
+ * Vrai si la valeur contient un caractère de contrôle (U+0000 à U+001F), où que ce soit.
+ * Typiquement un `\n` produit par un chemin entre guillemets doubles dans le .env,
+ * ou par une barre oblique inverse non doublée dans config.json.
+ * Test par code de caractère : la règle ESLint `no-control-regex` refuse l'expression régulière.
+ */
+export function contientCaractereControle(valeur: string): boolean {
+  for (let i = 0; i < valeur.length; i += 1) {
+    if (valeur.charCodeAt(i) < 0x20) return true;
+  }
+  return false;
+}
+
 export function estCheminDossier(valeur: string): boolean {
-  return CHEMIN_DOSSIER.test(valeur);
+  return !contientCaractereControle(valeur) && CHEMIN_DOSSIER.test(valeur);
 }
 
 export const cheminDossierSchema = z
@@ -50,8 +60,8 @@ export const cheminDossierSchema = z
 export const configurationSchema = z.strictObject({
   mode: z.enum(MODES),
   dossiers: z.strictObject({
-    /** Racine de travail, ou null quand les trois dossiers sont renseignés séparément. */
-    travail: cheminDossierSchema.nullable(),
+    /** Racine de travail : `in`, `out` et `journal` en sont dérivés (`IN`, `OUT`, `Journal`). */
+    travail: cheminDossierSchema,
     in: cheminDossierSchema,
     out: cheminDossierSchema,
     journal: cheminDossierSchema,
