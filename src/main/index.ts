@@ -2,7 +2,15 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { join } from 'path';
 import { chargerConfiguration, formaterErreurs } from './adapters/config';
 import { creerStockageDisque, formaterErreursStockage } from './adapters/stockage';
+import { enregistrerHandlersJournal } from './ipc/journal';
 import { enregistrerHandlersParametres } from './ipc/parametres';
+import {
+  creerHistoriqueJournal,
+  creerSessionJournal,
+  lireCompteWindows,
+  lirePoste,
+  type SessionEcriture,
+} from './services/journal';
 import type { Mode } from '@shared/schemas/config';
 
 let fenetrePrincipale: BrowserWindow | null = null;
@@ -39,7 +47,7 @@ function creerFenetrePrincipale(mode: Mode): BrowserWindow {
 
 /**
  * Séquence de démarrage : verrou d'instance (au niveau du module), configuration, stockage
- * (accès aux dossiers de travail), journal (item 4), fenêtre.
+ * (accès aux dossiers de travail), journal de session (ouverture), fenêtre.
  */
 async function demarrer(): Promise<void> {
   const resultat = chargerConfiguration({
@@ -57,7 +65,6 @@ async function demarrer(): Promise<void> {
 
   // Stockage : IN, OUT et Journal doivent exister et se lire. « Réessayer » sert quand P: se monte
   // quelques secondes après l'ouverture de session. Pendant la boîte, il n'y a pas de fenêtre.
-  // L'instance reste ici : le service journal (item 4) la recevra.
   const stockage = creerStockageDisque(configuration.dossiers);
   for (;;) {
     const verification = await stockage.verifierAcces();
@@ -79,13 +86,105 @@ async function demarrer(): Promise<void> {
     }
   }
 
+  // Journal de session : nom et heure de début fixés à la création, donc conservés si l'on réessaie.
+  // L'écriture de l'en-tête est le test d'écriture du dossier Journal.
+  const session = creerSessionJournal({
+    stockage,
+    maintenant: () => new Date(),
+    compte: lireCompteWindows(),
+    poste: lirePoste(),
+    mode: configuration.mode,
+    version: app.getVersion(),
+  });
+  for (;;) {
+    const ouverture = await session.ouvrir();
+    if (ouverture.ok) break;
+
+    const { response } = await dialog.showMessageBox({
+      type: 'error',
+      title: 'Flussi ne peut pas démarrer',
+      message: 'Le journal de session ne peut pas être créé.',
+      detail: formaterErreursStockage([ouverture.erreur]),
+      buttons: ['Réessayer', 'Quitter'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (response !== 0) {
+      app.exit(1);
+      return;
+    }
+  }
+
   // Smoke-test de la chaîne IPC main + preload + renderer
   ipcMain.handle('app:ping', () => 'pong');
   enregistrerHandlersParametres({ ...configuration, version: app.getVersion() });
+  enregistrerHandlersJournal({
+    historique: creerHistoriqueJournal(stockage, session.chemin),
+    session,
+  });
 
-  fenetrePrincipale = creerFenetrePrincipale(configuration.mode);
-  fenetrePrincipale.on('closed', () => {
+  const fenetre = creerFenetrePrincipale(configuration.mode);
+  fenetrePrincipale = fenetre;
+  fenetre.on('closed', () => {
     fenetrePrincipale = null;
+  });
+  brancherFermeture(fenetre, session);
+  session.surChangement((etat) => {
+    if (!fenetre.isDestroyed()) fenetre.webContents.send('journal:etat-change', etat);
+  });
+}
+
+/**
+ * Boîte « Réessayer » / « Quitter quand même » tant que « Fin de session » ne peut pas être
+ * écrite. Les lignes en mémoire seraient perdues : jamais de perte silencieuse.
+ */
+async function terminerSession(fenetre: BrowserWindow, session: SessionEcriture): Promise<void> {
+  for (;;) {
+    const fin = await session.terminer();
+    if (fin.ok) return;
+
+    const perdues =
+      fin.lignesPerdues <= 1
+        ? "1 ligne du journal n'a pas pu être enregistrée."
+        : `${fin.lignesPerdues} lignes du journal n'ont pas pu être enregistrées.`;
+    const { response } = await dialog.showMessageBox(fenetre, {
+      type: 'error',
+      title: 'Flussi',
+      message: "Le journal de session n'a pas pu être enregistré.",
+      detail: `${perdues}\n\n${formaterErreursStockage([fin.erreur])}`,
+      buttons: ['Réessayer', 'Quitter quand même'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    if (response !== 0) return;
+  }
+}
+
+/**
+ * Fermeture de la fenêtre principale : suspendue le temps d'écrire « Fin de session ». Une erreur
+ * inattendue est journalisée en console et n'empêche jamais la fermeture.
+ */
+function brancherFermeture(fenetre: BrowserWindow, session: SessionEcriture): void {
+  let fermetureAutorisee = false;
+  let fermetureEnCours = false;
+
+  fenetre.on('close', (event) => {
+    if (fermetureAutorisee) return;
+    event.preventDefault();
+    if (fermetureEnCours) return;
+    fermetureEnCours = true;
+
+    void (async () => {
+      try {
+        await terminerSession(fenetre, session);
+      } catch (erreur) {
+        console.error('[main] Erreur à la fermeture du journal :', erreur);
+      }
+      fermetureAutorisee = true;
+      if (!fenetre.isDestroyed()) fenetre.close();
+    })();
   });
 }
 

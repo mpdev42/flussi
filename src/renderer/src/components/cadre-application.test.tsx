@@ -83,3 +83,30 @@ describe('CadreApplication — en-tête et navigation', () => {
     expect(rendre()).toMatch(/<main[^>]*><p>Contenu de l’écran<\/p><\/main>/);
   });
 });
+
+describe('CadreApplication — alerte globale', () => {
+  it('rend l’alerte entre l’en-tête et la zone principale', () => {
+    const html = rendre({ alerte: <p role="alert">Journal non enregistré</p> });
+    expect(html).toMatch(
+      /<\/header><div class="shrink-0"><p role="alert">Journal non enregistré<\/p><\/div><main/,
+    );
+  });
+
+  it('garde l’écran courant seul dans <main>', () => {
+    const html = rendre({ alerte: <p role="alert">Alerte</p> });
+    expect(html).toMatch(/<main[^>]*><p>Contenu de l’écran<\/p><\/main>/);
+    expect(html.match(/<main[^>]*>.*<\/main>/)?.[0]).not.toContain('Alerte');
+  });
+
+  it('ne rend aucun conteneur sans alerte (absente)', () => {
+    expect(rendre()).not.toContain('<div class="shrink-0">');
+  });
+
+  it('ne rend aucun conteneur pour une alerte null', () => {
+    expect(rendre({ alerte: null })).not.toContain('<div class="shrink-0">');
+  });
+
+  it('ne rend aucun conteneur pour une alerte false (motif condition && <Alerte />)', () => {
+    expect(rendre({ alerte: false })).not.toContain('<div class="shrink-0">');
+  });
+});

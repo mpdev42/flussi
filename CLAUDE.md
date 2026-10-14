@@ -182,7 +182,9 @@ src/
       ac056-synthetique.ts      fabrique de fichiers AC056 fictifs, indépendante du lecteur
       controle-ac056.ts         aides des tests de contrôle (rattachements-, codes-anomalies-ac056.ts)
     types/
-      index.ts                  types métier partagés
+      index.ts                  types métier partagés (réexporte stockage.ts et journal.ts)
+      stockage.ts               résultats et erreurs de l'adapter stockage qui traversent l'IPC
+      journal.ts                sessions, lignes et état du journal
       window.d.ts               augmentation globale Window.api
 e2e/
   specs/                        specs Playwright versionnés (smoke.spec.ts)
@@ -245,7 +247,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - `Iga` : liste des fichiers AC056 sur le FTP IGA, avertissement si le fichier n'est pas du jour, téléchargement vers le dossier IN. S'appuie sur les adapters `ftp-iga` et `stockage`.
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT. S'appuie sur les adapters `sftp-msp` et `stockage`.
 - `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, structure et hiérarchie, règles de contrôle, modification de champ).
-- `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, rangé dans `Journal\AAAA\MM\`, sans index commun), consultation de l'historique. Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé.
+- `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, `Journal\AAAA\MM\AAAAMMJJ-HHMMSS-{compte Windows}.txt`, sans index commun), consultation de l'historique. Fichier créé au démarrage (test d'écriture du dossier, « Réessayer » / « Quitter »), écrit au fil de l'eau en ajout seul : UTF-8 sans BOM, CRLF, une ligne par évènement `HH:MM:SS<TAB>NIVEAU<TAB>message` (`TITRE`, `INFO`, `SUCCES`, `ERREUR`), en-tête (début, compte, poste, mode, version) et ligne « Fin de session » écrite à la fermeture de la fenêtre. Échec d'écriture : lignes gardées en mémoire, bandeau « Journal non enregistré », jamais de perte silencieuse. Jamais de secret, d'identifiant VEOS ni de valeur AC056 dans le journal. Historique : seuls les noms au format Flussi sont lus (journaux Lazarus ignorés), contenu lu à la sélection. Canaux `journal:annees`, `journal:sessions`, `journal:lire`, `journal:etat` et `journal:etat-change` (main vers écran). Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé (v0.5.0).
 - `Parametres` : mode actif et dossiers de travail, issus de la configuration (canal `config:lire`, aucune surcharge locale : `%ProgramData%\Flussi\config.json` fait seul référence), saisie des secrets par l'administrateur. S'appuie sur l'adapter `config`.
 
 ---

@@ -7,7 +7,10 @@ export type ResultatChemin = { ok: true; segments: string[] } | { ok: false; rai
 const SEPARATEURS = /[\\/]/;
 const LECTEUR_EN_TETE = /^[A-Za-z]:/;
 const CARACTERES_INTERDITS = '<>:"|?*';
-const NOMS_RESERVES = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+// CON, PRN, AUX, NUL, COM0-9 et LPT0-9 (avec les exposants ¹ ² ³), CONIN$ et CONOUT$ (périphériques
+// de la console), avec ou sans extension, casse ignorée. Le `$` de CONIN$ et CONOUT$ est un
+// caractère autorisé : il faut donc les refuser ici.
+const NOMS_RESERVES = /^(CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³]|CONIN\$|CONOUT\$)$/i;
 
 function refus(raison: string): ResultatChemin {
   return { ok: false, raison };
