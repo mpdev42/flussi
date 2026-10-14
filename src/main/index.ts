@@ -1,12 +1,18 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { join } from 'path';
+import { chargerConfiguration, formaterErreurs } from './adapters/config';
+import { enregistrerHandlersParametres } from './ipc/parametres';
+import type { Mode } from '@shared/schemas/config';
 
-function creerFenetrePrincipale(): void {
+let fenetrePrincipale: BrowserWindow | null = null;
+
+function creerFenetrePrincipale(mode: Mode): BrowserWindow {
   const fenetre = new BrowserWindow({
     width: 1280,
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    title: mode === 'recette' ? 'Flussi — Recette' : 'Flussi',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -14,6 +20,9 @@ function creerFenetrePrincipale(): void {
       sandbox: false,
     },
   });
+
+  // Sans cela, la balise <title> de index.html écrase le titre qui porte le mode
+  fenetre.on('page-title-updated', (event) => event.preventDefault());
 
   fenetre.on('ready-to-show', () => fenetre.show());
 
@@ -23,15 +32,75 @@ function creerFenetrePrincipale(): void {
   } else {
     void fenetre.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  return fenetre;
 }
 
-void app.whenReady().then(() => {
+/**
+ * Séquence de démarrage : verrou d'instance (au niveau du module), configuration,
+ * stockage (item 3), journal (item 4), fenêtre.
+ */
+async function demarrer(): Promise<void> {
+  const resultat = chargerConfiguration({
+    estInstallee: app.isPackaged,
+    dossierProgramData: process.env.ProgramData ?? 'C:\\ProgramData',
+    dossierCourant: process.cwd(),
+  });
+
+  if (!resultat.ok) {
+    dialog.showErrorBox('Flussi ne peut pas démarrer', formaterErreurs(resultat.erreurs));
+    app.exit(1);
+    return;
+  }
+  const { configuration } = resultat;
+
   // Smoke-test de la chaîne IPC main + preload + renderer
   ipcMain.handle('app:ping', () => 'pong');
+  enregistrerHandlersParametres({ ...configuration, version: app.getVersion() });
 
-  creerFenetrePrincipale();
-});
+  fenetrePrincipale = creerFenetrePrincipale(configuration.mode);
+  fenetrePrincipale.on('closed', () => {
+    fenetrePrincipale = null;
+  });
+}
 
-app.on('window-all-closed', () => {
+// En dev, profil distinct de Flussi installé : verrou et données séparés, les deux tournent côte à
+// côte. FLUSSI_PROFIL_DEV (variable du processus uniquement) donne un profil temporaire aux tests e2e.
+if (!app.isPackaged) {
+  app.setPath(
+    'userData',
+    process.env.FLUSSI_PROFIL_DEV || join(app.getPath('appData'), 'Flussi-dev'),
+  );
+}
+
+// Instance unique : verrou pris en tout premier, avant la configuration
+if (!app.requestSingleInstanceLock()) {
+  console.info(
+    "Flussi est déjà ouvert : ce second lancement s'arrête, la fenêtre existante est remise au premier plan.",
+  );
   app.quit();
-});
+} else {
+  app.on('second-instance', () => {
+    // Pas de fenêtre (erreur de démarrage affichée) : rien à faire
+    if (!fenetrePrincipale) return;
+    if (fenetrePrincipale.isMinimized()) fenetrePrincipale.restore();
+    fenetrePrincipale.show();
+    fenetrePrincipale.focus();
+  });
+
+  app
+    .whenReady()
+    .then(demarrer)
+    .catch((erreur: unknown) => {
+      console.error("[main] Erreur d'initialisation :", erreur);
+      dialog.showErrorBox(
+        'Flussi ne peut pas démarrer',
+        `Erreur inattendue au démarrage : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+      );
+      app.exit(1);
+    });
+
+  app.on('window-all-closed', () => {
+    app.quit();
+  });
+}

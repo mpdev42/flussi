@@ -96,11 +96,12 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 
 | Mode      | Description                                                                                                                                                                                                        |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `recette` | VEOS de recette (`rec-veos.iga.fr`), SFTP MSP de recette (`mft-hp.macif.fr`, compte de recette), dossiers de travail locaux configurables. Mode par défaut avec `npm run dev`.                                     |
-| `prod`    | VEOS de production (`prod-veos.iga.fr`), SFTP MSP de production (`mft.macif.fr`, compte de production), dossiers de travail sur `P:\…\Transferts\` (IN, OUT, Journal). Mode par défaut de l'application installée. |
+| `recette` | VEOS de recette (`rec-veos.iga.fr`), SFTP MSP de recette (`mft-hp.macif.fr`, compte de recette), dossiers de travail configurables, sans valeur par défaut. Seul mode accepté avec `npm run dev`.                  |
+| `prod`    | VEOS de production (`prod-veos.iga.fr`), SFTP MSP de production (`mft.macif.fr`, compte de production), dossiers de travail sur `P:\…\Transferts\` (IN, OUT, Journal) par défaut. Application installée seulement. |
 
-- **Sélection** : par configuration (variable `FLUSSI_ENV`, surchargeable dans `%ProgramData%\Flussi\config.json`), jamais par l'emplacement de l'exécutable.
-- **Repère visible** : le mode est affiché dans le titre de la fenêtre, avec un bandeau de couleur en recette.
+- **Sélection** : par la clé `FLUSSI_ENV`, obligatoire, sans valeur par défaut ni tolérance de casse, jamais par l'emplacement de l'exécutable. Application installée : `%ProgramData%\Flussi\config.json`. Dev : `.env` ou variables du processus. **En dev, le mode `prod` est refusé** : le travail réel en production se fait avec Flussi installé.
+- **Refus de démarrer** : configuration absente, illisible, incomplète, clé inconnue, secret dans `config.json` ou `FLUSSI_ENV` invalide → boîte de dialogue Windows native (fichier, clé, attendu), puis arrêt. Jamais de repli sur `prod`.
+- **Repère visible** : titre de la fenêtre « Flussi — Recette » en recette, « Flussi » seul en production ; bandeau Recette rayé et badge « Recette » dans l'en-tête en recette, rien en production.
 - **Point d'attention** : le serveur FTP IGA est unique dans les deux modes. En recette, les fichiers AC056 téléchargés sont donc des fichiers réels.
 - **Garde-fou** : l'adapter `sftp-msp` refuse tout dépôt si l'hôte ne correspond pas au mode actif. En recette, aucun dépôt n'est possible vers `mft.macif.fr`.
 - **Déploiement** : le `config.json` déployé par Intune fixe `FLUSSI_ENV` explicitement.
@@ -124,19 +125,22 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 
 Référence : `.env.example`.
 
-| Groupe                                        | Variables                                                                                                                                                                                    |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Environnement                                 | `FLUSSI_ENV`                                                                                                                                                                                 |
-| Stockage (dossiers de travail — `P:` en v1.0) | `STOCKAGE_DOSSIER_TRAVAIL`, `STOCKAGE_DOSSIER_IN`, `STOCKAGE_DOSSIER_OUT`, `STOCKAGE_DOSSIER_JOURNAL`                                                                                        |
-| VEOS (IGA)                                    | `VEOS_URL`, `VEOS_WORKFLOW_EXPORT_ID`                                                                                                                                                        |
-| IGA — FTP                                     | `IGA_FTP_HOST`, `IGA_FTP_USER`, `IGA_FTP_PASSWORD` (dev uniquement), `IGA_FTP_DOSSIER`                                                                                                       |
-| MSP — SFTP                                    | `MSP_SFTP_HOST`, `MSP_SFTP_PORT`, `MSP_SFTP_USER`, `MSP_SFTP_PASSWORD` (dev uniquement), `MSP_SFTP_CLE_PRIVEE_CHEMIN` (dev uniquement), `MSP_SFTP_DOSSIER_DEPOT`, `MSP_SFTP_DOSSIER_RETRAIT` |
-| Tests (dev uniquement)                        | `AC056_CORPUS_DIR` (corpus AC056 de référence sur `P:`, voir « Commandes de développement »)                                                                                                 |
+| Groupe                                        | Variables                                                                                                                                                                                           |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Environnement                                 | `FLUSSI_ENV`                                                                                                                                                                                        |
+| Stockage (dossiers de travail — `P:` en v1.0) | `STOCKAGE_DOSSIER_TRAVAIL`, `STOCKAGE_DOSSIER_IN`, `STOCKAGE_DOSSIER_OUT`, `STOCKAGE_DOSSIER_JOURNAL`                                                                                               |
+| VEOS (IGA)                                    | `VEOS_URL`, `VEOS_WORKFLOW_EXPORT_ID`                                                                                                                                                               |
+| IGA — FTP                                     | `IGA_FTP_HOST`, `IGA_FTP_USER`, `IGA_FTP_PASSWORD` (dev uniquement), `IGA_FTP_DOSSIER`                                                                                                              |
+| MSP — SFTP                                    | `MSP_SFTP_HOST`, `MSP_SFTP_PORT`, `MSP_SFTP_USER`, `MSP_SFTP_PASSWORD` (dev uniquement), `MSP_SFTP_CLE_PRIVEE_CHEMIN` (dev uniquement), `MSP_SFTP_DOSSIER_DEPOT`, `MSP_SFTP_DOSSIER_RETRAIT`        |
+| Tests (dev uniquement)                        | `AC056_CORPUS_DIR` (corpus AC056 de référence sur `P:`, voir « Commandes de développement »), `FLUSSI_PROFIL_DEV` (profil Electron des e2e, variable du processus seulement, jamais dans le `.env`) |
 
 **Sources selon le contexte (mêmes noms partout)** :
 
-- **Dev** : `.env` (ignoré par git).
-- **Application installée, paramètres non secrets** : valeurs par défaut du mode dans le code, surchargées par `%ProgramData%\Flussi\config.json` (déployé par Intune, en lecture seule pour les utilisateurs), puis par les surcharges de l'écran Paramètres, enregistrées dans le profil de l'utilisateur (`%APPDATA%\Flussi\`).
+- **Dev** (`!app.isPackaged`, e2e compris) : valeurs par défaut du mode, puis le `.env` du répertoire courant **seul** (ignoré par git, lu par `util.parseEnv`, jamais versé dans `process.env`). Les variables d'environnement du processus sont ignorées pour la configuration : une copie restée dans un terminal ne masque jamais le `.env`. `%ProgramData%\Flussi\config.json` n'est **jamais** lu en dev. Le `.env` accepte aussi les secrets de dev et `AC056_CORPUS_DIR`, absents de la configuration résolue. Valeur vide = absente.
+- **Terminaux VS Code** : `.vscode/settings.json` fixe `"python.terminal.useEnvFile": false`, sinon l'extension Python Environments injecte le `.env` (mots de passe compris) dans chaque terminal du projet. Ne pas retirer ce réglage.
+- **Application installée, paramètres non secrets** : valeurs par défaut du mode dans le code, puis `%ProgramData%\Flussi\config.json` (obligatoire, déployé par Intune, en lecture seule pour les utilisateurs ; clés à plat, mêmes noms que les variables, BOM UTF-8 accepté). Le `.env` n'est jamais lu. Aucune surcharge dans `%APPDATA%\Flussi\`.
+- **Dossiers de travail** : `STOCKAGE_DOSSIER_TRAVAIL` suffit (`IN`, `OUT`, `Journal` dérivés, chacun surchargeable), chemins absolus Windows. Défaut en `prod` : `P:\Siege\Service administratif\MATH\APIVIA Transfert\Transferts`. Aucun défaut en `recette`.
+- Résolution : `src/main/adapters/config/` (`resolution.ts` pur, `lecture.ts` pour les fichiers), schéma et listes de clés dans `src/shared/schemas/config.ts`. Une clé ajoutée au `.env.example` doit l'être aussi dans ces listes, sinon elle est refusée comme « clé inconnue ».
 - **Application installée, secrets** (`*_PASSWORD`, clé privée) : saisis une fois par l'administrateur après le déploiement (la clé `.ppk` est importée par un sélecteur de fichier), stockés chiffrés et utilisables par tous les utilisateurs du poste. Le mécanisme est choisi à l'implémentation. Jamais saisis par les utilisateurs, jamais affichés, jamais intégrés au paquet.
 - **Cible à terme** : Azure Key Vault, au moment de la bascule Graph/SharePoint.
 
@@ -149,7 +153,7 @@ Les identifiants VEOS sont personnels et saisis à chaque lancement : ils ne fig
 ```
 src/
   main/
-    index.ts                    fenêtre, cycle de vie, handler de smoke-test app:ping
+    index.ts                    séquence de démarrage (profil dev, instance unique, configuration, fenêtre), handler de smoke-test app:ping
     ipc/{veos,iga,msp,ac056,journal,parametres}/          handlers IPC par module
     services/{veos,iga,msp,ac056,journal,parametres}/     services métier par module
     adapters/{stockage,ftp-iga,sftp-msp,veos,config}/     entrées-sorties techniques
@@ -158,7 +162,8 @@ src/
   renderer/
     index.html
     src/
-      components/ui/            composants shadcn (installés à la demande)
+      components/ui/            composants shadcn (installés à la demande) et stubs de la charte
+      components/cadre-application.tsx   cadre de tous les écrans : bandeau Recette, en-tête, navigation, version
       hooks/                    état d'écran, appels asynchrones
       pages/                    écrans
       services/                 façade typée sur window.api, un fichier par module (veos.ts, iga.ts…)
@@ -181,7 +186,7 @@ src/
       window.d.ts               augmentation globale Window.api
 e2e/
   specs/                        specs Playwright versionnés (smoke.spec.ts)
-  fixtures/electron.ts          lancement de l'app buildée
+  fixtures/electron.ts          lancement hermétique de l'app buildée (racine du projet, répertoire courant, profil et dossier de travail temporaires)
   tsconfig.json
 scripts/
   dev.mjs                       wrapper npm run dev (neutralise ELECTRON_RUN_AS_NODE)
@@ -216,7 +221,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 ```
 
 - Les tests unitaires et de corpus se lancent par `npm test` et `npm run test:corpus`, jamais par `npx vitest` directement : le wrapper `scripts/test.mjs` corrige la casse de la lettre de lecteur (sinon toutes les suites échouent depuis une session Claude Code).
-- Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, jamais par `npx playwright test` directement. Le wrapper `scripts/e2e.mjs` rebuild l'application (les specs lancent `out/`, pas les sources) et neutralise `ELECTRON_RUN_AS_NODE`, posée par VS Code et Claude Code. Arguments transmis à Playwright : `npm run test:e2e -- <spec> --reporter=list`.
+- Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, jamais par `npx playwright test` directement. Le wrapper `scripts/e2e.mjs` rebuild l'application (les specs lancent `out/`, pas les sources) et neutralise `ELECTRON_RUN_AS_NODE`, posée par VS Code et Claude Code. Arguments transmis à Playwright : `npm run test:e2e -- <spec> --reporter=list`. La fixture `launchApp` lance la racine du projet (sinon `app.getVersion()` renvoie la version d'Electron) en recette, avec un répertoire courant temporaire qui porte son propre `.env` (écrit par la fixture), un dossier de travail et un profil temporaires (`FLUSSI_PROFIL_DEV`) : les e2e ne dépendent pas du `.env` du développeur et tournent même avec `npm run dev` ouvert (verrou d'instance distinct). Le titre de la fenêtre se lit par `app.evaluate` (`page.title()` lit la balise `<title>`).
 - Les tests unitaires vivent à côté du code (`src/**/*.test.ts`). Vitest ignore le dossier `e2e/`.
 - **Corpus AC056** : fichiers réels sur `P:` (`IN\`, `OUT\`, `PIEGES\`, `MODIFIES\`), données personnelles non anonymisées, jamais copiés dans le dépôt (ni fixture, ni snapshot). Chemin dans `AC056_CORPUS_DIR` (`.env`). Les tests corpus s'appellent `*.corpus.test.ts` et sont enveloppés dans `decrireCorpus` (`@shared/test/corpus`) : ignorés par `npm test` si le corpus est indisponible, obligatoires avec `npm run test:corpus`. Jamais de `toEqual` ni de snapshot sur un contenu du corpus (Vitest afficherait les valeurs) : comparer par SHA-256, et localiser un écart par `localiserEcart` et `decrireEcart` (fichier, ligne, octet, jamais la valeur). Convention de `PIEGES\` : `NOM.txt` (copie d'un fichier de `IN\` avec erreurs volontaires, lignes gardées à 700 octets) et `NOM.erreurs.txt` (journal Lazarus copié-collé tel quel après le chargement de `NOM.txt`, en RTF depuis WordPad ou en texte : seules les lignes `Dossier/Evènement … : Entité …` comptent). Jamais de rang non numérique sur un assuré `ASSPRI`, `CONJOI` ou `ENFANT` : Lazarus plante. Convention de `MODIFIES\` : `NOM.txt` (fichier enregistré par Lazarus après correction d'un champ) et `NOM.modification.txt` (`original=` nom dans `IN\`, `ligne=`, `champ=` nom Flussi exact, `valeur=` texte saisi tel quel). Un sous-dossier absent ou vide est ignoré par `npm test` et obligatoire avec `npm run test:corpus` (`decrireSousDossierCorpus`).
 - ESLint et Prettier ignorent `.claude/`, `docs/` et `design/` (sources gérées par les skills).
@@ -241,7 +246,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT. S'appuie sur les adapters `sftp-msp` et `stockage`.
 - `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, structure et hiérarchie, règles de contrôle, modification de champ).
 - `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, rangé dans `Journal\AAAA\MM\`, sans index commun), consultation de l'historique. Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé.
-- `Parametres` : mode actif, dossiers de travail (surcharge de `config.json`, enregistrée dans `%APPDATA%\Flussi\` : `%ProgramData%\Flussi\config.json` reste en lecture seule), saisie des secrets par l'administrateur. S'appuie sur l'adapter `config`.
+- `Parametres` : mode actif et dossiers de travail, issus de la configuration (canal `config:lire`, aucune surcharge locale : `%ProgramData%\Flussi\config.json` fait seul référence), saisie des secrets par l'administrateur. S'appuie sur l'adapter `config`.
 
 ---
 
@@ -272,8 +277,8 @@ Les règles sont dans `.claude/settings.json` (versionné), en double `Bash(...)
 
 - **Sans demande** : modifications de fichiers du projet (mode `acceptEdits`), scripts de qualité (`npm test`, `npm run test:e2e`, `build`, `typecheck`, `lint`, `format`, `format:check`), git local (`status`, `diff`, `log`, `add`, `commit`, création de branche), lecture GitHub, listage de fichiers.
 - **Avec demande** : `npm install`, `npm run dev`, `npm run package`, `git push`, toute suppression, toute commande mentionnant `.ssh`, et tout ce qui n'est pas listé.
-- **Refusé** : lecture ou modification de `.env` (outil ou shell), `npm publish`, `npx playwright test` en direct, `git push --force`, `gh repo delete` et `gh repo edit`.
-- **Habitudes** : une commande simple par appel (pas de script PowerShell sur une ligne avec variables ou boucles), les outils Read, Grep et Glob plutôt que le shell pour lire des fichiers, les scripts npm plutôt que les outils appelés directement. Ne jamais citer `.env` dans une commande shell, même dans un message de commit.
+- **Refusé** : lecture ou modification de `.env` (outil ou shell), lecture de ses variantes locales (`.env.local`, `.env.*.local`, `.env.test`, `.env.corpus`) et du corpus `CORPUS-DEV` (outil ou shell), `npm publish`, `npx playwright test` en direct, `git push --force`, `gh repo delete` et `gh repo edit`.
+- **Habitudes** : une commande simple par appel (pas de script PowerShell sur une ligne avec variables ou boucles), les outils Read, Grep et Glob plutôt que le shell pour lire des fichiers, les scripts npm plutôt que les outils appelés directement. Ne jamais citer `.env` (ni `.env.example`) ni `CORPUS-DEV` dans une commande shell, même dans un message de commit.
 - **Formatage automatique** : le hook `scripts/claude-format.mjs` formate avec Prettier chaque fichier modifié par Edit ou Write. Après une modification, relire le fichier avant d'en modifier la même zone.
 
 ---

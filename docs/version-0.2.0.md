@@ -58,7 +58,7 @@
 
 ### 2. Configuration et démarrage de l'application
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Adapter `config` : mode `recette`/`prod`, refus de démarrer sur une configuration invalide, instance unique, séquence de démarrage et cadre de l'application (en-tête, navigation, bandeau Recette, titre, version). Fusion des items 1, 2 et 8 de la roadmap, plus une partie de l'item 9 (version dans l'en-tête).
@@ -68,7 +68,7 @@
 **Décisions techniques — sources de la configuration** :
 
 - **Application installée** : valeurs par défaut du mode dans le code, puis `%ProgramData%\Flussi\config.json` (déployé par Intune, en lecture seule pour les utilisateurs). `config.json` est obligatoire. Le `.env` n'est jamais lu.
-- **Dev** (`!app.isPackaged`, y compris les tests e2e qui lancent `out/`) : valeurs par défaut du mode, puis variables d'environnement du processus, complétées par le `.env` (lu par `process.loadEnvFile` de Node, sans dépendance ajoutée). **`%ProgramData%\Flussi\config.json` n'est jamais lu en dev** : sur un poste qui porte aussi Flussi installé, une clé absente du `.env` serait sinon reprise en silence de la production.
+- **Dev** (`!app.isPackaged`, y compris les tests e2e qui lancent `out/`) : valeurs par défaut du mode, puis ~~variables d'environnement du processus, complétées par~~ le `.env` seul (lu par `util.parseEnv` de Node, sans dépendance ajoutée ; corrigé à l'implémentation, voir « Décisions d'implémentation »). **`%ProgramData%\Flussi\config.json` n'est jamais lu en dev** : sur un poste qui porte aussi Flussi installé, une clé absente du `.env` serait sinon reprise en silence de la production.
 - **En dev, le mode `prod` est refusé** : l'application refuse de démarrer si `FLUSSI_ENV=prod`. Le travail réel en production se fait avec Flussi installé.
 - **Le mode n'est pas modifiable dans l'interface** : il vient seulement de `config.json` ou du `.env`. Pas de surcharge dans `%APPDATA%\Flussi\` (ni pour le mode, ni pour les dossiers).
 - Valeurs par défaut de `prod` : racine de travail `P:\Siege\Service administratif\MATH\APIVIA Transfert\Transferts` (dossiers `IN`, `OUT`, `Journal` dérivés, voir item 3). **Aucun dossier par défaut en `recette`** : ils sont obligatoires dans le `.env` (dev) ou dans `config.json`. Les valeurs par défaut des services VEOS, IGA et MSP arrivent avec leurs versions (v0.4.0, v0.5.0).
@@ -111,6 +111,34 @@
 **Tests** : unitaires sur la résolution des sources et chaque cas de refus ; e2e sur le titre et le bandeau en recette, et sur l'instance unique.
 
 **Fichiers impactés** : `src/main/adapters/config/`, `src/main/index.ts`, `src/main/ipc/parametres/`, `src/preload/index.ts`, `src/shared/schemas/config.ts`, `src/shared/types/`, `src/renderer/src/App.tsx` et un composant de cadre, `.env.example`, `.gitignore`, `.claude/settings.json`, `e2e/specs/`, `CLAUDE.md` (écarts 1 à 3).
+
+**Décisions d'implémentation** (2026-10-14) :
+
+- **`.env` lu par `util.parseEnv`**, pas par `process.loadEnvFile` : la détection des clés inconnues exige la liste des clés du fichier (`process.env` contient des centaines de variables étrangères), et les mots de passe de dev ne sont pas versés dans `process.env` (ni hérités par les processus enfants). `.env` lu dans le répertoire courant (`process.cwd()`, la racine avec `npm run dev`).
+- **Correctif après la vérification manuelle : en dev, le `.env` seul** (variables du processus ignorées pour la configuration). Constat : avec le réglage utilisateur `"python.terminal.useEnvFile": true`, l'extension VS Code Python Environments injecte le `.env` dans chaque terminal ; la priorité prévue au cadrage (processus avant `.env`) faisait lire une copie figée à la création du terminal (`FLUSSI_ENV` retiré du `.env` mais toujours lu). Corrigé de deux façons : `.vscode/settings.json` fixe `"python.terminal.useEnvFile": false` (le `.env`, mots de passe compris, n'est plus injecté dans les terminaux du projet), et la résolution ne lit plus que le `.env` en dev. Au second lancement, le processus qui s'arrête l'écrit dans le terminal (« Flussi est déjà ouvert… ») : sans cela, une relance qui ne fait que ramener la fenêtre existante passe inaperçue.
+- **Dérivation `{TRAVAIL}\IN`, `OUT`, `Journal` avancée de l'item 3 à l'item 2** : le contrôle « dossiers de recette manquants » en dépend. Recette valide avec `STOCKAGE_DOSSIER_TRAVAIL`, ou avec les trois dossiers (`travail: null`). L'item 3 garde l'adapter `stockage` (accès disque).
+- **Clés VEOS, IGA et MSP connues mais pas résolues** : acceptées dans `config.json` et le `.env` (pas de refus « clé inconnue » sur un `.env` copié de `.env.example`), valeurs par défaut et validation en v0.4.0 et v0.5.0. Une clé ajoutée à `.env.example` doit l'être aussi dans `src/shared/schemas/config.ts`.
+- **Règles de validation** : valeur vide = absente ; chemins de dossier absolus Windows (`X:\…` ou `\\serveur\partage\…`, barres obliques refusées) ; `config.json` en texte seulement (`MSP_SFTP_PORT: 10022` refusé, « texte attendu ») ; seule la valeur de `FLUSSI_ENV` est citée dans les messages. Toutes les erreurs sont affichées d'un coup, sous le chemin du fichier en cause. Exception : tant que `FLUSSI_ENV` est absent ou invalide, l'erreur « dossiers manquants » n'est pas émise (on ne sait pas si le défaut `prod` s'applique) ; un second refus est donc possible après correction du mode.
+- **Démarrage** : profil dev (`%APPDATA%\Flussi-dev`), verrou, puis `whenReady` → configuration → handlers IPC → fenêtre. La configuration est lue après `whenReady` pour que les boîtes de dialogue de l'item 3 (« Réessayer » / « Quitter ») suivent le même chemin. Titre fixé par le main, `page-title-updated` bloqué (sinon la balise `<title>` de la page l'écrase).
+- **`FLUSSI_PROFIL_DEV`** (variable du processus, dev seulement, jamais dans le `.env`) : profil Electron des e2e, donc verrou d'instance distinct de `npm run dev`. Sans lui, un e2e lancé avec la fenêtre de dev ouverte serait la « seconde instance » et s'arrêterait.
+- **Fixture e2e hermétique** : lance la racine du projet (lancé sur `out/main/index.cjs`, Electron ne lit pas `package.json` et `app.getVersion()` renvoie la version d'Electron), avec un répertoire courant temporaire qui porte son propre `.env` (écrit par la fixture), un dossier de travail et un profil temporaires. Le titre de la fenêtre se lit par `app.evaluate` (`page.title()` lit la balise `<title>`). La fenêtre n'est réduite qu'une fois visible (`show: false` jusqu'à `ready-to-show`).
+- **Instance unique, test e2e** : second Electron lancé avec le même profil → sortie en code 0, première fenêtre restaurée, toujours une seule fenêtre. Retour de la fenêtre au premier plan devant une autre application vérifié à la main par l'utilisateur (2026-10-14).
+- **Cadre** : `src/renderer/src/components/cadre-application.tsx`, piloté par props (navigation fournie par `App.tsx`, une entrée « Accueil » pour l'instant, page active en état local, sans routeur). « Flussi {version} » en `text-xs` `navy-100` à droite de « Environnement : … ». L'en-tête affiche la version de `package.json`, encore 0.1.0 jusqu'à `/version-finalize`. Écran « Accueil » provisoire.
+- **Manques design relevés** (non inlinés) : pas de token Tailwind sémantique `bg-header` ni `text-on-brand` (remplacés par `bg-navy-700` et `text-white`, mêmes valeurs) ; `max-w-[1600px]` de la colonne d'écran, `ls-tight` (-0.01em) du `<h1>` et `tracking-[0.01em]` des légendes sans équivalent. À traiter par `/design-system-adapt` si besoin.
+- **`.claude/settings.json`** : `Bash(*CORPUS-DEV*)` et `PowerShell(*CORPUS-DEV*)` bloquent aussi un message de commit qui cite ce dossier ; la règle existante `*.env*` bloque toute commande shell qui cite `.env.example`. Règle reportée dans `CLAUDE.md`.
+- **Écarts 1 à 3** reportés dans `CLAUDE.md` (sources de la configuration, titre, `config.json` jamais lu en dev et `prod` refusé).
+- **Tests** : 99 unitaires (`resolution`, `lecture` dont « variables du processus ignorées en dev », schéma, cadre par `renderToStaticMarkup`), 3 e2e (smoke, cadre en recette, instance unique avec le message « Flussi est déjà ouvert » lu sur la sortie du second processus). Non couverts automatiquement : boîte de refus native (vérifiée à la main le 2026-10-14 : `FLUSSI_ENV=prod` et `FLUSSI_ENV` absent refusés, sortie en code 1), application installée avec un vrai `config.json` (test pilote de l'item 5), titre « Flussi » en production.
+- **Revue d'item** (`OK POUR MERGE`, aucun bloquant) :
+  - `formaterErreurs` garde un regroupement par fichier alors qu'un seul fichier est lu par lancement depuis le correctif : conservé (juste et sans coût).
+  - Caractère de contrôle accepté dans un chemin de dossier : dans un `.env`, une valeur entre guillemets doubles transforme `\n` en saut de ligne (`"C:\Dev\nouveau"`, vérifié avec `util.parseEnv`) ; de même une chaîne JSON `"P:\nouveau"` dans `config.json`. `estCheminDossier` ne contrôle que le début du chemin. Risque faible : le dossier serait signalé absent par l'item 3, avec un chemin trompeur.
+  - En `prod`, `dossiers.travail` vaut la racine par défaut même quand `IN`, `OUT` et `Journal` sont tous surchargés.
+  - Règle `Read(//p/**/CORPUS-DEV/**)` non vérifiée (format des chemins `P:` dans les règles non confirmé ; l'essayer reviendrait à risquer une lecture de données personnelles). Les règles shell `*CORPUS-DEV*` couvrent le terminal.
+
+**Point d'attention pour l'item 3** : refuser tout caractère de contrôle (`/[\u0000-\u001F]/`) dans `estCheminDossier` (`src/shared/schemas/config.ts`) et déconseiller les guillemets doubles autour des chemins dans `.env.example` (voir « Revue d'item » ci-dessus). L'item 3 touche déjà `src/shared/schemas/config.ts`.
+
+**Point d'attention pour l'item 5** : le premier lancement installé est le premier test réel de la lecture de `%ProgramData%\Flussi\config.json` (BOM de PowerShell 5.1, refus si absent ou invalide) : à vérifier explicitement au déroulé du test pilote.
+
+**Point d'attention pour l'item 6** : en `prod`, `dossiers.travail` vaut la racine par défaut même si les trois dossiers sont surchargés (`src/main/adapters/config/resolution.ts`). À traiter avec l'affichage des origines : `travail` à `null` ou origine « non utilisée ».
 
 ---
 
