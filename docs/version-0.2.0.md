@@ -18,7 +18,7 @@
 
 ### 1. Dependabot encadré
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — `.github/dependabot.yml` : pas de mises à jour de version, seulement les mises à jour de sécurité, regroupées en une seule PR. Règles `ignore` par plage de versions qui écartent toute montée contraire aux contraintes de `CLAUDE.md`. Traitement des alertes ouvertes.
@@ -42,6 +42,17 @@
 | `sprintf-js` 1.1.3 | moyenne | `electron-builder` → `@electron/get` → `global-agent` | Idem. |
 
 **Fichiers impactés** : `.github/dependabot.yml` (nouveau), `CLAUDE.md`. Aucun changement de dépendance prévu.
+
+**Décisions d'implémentation** (2026-10-14) :
+
+- Réglages du dépôt constatés : alertes Dependabot et mises à jour de sécurité déjà activées, aucune PR Dependabot ouverte jusqu'ici. Rien à changer.
+- `schedule.interval: weekly` : clé obligatoire même sans mises à jour de version, sans effet avec `open-pull-requests-limit: 0`.
+- Plages `ignore` écrites en plages npm (`>=8.0.0`, `>=6.1.0`…). Un commentaire dans `dependabot.yml` relie chaque règle à sa contrainte de `CLAUDE.md` ; `CLAUDE.md` rappelle que les deux se modifient ensemble.
+- Alerte n° 3 (`postcss-selector-parser`) classée sur GitHub en `tolerable_risk`, avec commentaire (outil de build, correctif incompatible avec Tailwind 3.4, réglé par Tailwind 4 après la v1.0). Alertes n° 2 et n° 4 laissées ouvertes (aucun correctif publié).
+- Procédure de `CLAUDE.md`, corrigée après la revue d'item : alertes filtrées par `?state=open`, `npm ci` sans demande (autorisé dans `.claude/settings.json`), fusion par `gh pr merge --squash --delete-branch` (le squash empêche `git branch -d` de supprimer la branche locale).
+- Point non prouvé : la doc GitHub ne dit pas si les règles `ignore` par `versions` s'appliquent aux mises à jour de sécurité (elle ne l'affirme pas, ne l'exclut pas, et ne dit « `update-types` ignoré » que pour `allow`). Couvert par l'étape 2 de la procédure (montée contraire, PR fermée) ; à confirmer à la première PR de sécurité qui toucherait un paquet bloqué (backlog).
+
+**Point d'attention pour l'item 2** : `dependabot.yml` n'est lu par GitHub qu'après le push de `main`. Au démarrage de l'item 2, vérifier dans GitHub (Insights → Dependency graph → Dependabot) que la configuration est lue sans erreur.
 
 ---
 

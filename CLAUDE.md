@@ -50,6 +50,8 @@ Projet **Flussi** — logiciel d'échange de fichiers AC056 entre notre logiciel
 - `typescript` reste en 6.0.x : `typescript-eslint` 8 exige `typescript < 6.1`.
 - `tailwindcss` reste en 3.4.x : la configuration (`tailwind.config.js`, directives `@tailwind`, plugin PostCSS) et les variables shadcn sont au format v3. `tailwind-merge` reste en 2.x (la v3 cible Tailwind 4).
 
+Ces contraintes sont reprises dans les règles `ignore` de `.github/dependabot.yml` : toute modification se reporte aux deux endroits.
+
 ---
 
 ## Architecture
@@ -273,6 +275,19 @@ Les règles sont dans `.claude/settings.json` (versionné), en double `Bash(...)
 - **Refusé** : lecture ou modification de `.env` (outil ou shell), `npm publish`, `npx playwright test` en direct, `git push --force`, `gh repo delete` et `gh repo edit`.
 - **Habitudes** : une commande simple par appel (pas de script PowerShell sur une ligne avec variables ou boucles), les outils Read, Grep et Glob plutôt que le shell pour lire des fichiers, les scripts npm plutôt que les outils appelés directement. Ne jamais citer `.env` dans une commande shell, même dans un message de commit.
 - **Formatage automatique** : le hook `scripts/claude-format.mjs` formate avec Prettier chaque fichier modifié par Edit ou Write. Après une modification, relire le fichier avant d'en modifier la même zone.
+
+---
+
+## Mises à jour de sécurité (Dependabot)
+
+- **Cadre** (`.github/dependabot.yml`) : pas de mises à jour de version (`open-pull-requests-limit: 0`), mises à jour de sécurité npm regroupées en une seule PR, règles `ignore` par plage de versions qui reprennent les contraintes de versions de « Stack technique ». Electron n'est jamais ignoré.
+- **Procédure « traite les PR Dependabot »** : l'utilisateur ne juge pas lui-même les PR, Claude fait tout le travail.
+  1. Lister les PR Dependabot ouvertes (`gh pr list --author app/dependabot`) et les alertes ouvertes (`gh api "repos/mpdev42/flussi/dependabot/alerts?state=open"`).
+  2. Pour chaque PR, comparer les montées (`gh pr diff`) aux contraintes de versions. Une montée contraire, malgré les règles `ignore`, entraîne la fermeture.
+  3. Récupérer la branche (`gh pr checkout`), réinstaller les paquets (`npm ci`), puis lancer `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:corpus` (signaler si `P:` est indisponible), `npm run test:e2e` et `npm run build`.
+  4. Proposer en une phrase simple, sans jargon, « fusionner » ou « fermer », avec la raison. Rien n'est fusionné ni fermé sans l'accord de l'utilisateur.
+  5. Fusionner (`gh pr merge --squash --delete-branch`, qui supprime les branches locale et distante et repasse sur `main`) ou fermer (`gh pr close`, avec un commentaire qui explique pourquoi), puis revenir sur `main` si besoin et le mettre à jour (`git pull`, `npm ci`).
+- **Alertes sans PR** : sans correctif publié, l'alerte reste ouverte (Dependabot ouvrira la PR à la sortie du correctif). Si le correctif est incompatible avec les contraintes de versions : alerte classée « risque toléré » (`tolerable_risk`), avec un commentaire, quand la dépendance ne sert qu'au build (absente de `out/**`, donc de l'installeur) ; sinon, la signaler à l'utilisateur.
 
 ---
 
