@@ -60,6 +60,7 @@ _(aucun pour l'instant)_
 - Jeux de caractères sans oracle indépendant du code : ajouter en extrait les lignes 70 à 74 de `uconstantes.pas` (sans secret), ou piéger les caractères limites (`, & ( + _ @`, une minuscule) — `src/shared/domain/ac056/jeux-caracteres.ts` (v0.1.0, revue release)
 - `rang-non-numerique` écarté sans contrôle dans la comparaison `PIEGES\` : n'écarter que `caractere-interdit` et vérifier qu'il y en a 0 — `src/shared/domain/ac056/controle.corpus.test.ts` (v0.1.0, revue release)
 - Remesurer la performance du chargement avec le contrôle complet, dans les mêmes conditions que la mesure de l'item 4 — `src/shared/domain/ac056/structure.test.ts` (v0.1.0, item 4)
+- À la première mise en production, archiver les anciens journaux de Lazarus (fichiers RTF et index commun) de `Transferts\Journal` dans un autre dossier, pour laisser `Transferts\Journal` à Flussi — `P:\…\Transferts\Journal` (v0.2.0, cadrage de l'item 4)
 
 ### Dette technique (sans échéance)
 
@@ -68,7 +69,6 @@ _(aucun pour l'instant)_
 - Règle de longueur de ligne (au moins 718 octets en rejet, 700 en VEOS) écrite deux fois : la regrouper dans `rejet.ts` si elle évolue — `src/shared/domain/ac056/lecteur.ts`, `src/shared/domain/ac056/structure.ts` (v0.1.0, item 6)
 - Garde-fou ESLint sur la pureté du domaine (`no-restricted-imports` sur `node:*`, `electron`, `vitest`, `@shared/test/*` ; `no-restricted-globals` sur `Buffer` et `process`) — `eslint.config.js` (v0.1.0, revue release)
 - Tests corpus : messages d'échec qui peuvent recopier du texte libre (relevé, clé de note), `testTimeout` élevé en mode corpus, `reduce` sans valeur initiale, minimum de fichiers attendu — `src/shared/domain/ac056/controle.corpus.test.ts`, `src/shared/domain/ac056/modification.corpus.test.ts`, `src/shared/domain/ac056/lecteur-ecrivain.corpus.test.ts`, `vitest.config.ts` (v0.1.0, revue release)
-- `.gitignore` partiel : ajouter `CORPUS-DEV/`, `*.erreurs.txt`, `*.modification.txt`, `Rejets-TEST*`, `*.rtf`, `[uU][cC]onstantes*.pas` ; refuser en `deny` la lecture du corpus et de `.env.local`, `.env.*.local`, `.env.test`, `.env.corpus` — `.gitignore`, `.claude/settings.json` (v0.1.0, revue release)
 - Geler `ENTITES`, `RANG_MODIFIABLE` et `PAYS` en profondeur — `src/shared/domain/ac056/entites/` (v0.1.0, revue release)
 - `ecrireAc056` lève des `Error` sans code : une classe ou un `code` d'erreur distinguerait « rejet en lecture seule » d'un invariant violé — `src/shared/domain/ac056/ecrivain.ts` (v0.1.0, revue release)
 - Aides des tests `*.lazarus.test.ts` dupliquées (`valeurLitteral`, `lireSource`, `nomMecanique`) : un `src/shared/test/source-lazarus.ts` commun (v0.1.0, revue release)
