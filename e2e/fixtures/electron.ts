@@ -13,7 +13,7 @@ export interface AppLancee {
   env: Record<string, string>;
   /** Répertoire courant de l'application (temporaire, il contient le `.env` écrit par la fixture). */
   cwd: string;
-  /** Racine de travail temporaire (`STOCKAGE_DOSSIER_TRAVAIL`). */
+  /** Racine de travail temporaire (`STOCKAGE_DOSSIER_TRAVAIL`), avec `IN`, `OUT` et `Journal`. */
   racineTravail: string;
   /** Ferme l'application puis supprime les dossiers temporaires. */
   fermer: () => Promise<void>;
@@ -44,7 +44,8 @@ export function lireVersionProjet(): string {
  *   test n'ont aucun effet sur elle ;
  * - un profil (`FLUSSI_PROFIL_DEV`, variable du processus lue avant la configuration) : verrou
  *   d'instance distinct de `npm run dev` ;
- * - une racine de travail (`STOCKAGE_DOSSIER_TRAVAIL`).
+ * - une racine de travail (`STOCKAGE_DOSSIER_TRAVAIL`), avec ses sous-dossiers `IN`, `OUT` et
+ *   `Journal` déjà créés : l'application vérifie leur accès au démarrage et ne les crée jamais.
  * `ELECTRON_RENDERER_URL` et `ELECTRON_RUN_AS_NODE` ne sont pas transmises.
  *
  * Toujours appeler `fermer()` en fin de test (dans un `finally`) : il ferme l'application et
@@ -59,6 +60,11 @@ export async function launchApp(): Promise<AppLancee> {
   const profil = path.join(base, 'profil');
   const racineTravail = path.join(base, 'travail');
   for (const dossier of [cwd, profil, racineTravail]) mkdirSync(dossier);
+  // Flussi ne crée jamais IN, OUT ni Journal : sans eux, le démarrage reste bloqué sur la boîte
+  // « Réessayer » / « Quitter » de l'adapter `stockage`
+  for (const sousDossier of ['IN', 'OUT', 'Journal']) {
+    mkdirSync(path.join(racineTravail, sousDossier));
+  }
 
   const env: Record<string, string> = {};
   for (const [cle, valeur] of Object.entries(process.env)) {

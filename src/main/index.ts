@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { join } from 'path';
 import { chargerConfiguration, formaterErreurs } from './adapters/config';
+import { creerStockageDisque, formaterErreursStockage } from './adapters/stockage';
 import { enregistrerHandlersParametres } from './ipc/parametres';
 import type { Mode } from '@shared/schemas/config';
 
@@ -37,8 +38,8 @@ function creerFenetrePrincipale(mode: Mode): BrowserWindow {
 }
 
 /**
- * Séquence de démarrage : verrou d'instance (au niveau du module), configuration,
- * stockage (item 3), journal (item 4), fenêtre.
+ * Séquence de démarrage : verrou d'instance (au niveau du module), configuration, stockage
+ * (accès aux dossiers de travail), journal (item 4), fenêtre.
  */
 async function demarrer(): Promise<void> {
   const resultat = chargerConfiguration({
@@ -53,6 +54,30 @@ async function demarrer(): Promise<void> {
     return;
   }
   const { configuration } = resultat;
+
+  // Stockage : IN, OUT et Journal doivent exister et se lire. « Réessayer » sert quand P: se monte
+  // quelques secondes après l'ouverture de session. Pendant la boîte, il n'y a pas de fenêtre.
+  // L'instance reste ici : le service journal (item 4) la recevra.
+  const stockage = creerStockageDisque(configuration.dossiers);
+  for (;;) {
+    const verification = await stockage.verifierAcces();
+    if (verification.ok) break;
+
+    const { response } = await dialog.showMessageBox({
+      type: 'error',
+      title: 'Flussi ne peut pas démarrer',
+      message: 'Un dossier de travail est inaccessible.',
+      detail: formaterErreursStockage(verification.erreurs),
+      buttons: ['Réessayer', 'Quitter'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (response !== 0) {
+      app.exit(1);
+      return;
+    }
+  }
 
   // Smoke-test de la chaîne IPC main + preload + renderer
   ipcMain.handle('app:ping', () => 'pong');

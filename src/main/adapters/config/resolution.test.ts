@@ -49,11 +49,16 @@ describe('resoudreConfiguration — application installée', () => {
     });
   });
 
-  it('refuse la recette sans aucun dossier de travail (manquant)', () => {
+  it('refuse la recette sans dossier de travail, avec une erreur rattachée à la clé', () => {
     const erreurs = erreursDe(installee({ FLUSSI_ENV: 'recette' }));
-    expect(erreurs).toHaveLength(1);
-    expect(erreurs[0]?.source).toBe(CONFIG_JSON);
-    expect(erreurs[0]?.message).toContain('STOCKAGE_DOSSIER_TRAVAIL manquant');
+    expect(erreurs).toEqual([
+      {
+        source: CONFIG_JSON,
+        cle: 'STOCKAGE_DOSSIER_TRAVAIL',
+        message:
+          'manquant : chemin absolu du dossier de travail attendu (il contient IN, OUT et Journal).',
+      },
+    ]);
   });
 
   it('dérive les dossiers de la racine en recette', () => {
@@ -76,54 +81,28 @@ describe('resoudreConfiguration — application installée', () => {
     expect(configuration.dossiers.in).toBe(`${RACINE}\\IN`);
   });
 
-  it('accepte les trois dossiers sans racine (travail à null)', () => {
-    const configuration = configurationDe(
-      installee({
-        FLUSSI_ENV: 'recette',
-        STOCKAGE_DOSSIER_IN: 'D:\\a\\entrees',
-        STOCKAGE_DOSSIER_OUT: 'D:\\b\\sorties',
-        STOCKAGE_DOSSIER_JOURNAL: 'D:\\c\\journal',
-      }),
-    );
-    expect(configuration.dossiers).toEqual({
-      travail: null,
-      in: 'D:\\a\\entrees',
-      out: 'D:\\b\\sorties',
-      journal: 'D:\\c\\journal',
-    });
-  });
-
-  it('refuse la recette avec seulement deux dossiers sur trois et pas de racine', () => {
-    const erreurs = erreursDe(
-      installee({
-        FLUSSI_ENV: 'recette',
-        STOCKAGE_DOSSIER_IN: 'D:\\a',
-        STOCKAGE_DOSSIER_OUT: 'D:\\b',
-      }),
-    );
-    expect(erreurs).toHaveLength(1);
-    expect(erreurs[0]?.message).toContain('manquant');
-  });
-
-  it("la surcharge d'un seul dossier l'emporte sur la dérivation", () => {
-    const configuration = configurationDe(
-      installee({
-        FLUSSI_ENV: 'recette',
-        STOCKAGE_DOSSIER_TRAVAIL: RACINE,
-        STOCKAGE_DOSSIER_OUT: 'E:\\Autre\\Sorties',
-      }),
-    );
-    expect(configuration.dossiers.in).toBe(`${RACINE}\\IN`);
-    expect(configuration.dossiers.out).toBe('E:\\Autre\\Sorties');
-    expect(configuration.dossiers.journal).toBe(`${RACINE}\\Journal`);
-  });
-
-  it('une racine explicite en prod remplace la racine par défaut', () => {
+  it('une racine explicite en prod remplace la racine par défaut, et les dossiers en dérivent', () => {
     const configuration = configurationDe(
       installee({ FLUSSI_ENV: 'prod', STOCKAGE_DOSSIER_TRAVAIL: RACINE }),
     );
-    expect(configuration.dossiers.travail).toBe(RACINE);
-    expect(configuration.dossiers.journal).toBe(`${RACINE}\\Journal`);
+    expect(configuration.dossiers).toEqual({
+      travail: RACINE,
+      in: `${RACINE}\\IN`,
+      out: `${RACINE}\\OUT`,
+      journal: `${RACINE}\\Journal`,
+    });
+  });
+
+  it('en prod avec une racine vide, applique la racine par défaut et en dérive les dossiers', () => {
+    const configuration = configurationDe(
+      installee({ FLUSSI_ENV: 'prod', STOCKAGE_DOSSIER_TRAVAIL: '' }),
+    );
+    expect(configuration.dossiers).toEqual({
+      travail: DOSSIER_TRAVAIL_PROD,
+      in: `${DOSSIER_TRAVAIL_PROD}\\IN`,
+      out: `${DOSSIER_TRAVAIL_PROD}\\OUT`,
+      journal: `${DOSSIER_TRAVAIL_PROD}\\Journal`,
+    });
   });
 
   it('accepte un chemin réseau UNC', () => {
@@ -152,6 +131,17 @@ describe('resoudreConfiguration — FLUSSI_ENV', () => {
     expect(erreurs).toHaveLength(1);
     expect(erreurs[0]).toMatchObject({ source: CONFIG_JSON, cle: 'FLUSSI_ENV' });
     expect(erreurs[0]?.message).toContain('absent ou vide');
+  });
+
+  it('n’ajoute pas d’erreur « manquant » tant que FLUSSI_ENV est absent ou invalide', () => {
+    for (const valeurs of [{}, { FLUSSI_ENV: '' }, { FLUSSI_ENV: 'Prod' }, { FLUSSI_ENV: true }]) {
+      for (const resultat of [installee(valeurs), dev(valeurs)]) {
+        const erreurs = erreursDe(resultat);
+        expect(erreurs).toHaveLength(1);
+        expect(erreurs[0]?.cle).toBe('FLUSSI_ENV');
+        expect(JSON.stringify(erreurs)).not.toContain('manquant');
+      }
+    }
   });
 
   it('refuse FLUSSI_ENV vide', () => {
@@ -245,17 +235,59 @@ describe('resoudreConfiguration — clés refusées', () => {
     expect(erreurs[0]?.message).not.toContain(valeur);
   });
 
-  it('refuse un chemin relatif sur un dossier individuel, sans erreur de dossier manquant', () => {
-    const erreurs = erreursDe(
-      installee({
-        FLUSSI_ENV: 'recette',
-        STOCKAGE_DOSSIER_TRAVAIL: RACINE,
-        STOCKAGE_DOSSIER_JOURNAL: 'valeur-sentinelle',
-      }),
-    );
-    expect(erreurs).toHaveLength(1);
-    expect(erreurs[0]).toMatchObject({ cle: 'STOCKAGE_DOSSIER_JOURNAL' });
-    expect(erreurs[0]?.message).not.toContain('valeur-sentinelle');
+  it.each(['STOCKAGE_DOSSIER_IN', 'STOCKAGE_DOSSIER_OUT', 'STOCKAGE_DOSSIER_JOURNAL'])(
+    'refuse la clé retirée %s comme clé inconnue, en installée, sans citer la valeur',
+    (cle) => {
+      const erreurs = erreursDe(
+        installee({
+          FLUSSI_ENV: 'recette',
+          STOCKAGE_DOSSIER_TRAVAIL: RACINE,
+          [cle]: 'D:\\valeur-sentinelle',
+        }),
+      );
+      expect(erreurs).toEqual([
+        { source: CONFIG_JSON, cle, message: 'clé inconnue (faute de frappe ?).' },
+      ]);
+      expect(JSON.stringify(erreurs)).not.toContain('valeur-sentinelle');
+    },
+  );
+
+  it.each(['STOCKAGE_DOSSIER_IN', 'STOCKAGE_DOSSIER_OUT', 'STOCKAGE_DOSSIER_JOURNAL'])(
+    'refuse la clé retirée %s comme clé inconnue, en dev, sans citer la valeur',
+    (cle) => {
+      const erreurs = erreursDe(
+        dev({
+          FLUSSI_ENV: 'recette',
+          STOCKAGE_DOSSIER_TRAVAIL: RACINE,
+          [cle]: 'D:\\valeur-sentinelle',
+        }),
+      );
+      expect(erreurs).toEqual([
+        { source: DOT_ENV, cle, message: 'clé inconnue (faute de frappe ?).' },
+      ]);
+      expect(JSON.stringify(erreurs)).not.toContain('valeur-sentinelle');
+    },
+  );
+
+  it('refuse une clé retirée même sans racine, avec l’erreur « manquant » en plus', () => {
+    const erreurs = erreursDe(installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_IN: 'D:\\a' }));
+    expect(erreurs.map((e) => e.cle).sort()).toEqual([
+      'STOCKAGE_DOSSIER_IN',
+      'STOCKAGE_DOSSIER_TRAVAIL',
+    ]);
+  });
+
+  it('une racine en erreur (chemin relatif) donne une seule erreur, sans « manquant »', () => {
+    for (const resultat of [
+      installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: 'relatif' }),
+      dev({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: 'relatif' }),
+    ]) {
+      const erreurs = erreursDe(resultat);
+      expect(erreurs).toHaveLength(1);
+      expect(erreurs[0]?.cle).toBe('STOCKAGE_DOSSIER_TRAVAIL');
+      expect(erreurs[0]?.message).toContain('chemin absolu attendu');
+      expect(erreurs[0]?.message).not.toContain('manquant');
+    }
   });
 
   it('refuse un chemin relatif en prod sans retomber sur la valeur par défaut', () => {
@@ -282,6 +314,78 @@ describe('resoudreConfiguration — clés refusées', () => {
       'STOCKAGE_DOSSIER_OUT',
     ]);
     expect(formaterErreurs(erreurs)).not.toContain(SECRET_FICTIF);
+  });
+});
+
+describe('resoudreConfiguration — caractère de contrôle dans un chemin', () => {
+  const MESSAGE_DEV =
+    "caractère de contrôle dans le chemin (saut de ligne ?) : dans le .env, n'entourez pas le chemin de guillemets doubles.";
+  const MESSAGE_INSTALLEE =
+    'caractère de contrôle dans le chemin (saut de ligne ?) : dans config.json, chaque barre oblique inverse doit être doublée (\\\\).';
+  // « \n » issu d'une barre oblique inverse non doublée (\nouveau) dans un config.json
+  const AVEC_SAUT = 'C:\\Dev\nouveau-fictif';
+
+  it('donne le message dédié en installée, sans citer la valeur', () => {
+    const erreurs = erreursDe(
+      installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: AVEC_SAUT }),
+    );
+    expect(erreurs).toEqual([
+      { source: CONFIG_JSON, cle: 'STOCKAGE_DOSSIER_TRAVAIL', message: MESSAGE_INSTALLEE },
+    ]);
+    expect(erreurs[0]?.message).not.toContain('nouveau-fictif');
+  });
+
+  it('donne le message dédié en dev, sans citer la valeur', () => {
+    const erreurs = erreursDe(dev({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: AVEC_SAUT }));
+    expect(erreurs).toEqual([
+      { source: DOT_ENV, cle: 'STOCKAGE_DOSSIER_TRAVAIL', message: MESSAGE_DEV },
+    ]);
+    expect(erreurs[0]?.message).not.toContain('nouveau-fictif');
+  });
+
+  it('ne retombe pas sur la racine par défaut en prod', () => {
+    const erreurs = erreursDe(
+      installee({ FLUSSI_ENV: 'prod', STOCKAGE_DOSSIER_TRAVAIL: AVEC_SAUT }),
+    );
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0]?.message).toBe(MESSAGE_INSTALLEE);
+  });
+
+  it.each([
+    ['tabulation', 'D:\\a\tb'],
+    ['caractère nul', 'D:\\a\0b'],
+    ['saut de ligne final', 'D:\\a\n'],
+    ['retour chariot', 'D:\\a\rb'],
+  ])('détecte aussi : %s', (_nom, valeur) => {
+    const erreurs = erreursDe(dev({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: valeur }));
+    expect(erreurs).toHaveLength(1);
+    expect(erreurs[0]?.message).toBe(MESSAGE_DEV);
+  });
+
+  it('ne signale pas en plus un dossier manquant', () => {
+    const erreurs = erreursDe(
+      installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: AVEC_SAUT }),
+    );
+    expect(erreurs).toHaveLength(1);
+  });
+
+  it('garde le message « chemin absolu attendu » pour un chemin relatif sans caractère de contrôle', () => {
+    for (const resultat of [
+      installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: 'relatif' }),
+      dev({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: 'relatif' }),
+    ]) {
+      const erreurs = erreursDe(resultat);
+      expect(erreurs).toHaveLength(1);
+      expect(erreurs[0]?.message).toContain('chemin absolu attendu');
+      expect(erreurs[0]?.message).not.toContain('caractère de contrôle');
+    }
+  });
+
+  it('émet le message de contrôle avant « chemin absolu » pour un chemin relatif avec saut de ligne', () => {
+    const erreurs = erreursDe(
+      installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: 'relatif\nfictif' }),
+    );
+    expect(erreurs[0]?.message).toBe(MESSAGE_INSTALLEE);
   });
 });
 
