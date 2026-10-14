@@ -1,0 +1,36 @@
+# Dependabot : mises à jour de sécurité seulement, regroupées en une seule PR.
+# Les PR sont traitées par Claude à la demande (procédure dans CLAUDE.md,
+# section « Mises à jour de sécurité (Dependabot) »).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    # Clé obligatoire, sans effet ici : les mises à jour de version sont coupées.
+    schedule:
+      interval: weekly
+    # 0 coupe les mises à jour de version ; les mises à jour de sécurité restent actives.
+    open-pull-requests-limit: 0
+    groups:
+      securite:
+        applies-to: security-updates
+        patterns:
+          - '*'
+    # Contraintes de versions de CLAUDE.md (« Stack technique »), à tenir synchronisées.
+    # Plages par `versions` : `update-types` n'est pas appliqué aux mises à jour de sécurité.
+    # Electron n'est jamais ignoré : il embarque Chromium et Node dans l'application livrée,
+    # ses correctifs de sécurité sont prioritaires.
+    ignore:
+      # electron-vite 5 n'accepte pas vite 8
+      - dependency-name: vite
+        versions: ['>=8.0.0']
+      - dependency-name: '@vitejs/plugin-react'
+        versions: ['>=6.0.0']
+      # typescript-eslint 8 exige typescript < 6.1
+      - dependency-name: typescript
+        versions: ['>=6.1.0']
+      # configuration Tailwind au format v3
+      - dependency-name: tailwindcss
+        versions: ['>=4.0.0']
+      # tailwind-merge 3 cible Tailwind 4
+      - dependency-name: tailwind-merge
+        versions: ['>=3.0.0']
