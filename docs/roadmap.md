@@ -10,19 +10,6 @@
 
 ---
 
-## v0.1.0 — Domaine AC056
-
-Objectif : le domaine pur `shared/domain/ac056` lit, contrôle et réécrit les fichiers AC056 à l'identique de Lazarus. C'est le risque le plus dangereux du projet (divergence silencieuse), et tout le reste en dépend.
-
-- Corpus de référence : fichiers AC056 réels (VEOS en UTF-8 et rejets en ANSI) avec leur sortie Lazarus, rangés dans un dossier protégé sur `P:`, jamais dans le dépôt.
-- Entités 000 à 800 en largeur fixe : positions, longueurs, valeurs autorisées (cahier des charges IGA 1.27, `uac056.pas`, `utypes.pas`).
-- Lecteur et écrivain AC056.
-- Règles de contrôle (`ucontrole.pas`) et codes de rejet `ERRxxx` avec leur description (`urejetsdescription.pas`).
-- Jeu de caractères AC056 autorisé, ASCII uniquement : `0`-`9`, `A`-`Z`, espace, `-`, `'`, `/`, `.`, ainsi que `a`-`z`, `_` et `@` pour la validation des e-mails (hypothèse de travail). Tout octet hors de ce jeu (accent, caractère multi-octets venu de VEOS) est signalé en erreur sur son champ, sans décaler les champs suivants. Tests avec un caractère interdit à différentes positions.
-- Fichier VEOS enregistré sans modification identique à l'octet près : CRLF ou LF, BOM UTF-8, saut de ligne final, espaces de bourrage, ligne vide finale. Test de non-régression par SHA-256 sur le corpus réel.
-- Fichiers AC056 mal formés (vide, tronqué, longueur de ligne incorrecte, entité hors 000 à 800, ordre inattendu, en-tête 000 ou pied absent) : erreurs localisées par numéro de ligne, et le reste du fichier reste consultable. Mesurer le chargement sur le plus gros fichier réel.
-- Rejets MSP en ANSI (Windows-1252), dont les messages peuvent contenir des accents : décodage en Windows-1252 sans confusion avec l'UTF-8, et signalement d'un fichier dont l'encodage ne correspond pas à son origine.
-
 ## v0.2.0 — Socle applicatif
 
 Objectif : configuration, stockage, journal, paramètres et premier installeur. L'installeur est testé dès cette version sur un vrai poste du service.

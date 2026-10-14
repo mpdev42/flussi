@@ -72,4 +72,13 @@ describe('compterRattachements', () => {
     const { fichier } = lireAc056(fichierSynthetique(lignes), 'rejet');
     expect(compterRattachements(fichier)).toEqual([1, 1, 1, 0, 1]);
   });
+
+  it('rattache la 001 qui suit la 995 d un rejet (e001 = ligne 3)', () => {
+    const lignes = ['100', '990', '995', '001', '000', '999'].map((code) =>
+      ligneRejetSynthetique(code as CodeEntite, code === '000' || code === '999' ? 0 : 1),
+    );
+    const { fichier } = lireAc056(fichierSynthetique(lignes), 'rejet');
+    expect(fichier.dossiers[0]?.e001).toBe(3);
+    expect(compterRattachements(fichier)).toEqual([1, 1, 1, 1, 1, 1]);
+  });
 });
