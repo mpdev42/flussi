@@ -164,8 +164,9 @@ src/
       styles/index.css          Tailwind + variables shadcn
       App.tsx
       main.tsx
+      env.d.ts                  types Vite côté client (vite/client)
   shared/
-    domain/ac056/               domaine pur AC056 (22 entités 000 à 999, lecteur, écrivain, contrôles, ERRxxx)
+    domain/ac056/               domaine pur AC056 (22 entités 000 à 999, lecteur, écrivain, structure et hiérarchie, contrôles, modification, rejets, ERRxxx)
     schemas/                    schémas zod (configuration, échanges IPC)
     test/                       helpers de test, jamais importés hors tests
       corpus.ts                 accès au corpus AC056 de référence (P:), écarts sans valeur
@@ -234,7 +235,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - `Veos` : lancement du workflow d'export vers MSP dans VEOS (saisie des identifiants personnels, pilotage de la page cachée, détection des échecs de connexion). S'appuie sur l'adapter `veos`.
 - `Iga` : liste des fichiers AC056 sur le FTP IGA, avertissement si le fichier n'est pas du jour, téléchargement vers le dossier IN. S'appuie sur les adapters `ftp-iga` et `stockage`.
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT. S'appuie sur les adapters `sftp-msp` et `stockage`.
-- `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, règles de contrôle).
+- `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, structure et hiérarchie, règles de contrôle, modification de champ).
 - `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, rangé dans `Journal\AAAA\MM\`, sans index commun), consultation de l'historique. Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé.
 - `Parametres` : mode actif, dossiers de travail (surcharge de `config.json`, enregistrée dans `%APPDATA%\Flussi\` : `%ProgramData%\Flussi\config.json` reste en lecture seule), saisie des secrets par l'administrateur. S'appuie sur l'adapter `config`.
 
