@@ -7,8 +7,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "test": "vitest run",
-    "test:corpus": "vitest run --mode corpus",
+    "test": "node scripts/test.mjs run",
+    "test:corpus": "node scripts/test.mjs run --mode corpus",
     "test:e2e": "node scripts/e2e.mjs",
     "build": "electron-vite build",
     "package": "electron-vite build && electron-builder --win nsis",

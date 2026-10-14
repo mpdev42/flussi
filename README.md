@@ -6,8 +6,8 @@ Logiciel d'échange de fichiers entre notre logiciel de gestion métier VEOS et 
 
 ```bash
 npm run dev           # Lancer en dev — electron-vite dev (encapsulé par scripts/dev.mjs)
-npm test              # Tests unitaires — vitest run
-npm run test:corpus   # Tests de parité sur le corpus AC056 réel, obligatoires — vitest run --mode corpus
+npm test              # Tests unitaires — vitest run (encapsulé par scripts/test.mjs)
+npm run test:corpus   # Tests de parité sur le corpus AC056 réel, obligatoires — vitest run --mode corpus (encapsulé par scripts/test.mjs)
 npm run test:e2e      # Tests e2e Playwright — build puis playwright test (encapsulé par scripts/e2e.mjs)
 npm run build         # Build production — electron-vite build
 npm run package       # Installeur Windows NSIS pour Intune — electron-vite build && electron-builder --win nsis

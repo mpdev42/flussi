@@ -184,6 +184,7 @@ e2e/
 scripts/
   dev.mjs                       wrapper npm run dev (neutralise ELECTRON_RUN_AS_NODE)
   e2e.mjs                       wrapper npm run test:e2e (idem)
+  test.mjs                      wrapper npm test et test:corpus (lance Vitest avec le lecteur en majuscule)
   claude-format.mjs             hook Claude Code : formate avec Prettier chaque fichier modifié
 .vscode/                        formatage à l'enregistrement, extensions recommandées
 resources/                      ressources embarquées dans le paquet
@@ -200,8 +201,8 @@ docs/                           roadmap, backlog, description, pre-mortem
 
 ```bash
 npm run dev           # Lancer en dev — electron-vite dev (encapsulé par scripts/dev.mjs)
-npm test              # Tests unitaires — vitest run
-npm run test:corpus   # Tests de parité sur le corpus AC056 réel, obligatoires — vitest run --mode corpus
+npm test              # Tests unitaires — vitest run (encapsulé par scripts/test.mjs)
+npm run test:corpus   # Tests de parité sur le corpus AC056 réel, obligatoires — vitest run --mode corpus (encapsulé par scripts/test.mjs)
 npm run test:e2e      # Tests e2e Playwright — build puis playwright test (encapsulé par scripts/e2e.mjs)
 npm run build         # Build production — electron-vite build
 npm run package       # Installeur Windows NSIS pour Intune — electron-vite build && electron-builder --win nsis
@@ -212,6 +213,7 @@ npm run format        # Formatter — prettier --write .
 npm run format:check  # Vérification du formatage, sans écriture — prettier --check .
 ```
 
+- Les tests unitaires et de corpus se lancent par `npm test` et `npm run test:corpus`, jamais par `npx vitest` directement : le wrapper `scripts/test.mjs` corrige la casse de la lettre de lecteur (sinon toutes les suites échouent depuis une session Claude Code).
 - Les tests e2e se lancent uniquement depuis la racine, via `npm run test:e2e`, jamais par `npx playwright test` directement. Le wrapper `scripts/e2e.mjs` rebuild l'application (les specs lancent `out/`, pas les sources) et neutralise `ELECTRON_RUN_AS_NODE`, posée par VS Code et Claude Code. Arguments transmis à Playwright : `npm run test:e2e -- <spec> --reporter=list`.
 - Les tests unitaires vivent à côté du code (`src/**/*.test.ts`). Vitest ignore le dossier `e2e/`.
 - **Corpus AC056** : fichiers réels sur `P:` (`IN\`, `OUT\`, `PIEGES\`, `MODIFIES\`), données personnelles non anonymisées, jamais copiés dans le dépôt (ni fixture, ni snapshot). Chemin dans `AC056_CORPUS_DIR` (`.env`). Les tests corpus s'appellent `*.corpus.test.ts` et sont enveloppés dans `decrireCorpus` (`@shared/test/corpus`) : ignorés par `npm test` si le corpus est indisponible, obligatoires avec `npm run test:corpus`. Jamais de `toEqual` ni de snapshot sur un contenu du corpus (Vitest afficherait les valeurs) : comparer par SHA-256, et localiser un écart par `localiserEcart` et `decrireEcart` (fichier, ligne, octet, jamais la valeur). Convention de `PIEGES\` : `NOM.txt` (copie d'un fichier de `IN\` avec erreurs volontaires, lignes gardées à 700 octets) et `NOM.erreurs.txt` (journal Lazarus copié-collé tel quel après le chargement de `NOM.txt`, en RTF depuis WordPad ou en texte : seules les lignes `Dossier/Evènement … : Entité …` comptent). Jamais de rang non numérique sur un assuré `ASSPRI`, `CONJOI` ou `ENFANT` : Lazarus plante. Convention de `MODIFIES\` : `NOM.txt` (fichier enregistré par Lazarus après correction d'un champ) et `NOM.modification.txt` (`original=` nom dans `IN\`, `ligne=`, `champ=` nom Flussi exact, `valeur=` texte saisi tel quel). Un sous-dossier absent ou vide est ignoré par `npm test` et obligatoire avec `npm run test:corpus` (`decrireSousDossierCorpus`).
