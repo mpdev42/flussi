@@ -24,6 +24,7 @@ Objectif : configuration, stockage, journal, paramètres et premier installeur. 
 - Instance unique : un second lancement remet au premier plan la fenêtre déjà ouverte.
 - Version de l'application visible dans l'interface et inscrite dans chaque fichier de session du journal.
 - Premier installeur NSIS, testé tôt sur un poste pilote avec un compte standard (installation, premier lancement, mise à jour) : l'installeur non signé, déployé par Intune, est-il bloqué par Defender ou par une règle ASR ? En cas de blocage, aucun achat : installation manuelle sur les postes, en confirmant l'alerte SmartScreen éventuelle.
+- Dependabot encadré par `.github/dependabot.yml` : pas de mises à jour de version, seulement les mises à jour de sécurité, regroupées en une seule PR. Règles `ignore` par plage de versions (`versions`, pas `update-types`, ignoré pour la sécurité) qui écartent toute montée contraire aux contraintes de `CLAUDE.md` (`tailwindcss` ≥ 4, `vite` ≥ 8, `@vitejs/plugin-react` ≥ 6, `tailwind-merge` ≥ 3, `typescript` ≥ 6.1). Les PR Dependabot sont traitées par Claude à la demande (« traite les PR Dependabot » : vérification des contraintes, tests, build, fusion ou fermeture expliquée). Traiter l'alerte ouverte `postcss-selector-parser` (correctif 7.1.6) si compatible avec Tailwind 3.4.
 
 ## v0.3.0 — Écran AC056
 
