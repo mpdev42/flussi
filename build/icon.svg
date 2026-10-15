@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Fond : bleu foncé de la marque (navy-700) -->
+  <rect width="256" height="256" rx="56" fill="#13295B" />
+  <!-- Envoi : flèche blanche vers la droite -->
+  <path d="M48 64 H144 V32 L208 80 L144 128 V96 H48 Z" fill="#FFFFFF" />
+  <!-- Retour : flèche bleu clair (blue-500) vers la gauche -->
+  <path d="M208 160 H112 V128 L48 176 L112 224 V192 H208 Z" fill="#0077BD" />
+</svg>
