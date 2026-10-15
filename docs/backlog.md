@@ -25,6 +25,7 @@ _(aucun pour l'instant)_
 - Ajouter des codes `ERRxxx` ? 13 messages de rejet sur 29 du corpus `OUT\` ne correspondent à aucun code (Lazarus donne le même résultat). À examiner avec le service administratif — `src/shared/domain/ac056/codes-rejet.ts` (v0.1.0, item 6)
 - Réécriture silencieuse : une ligne non modifiée est régénérée avec le `Trim` et le bourrage de Lazarus (par exemple un `rangNaissance` à blanc sort en `00`), sans anomalie, ce qui contredit « identique octet par octet ». Ajouter une anomalie non bloquante quand la ligne régénérée diffère de l'origine ? — `src/shared/domain/ac056/ecrivain.ts`, `fpc.ts` (v0.1.0, revue release)
 - Ctrl-Z (0x1A) en fin de fichier : `ReadLn` de FPC sous Windows s'arrêterait dessus et Lazarus chargerait le fichier, alors que Flussi crée une ligne d'un octet bloquante. À vérifier dans la RTL FPC, puis documenter ou traiter — `src/shared/domain/ac056/decoupage.ts` (v0.1.0, revue release)
+- Renseigner `author` dans `package.json` ? Sans lui, l'éditeur est vide dans « Applications installées » et dans les propriétés de `Flussi.exe` — `package.json` (v0.2.0, item 5)
 
 ## Points reportés
 
@@ -52,6 +53,12 @@ _(aucun pour l'instant)_
 ### v0.5.0 — MSP
 
 - Refuser le dépôt d'un fichier en anomalie de structure — `src/shared/domain/ac056/structure.ts` (v0.1.0, item 4)
+- Avant les premiers dépôts : une mise à jour Intune coupe Flussi ouvert (constaté au pilote), donc un dépôt en cours. Macro NSIS `customCheckAppRunning` qui sort avec le code 1618 (Intune retente plus tard) si Flussi est ouvert — `build/installer.nsh` (v0.2.0, item 5)
+
+### v0.6.0 — Parcours complet et recette
+
+- Confirmer le déploiement Intune sur le poste d'un collègue (le poste pilote est celui du développeur, aux réglages possiblement plus souples), dans le groupe pilote — `docs/deploiement-intune.md` (v0.2.0, item 5)
+- Observer en conditions réelles ce que le pilote n'a pas rencontré : `P:` monté en retard (« Réessayer »), verrou OneDrive `EBUSY`/`EPERM`, copie de conflit — `src/main/adapters/stockage/` (v0.2.0, item 5)
 
 ### v1.0.0 — Mise en production
 
@@ -62,6 +69,7 @@ _(aucun pour l'instant)_
 - Remesurer la performance du chargement avec le contrôle complet, dans les mêmes conditions que la mesure de l'item 4 — `src/shared/domain/ac056/structure.test.ts` (v0.1.0, item 4)
 - Vérifier sur l'application installée en production que le titre de la fenêtre est « Flussi » seul (non testable en dev, où `prod` est refusé) — `src/main/index.ts` (v0.2.0, item 2)
 - À la première mise en production, archiver les anciens journaux de Lazarus (fichiers RTF et index commun) de `Transferts\Journal` dans un autre dossier, pour laisser `Transferts\Journal` à Flussi — `P:\…\Transferts\Journal` (v0.2.0, cadrage de l'item 4)
+- Déploiement de production : groupe Intune de production distinct du groupe pilote, application « Flussi — configuration production » qui remplace celle de recette (supersedence), détection de `config.json` par empreinte SHA-256 (la présence seule ne redéploie pas un fichier modifié) — `docs/deploiement-intune.md`, `deploiement/intune/` (v0.2.0, item 5)
 
 ### Dette technique (sans échéance)
 
@@ -83,6 +91,7 @@ _(aucun pour l'instant)_
 - Composants partagés à étendre (`component-agent`) : `StatusBadge` avec ton et icône libres (remplacerait `Pastille` du journal), `Alert` avec variantes `warning` et `error`, niveau de titre réglable pour `AlertTitle` (`h5` aujourd'hui) — `src/renderer/src/components/ui/`, `src/renderer/src/pages/journal/elements-tableau.tsx` (v0.2.0, item 4)
 - Écran Journal : explication de « Copie de conflit » accessible au clavier (`Tooltip` ou texte `sr-only` au lieu de `title`), erreur des années affichée près des boutons d'années sans masquer le tableau du mois, analyse unique des noms dans `sessions` — `src/renderer/src/pages/journal/historique-journal.tsx`, `src/renderer/src/hooks/use-historique-journal.ts`, `src/main/services/journal/historique.ts` (v0.2.0, item 4)
 - Journal : écriture partielle possible (lignes réécrites en double après une coupure pendant un ajout), `terminer()` sans délai maximal, ligne « Fin de session » absente si Windows ferme la session avec Flussi ouvert, session à cheval sur deux mois absente du mois affiché — `src/main/services/journal/session.ts`, `src/main/index.ts` (v0.2.0, item 4)
+- `scripts/icone.mjs` laisse son profil Electron jetable `%TEMP%\flussi-icone` : le supprimer en fin de génération — `scripts/icone.mjs` (v0.2.0, item 5)
 - Tests manquants : replis de `identite.ts`, hooks `use-chargement-stockage` et `use-etat-journal` (environnement DOM de test à prévoir), e2e de l'historique instable au changement de mois — `src/main/services/journal/identite.ts`, `src/renderer/src/hooks/`, `e2e/specs/journal.spec.ts` (v0.2.0, item 4)
 
 ## Décisions

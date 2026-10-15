@@ -274,7 +274,7 @@
 
 ### 5. Premier installeur NSIS, testé par Intune sur le poste pilote
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : aucun
 
 **Description** — Premier installeur NSIS, emballé en `.intunewin` et déployé par Intune sur un poste pilote avec un compte standard : installation, premier lancement, mise à jour, désinstallation. Question à lever : l'installeur non signé est-il bloqué par Defender, une règle ASR ou SmartScreen ? En cas de blocage, aucun achat : installation manuelle sur les postes, en confirmant l'alerte SmartScreen éventuelle.
@@ -308,6 +308,96 @@
 - Un poste de développeur peut avoir des réglages plus souples (exclusions Defender, outils installés) : un test sans blocage ne garantit pas le même résultat chez les collègues. **Confirmer le déploiement sur le poste d'un collègue lors de la recette de la v0.6.0** (à reporter au backlog par `/item-finish`).
 
 **Fichiers impactés** : `electron-builder.yml`, `build/installer.nsh`, `build/icon.ico` (et sa source SVG), éventuellement une documentation de déploiement dans `docs/`.
+
+**Décisions d'implémentation** (2026-10-15) :
+
+- **Icône** :
+  - L'ancienne icône n'a qu'une taille (32 px) : « Flus » manuscrit blanc sur un carré bleu ciel, avec le « si » coupé.
+  - La nouvelle (`build/icon.svg`) montre deux flèches pleines sur un carré arrondi `navy-700` : une blanche vers la droite (envoi chez MSP), une `blue-500` vers la gauche (retour des rejets). Pas de texte. Les coordonnées sont alignées sur une grille de 16 unités, pour des bords nets à 16 px.
+  - Validée par l'utilisateur telle quelle : `blue-500` est conservé malgré un contraste d'environ 3:1 sur le fond.
+  - `scripts/icone.mjs` (`node scripts/icone.mjs`, sans dépendance) relance l'Electron du projet, dessine le SVG dans un `<canvas>` à chaque taille (16 à 256 px) et écrit `build/icon.ico` : entrée 256 en PNG, autres tailles en BMP 32 bits. Le résultat est déterministe : même SHA-256 d'une exécution à l'autre.
+- **`build/installer.nsh`** (macro `customInstall`, appelée après la copie des fichiers) :
+  - crée `%ProgramData%\Flussi`, puis `icacls /reset` et `icacls /inheritance:r /grant:r` par SID (SYSTEM et Administrateurs en contrôle total, Utilisateurs en lecture) ;
+  - en cas d'échec : code de sortie 10 à 13 par `SetErrorLevel` puis `Quit`, le chemin d'electron-builder, au lieu d'`Abort` prévu au plan. L'application reste alors installée, mais Intune voit l'échec, et une réinstallation rejoue la macro ;
+  - compilation validée par le `makensis` 3.0.4.1 du cache d'electron-builder ; exécution non testée sur le poste de développement.
+- **Version du pilote** : surchargée au build (`-c.extraMetadata.version=0.2.0-pilote`, puis `0.2.1-pilote`), sans toucher à `package.json`. Sous PowerShell 5.1, l'argument doit être entre guillemets, sinon il est coupé au point (`-c .extraMetadata…`) et electron-builder cherche un fichier de configuration de ce nom.
+- **Premier packaging** (2026-10-15, PowerShell administrateur) : `release\Flussi-0.2.0-pilote-setup.exe` (113 Mo) produit sans erreur, `nsis.include` pris en compte. Les lignes « signing with signtool.exe » du journal n'impliquent aucune signature : l'installeur et `Flussi.exe` sont non signés (`Get-AuthenticodeSignature` : `NotSigned`). L'avertissement « author is missed in the package.json » laisse vides l'éditeur dans « Applications installées » et la société dans les propriétés des fichiers ; sans effet sur le fonctionnement.
+- **Détection Intune** : clé `HKLM\…\Uninstall\f4fbc099-6400-53e0-b346-884096add07f` (UUID v5 de l'`appId`, fixe), valeur `DisplayVersion`.
+- **Dépôt de `config.json`** :
+  - par une seconde application Win32 « Flussi — configuration recette », qui dépend de l'application Flussi, avec `copy` et `del` par `cmd.exe` ;
+  - mécanisme pérenne : en v1.0.0, une application « configuration production » remplace celle de recette par le remplacement Intune (supersedence) ;
+  - paquet versionné dans `deploiement/intune/config-recette/`, validé par `src/main/adapters/config/deploiement.test.ts` (ajout au plan : une clé mal tapée est refusée avant le déploiement) ;
+  - **à reporter au backlog (v1.0.0)** : la détection par présence du fichier ne redéploie pas un `config.json` modifié. Il faudra une détection par empreinte SHA-256.
+- **Solution de sécurité du poste** :
+  - son contrôle des applications (règle « Block rare and unknown files in Temp folder ») a bloqué l'exécution de l'installeur NSIS d'essai, lancé depuis un dossier temporaire (2026-10-15) ;
+  - l'installation par Intune part de `C:\Windows\IMECache`, hors dossier temporaire ;
+  - mais la mise à jour lance l'ancien désinstalleur depuis `$PLUGINSDIR` (dossier temporaire, avec repli sur place par electron-builder si le lancement échoue), et la désinstallation recopie le désinstalleur dans le dossier temporaire ;
+  - ces trois moments sont ajoutés à la liste de contrôle du pilote.
+- **Préparation du pilote** (2026-10-15) :
+  - dossiers `RECETTE\IN`, `RECETTE\OUT` et `RECETTE\Journal` créés sur `P:` ;
+  - outil `IntuneWinAppUtil.exe` téléchargé depuis le dépôt GitHub de Microsoft dans `C:\Intune\outil\` (signature Microsoft valide) ;
+  - paquets `C:\Intune\paquets\Flussi-0.2.0-pilote-setup.intunewin` et `config.intunewin` produits.
+- **Première installation par Intune** (2026-10-15, 12h44, journal `AppWorkload.log`) :
+  - installeur lancé sous SYSTEM depuis `C:\WINDOWS\IMECache\…`, terminé en 24 s avec le code de sortie 0 ;
+  - **aucun blocage** du contrôle des applications, de Defender ni d'ASR ;
+  - droits de `C:\ProgramData\Flussi` conformes (`icacls` : Utilisateurs `(OI)(CI)(RX)`, Administrateurs et Système `(OI)(CI)(F)`, aucune entrée héritée) ;
+  - clé de désinstallation conforme (`DisplayVersion` `0.2.0-pilote`, `QuietUninstallString` `"C:\Program Files\Flussi\Uninstall Flussi.exe" /allusers /S`, identique à la commande de désinstallation prévue).
+  - Intune a pourtant signalé un **échec** : la valeur de la règle de détection commençait par une tabulation (`DetectionValue: \t0.2.0-pilote`), reprise par copier-coller depuis un tableau. La comparaison « Égal à » échouait donc. Leçon reportée dans la procédure : saisir les valeurs à la main dans le portail Intune.
+- **Configuration déployée par Intune** (2026-10-15, après correction de la règle) :
+  - `C:\ProgramData\Flussi\config.json` est identique au fichier du dépôt (même SHA-256) ;
+  - droits hérités `(I)` conformes ;
+  - écriture refusée au compte standard, que ce soit la création d'un fichier ou l'ajout à `config.json` ;
+  - raccourcis « Flussi » créés dans le menu Démarrer commun et sur le bureau public.
+- **Premier lancement installé** (2026-10-15, compte standard), conforme et sans réaction de la solution de sécurité :
+  - titre « Flussi — Recette », bandeau Recette, « Flussi 0.2.0-pilote » dans l'en-tête, nouvelle icône ;
+  - écran Journal avec la session en cours en tête ;
+  - fermeture en une fraction de seconde ;
+  - fichier de session `RECETTE\Journal\2026\10\20261015-125603-c.mathevon.txt` : UTF-8 sans BOM, CRLF, en-tête complet (compte, poste, mode `recette`, version `0.2.0-pilote`), ligne « Fin de session » présente.
+- **Tests de `config.json` sur l'application installée** (2026-10-15, point d'attention de l'item 2), tous conformes :
+  - fichier réenregistré par PowerShell 5.1 avec BOM (`EF BB BF` vérifié) : démarrage normal ;
+  - fichier absent : refus « fichier introuvable, il est obligatoire » ;
+  - JSON invalide : refus « JSON invalide » ;
+  - fichier rétabli : démarrage normal ;
+  - un fichier de session pour chacun des deux démarrages, aucun pour les refus.
+- **Mise à jour par Intune vers `0.2.1-pilote`** (2026-10-15, Flussi ouvert) :
+  - installeur lancé à 13:20:08 et terminé à 13:20:45 avec le code 0, nouvelle version détectée ;
+  - aucune alerte de la solution de sécurité, y compris pour le désinstalleur de l'ancienne version, copié dans le dossier temporaire ;
+  - `C:\Program Files\Flussi` ne contient que les fichiers de la nouvelle version ;
+  - `config.json` est conservé (non modifié depuis 13:01) et les droits du dossier sont inchangés.
+  - Comme prévu, **Flussi ouvert a été coupé par l'installeur** : la session de 13:19:40 n'a pas de ligne « Fin de session ».
+  - **À reporter au backlog, avant la v0.5.0 (premiers dépôts MSP)** : une mise à jour poussée pendant un dépôt couperait l'opération en cours. Piste : macro NSIS `customCheckAppRunning` qui sort avec le code 1618 (« une autre installation est en cours », que Intune retente plus tard) si Flussi est ouvert, au lieu de le fermer de force.
+- **Relance après mise à jour** : en-tête et fichier de session en `0.2.1-pilote`.
+- **Désinstallation, premier essai** (2026-10-15, 13:34) : les affectations ont été inversées, la configuration est passée en « Désinstaller » et Flussi est resté « Obligatoire ». La commande de désinstallation de la configuration (`cmd.exe /c del …`) a donc supprimé `config.json`, comme prévu pour cette commande. La procédure le signale désormais.
+- **Désinstallation de Flussi par Intune** (2026-10-15, 13:39) :
+  - désinstalleur lancé avec le code de sortie 0 (il rend la main aussitôt, après s'être recopié dans le dossier temporaire), puis Flussi n'est plus détecté 16 s plus tard : statut Intune correct ;
+  - aucune alerte de la solution de sécurité ;
+  - `C:\Program Files\Flussi`, les deux raccourcis et la clé de désinstallation sont supprimés ;
+  - `C:\ProgramData\Flussi` est conservé, avec ses droits. `config.json` n'y était plus à cause du premier essai.
+- **Désinstallation, essai final** (2026-10-15, vers 13:55) :
+  - une affectation contradictoire (configuration « Obligatoire », Flussi « Désinstaller ») a d'abord fait réinstaller Flussi par la dépendance (installation automatique), puis recopier `config.json` ;
+  - après retrait de l'affectation de la configuration, Flussi a été désinstallé : dossier, raccourcis et clé de registre supprimés ;
+  - **`config.json` conservé**, identique au fichier du dépôt (même SHA-256).
+  - À retenir pour la v1.0.0 : la dépendance avec installation automatique l'emporte sur une affectation « Désinstaller » de Flussi. Pour retirer Flussi d'un poste, retirer d'abord l'affectation de la configuration.
+- **Non observés pendant le pilote** : `P:` monté en retard, vrai verrou OneDrive et vraie copie de conflit (points d'attention de l'item 3), à observer quand l'occasion se présente.
+- **Procédure et liste de contrôle** : `docs/deploiement-intune.md`. Retour d'expérience réutilisable hors du projet : `docs/guide-intune-win32.md`. `CLAUDE.md` mis à jour (structure de `build/`, `deploiement/`, `scripts/icone.mjs`, documents de déploiement ; distribution).
+- **Tests** : 2 421 unitaires (dont `deploiement.test.ts`).
+- **Revue d'item** (`OK POUR MERGE`, aucun bloquant) :
+  - Échec d'`icacls` (codes 12, 13) : `customInstall` est appelée après l'écriture de la clé de désinstallation. Intune voit l'échec, puis détecte `DisplayVersion` à la vérification suivante, considère Flussi installé et ne rejoue plus l'installeur. Le dossier garde alors les droits par défaut de `ProgramData`, où les utilisateurs peuvent écrire. Risque moyen (échec improbable), mais l'item 7 repose sur ces droits.
+  - `icacls /reset` sans `/T` : un fichier déjà présent avec des droits explicites les conserve.
+  - `deploiement.test.ts` recopie la lecture de `chargerInstallee` (BOM, `JSON.parse`, objet attendu) au lieu de la partager, et sa regex contient un BOM littéral invisible (`lecture.ts` écrit `\uFEFF`).
+  - `scripts/icone.mjs` laisse son profil jetable `%TEMP%\flussi-icone`.
+  - `author` absent de `package.json` : éditeur vide dans « Applications installées » et dans les propriétés des fichiers.
+
+**Point d'attention pour l'item 7** :
+
+- **Droits de `%ProgramData%\Flussi`, dont dépend `secrets.bin`** (`build/installer.nsh`, fichier impacté par l'item 7) :
+  - en cas d'échec de la pose des droits, supprimer la clé de désinstallation dans la macro `flussiEchecInstallation` (`DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"`), pour qu'Intune ne détecte rien et retente l'installation ;
+  - évaluer `/T` sur `icacls /reset`.
+- **Lecture de `config.json`** (`src/main/adapters/config/`, touché par l'item 7) : extraire de `lecture.ts` une fonction pure d'analyse du texte (BOM, JSON, objet attendu), utilisée par `chargerInstallee` et par `deploiement.test.ts`, et remplacer le BOM littéral de la regex du test par `\uFEFF`.
+- **Test sur le poste pilote** :
+  - les deux applications Intune sont aujourd'hui retirées du poste (Flussi en « Désinstaller », configuration sans affectation) : repasser Flussi puis la configuration en « Obligatoire » avant la saisie des secrets ;
+  - pour retirer Flussi plus tard, toujours retirer d'abord l'affectation de la configuration (`docs/deploiement-intune.md`, § 6) ;
+  - `C:\ProgramData\Flussi\config.json` est resté sur le poste après le pilote.
 
 ---
 

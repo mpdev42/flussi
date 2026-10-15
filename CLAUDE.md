@@ -85,7 +85,7 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 
 `desktop` — Windows uniquement, processus unique (main + preload + renderer).
 
-- **Distribution** : Intune. electron-builder produit un installeur NSIS par machine (installation silencieuse `/S`), emballé en `.intunewin` comme application Win32.
+- **Distribution** : Intune. electron-builder produit un installeur NSIS par machine (installation silencieuse `/S`), emballé en `.intunewin` comme application Win32. `config.json` est déposé par une seconde application Win32, qui dépend de la première. L'installeur est le même en recette et en production, et ne contient ni `config.json` ni secret. Procédure et liste de contrôle du test pilote : `docs/deploiement-intune.md`.
 - **Mises à jour** : poussées par Intune. Pas de mise à jour automatique dans l'application (pas d'`electron-updater`, `publish: null` dans `electron-builder.yml`).
 - **Stockage de production** : lecteur `P:` (bibliothèque SharePoint) en v1.0, accessible uniquement par des chemins configurables derrière l'adapter `stockage`. La bascule vers SharePoint par Microsoft Graph se fera après la v1.0, sans impact sur le code métier.
 - **Journal** : partagé entre tous les utilisateurs, dans le stockage de production. Un seul utilisateur à la fois : pas d'écriture concurrente à gérer. Chaque dépôt chez MSP y est tracé avec l'empreinte SHA-256 du fichier déposé.
@@ -195,11 +195,15 @@ scripts/
   e2e.mjs                       wrapper npm run test:e2e (idem)
   test.mjs                      wrapper npm test et test:corpus (lance Vitest avec le lecteur en majuscule)
   claude-format.mjs             hook Claude Code : formate avec Prettier chaque fichier modifié
+  icone.mjs                     node scripts/icone.mjs : build/icon.svg → build/icon.ico (16 à 256 px), rendu par l'Electron du projet
 .vscode/                        formatage à l'enregistrement, extensions recommandées
 resources/                      ressources embarquées dans le paquet
-build/                          ressources de build electron-builder (icône…)
+build/                          ressources de build electron-builder
+  icon.svg                      source de l'icône (icon.ico en est généré, jamais retouché à la main)
+  installer.nsh                 crée %ProgramData%\Flussi et ses droits (SYSTEM et Administrateurs : écriture, Utilisateurs : lecture)
+deploiement/intune/             paquets Intune hors installeur (config-recette/config.json), validés par src/main/adapters/config/deploiement.test.ts
 design/                         sources de design (handoff/ et patterns/, référence visuelle)
-docs/                           roadmap, backlog, description, pre-mortem
+docs/                           roadmap, backlog, description, pre-mortem, déploiement Intune (deploiement-intune.md, guide-intune-win32.md)
   reference/lazarus/            sources Lazarus de référence (sans uconstantes.pas : mots de passe en clair)
   reference/iga/                cahier des charges IGA AC056 (archive, consultée sur un point bloquant)
 ```

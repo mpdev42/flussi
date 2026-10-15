@@ -15,5 +15,7 @@ nsis:
   oneClick: true
   perMachine: true
   artifactName: ${productName}-${version}-setup.${ext}
+  # Crée %ProgramData%\Flussi avec ses droits (administrateurs en écriture, utilisateurs en lecture)
+  include: build/installer.nsh
 # Mises à jour poussées par Intune : pas de publication ni d'electron-updater
 publish: null
