@@ -10,6 +10,7 @@ import {
   type Configuration,
   type Mode,
 } from '@shared/schemas/config';
+import type { OriginesConfiguration } from '@shared/types';
 
 // Résolution pure de la configuration : aucune entrée-sortie, testable sans Electron.
 
@@ -35,7 +36,8 @@ export interface ErreurConfiguration {
 }
 
 export type ResultatConfiguration =
-  { ok: true; configuration: Configuration } | { ok: false; erreurs: ErreurConfiguration[] };
+  | { ok: true; configuration: Configuration; origines: OriginesConfiguration }
+  | { ok: false; erreurs: ErreurConfiguration[] };
 
 /** Racine de travail par défaut du mode prod (dossiers IN, OUT et Journal dérivés). */
 export const DOSSIER_TRAVAIL_PROD =
@@ -135,7 +137,8 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
     return retenue;
   };
 
-  const travail = verifierTravail() ?? (mode === 'prod' ? DOSSIER_TRAVAIL_PROD : undefined);
+  const racineLue = verifierTravail();
+  const travail = racineLue ?? (mode === 'prod' ? DOSSIER_TRAVAIL_PROD : undefined);
 
   // Racine absente en recette. Tant que le mode est inconnu, on ignore si le défaut prod s'applique.
   if (travail === undefined && mode !== null && !clesEnErreur.has('STOCKAGE_DOSSIER_TRAVAIL')) {
@@ -145,6 +148,9 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
   if (erreurs.length > 0 || mode === null || travail === undefined) {
     return { ok: false, erreurs };
   }
+
+  // Le mode est toujours lu dans le fichier (sans valeur par défaut) ; la racine peut venir du défaut
+  const origineFichier = enDev ? 'env' : 'config';
 
   return {
     ok: true,
@@ -156,6 +162,11 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
         out: win32.join(travail, SOUS_DOSSIER_OUT),
         journal: win32.join(travail, SOUS_DOSSIER_JOURNAL),
       },
+    },
+    origines: {
+      fichier,
+      mode: origineFichier,
+      travail: racineLue ? origineFichier : 'defaut',
     },
   };
 }

@@ -403,7 +403,7 @@
 
 ### 6. Écran Paramètres, en lecture seule
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : custom
 
 **Description** — Écran de diagnostic : mode actif, dossiers de travail et version, en lecture seule. Il accueille aussi la section administrateur des secrets (item 7) et, en v0.6.0, le bouton « Tester les connexions ».
@@ -422,6 +422,66 @@
 **Tests** : unitaires sur la configuration résolue avec ses origines ; e2e de l'écran.
 
 **Fichiers impactés** : `src/main/services/parametres/`, `src/main/ipc/parametres/`, `src/preload/index.ts`, `src/renderer/src/services/parametres.ts`, `src/renderer/src/hooks/`, `src/renderer/src/pages/` (Paramètres), `design/handoff/` (maquette), tests unitaires et e2e, `CLAUDE.md` (écart 4).
+
+**Décisions d'implémentation** (2026-10-15) :
+
+- **Maquette** : `design/handoff/parametres.tsx`, produite par Claude Design, contenait des erreurs que l'utilisateur ne voulait pas garder. Elles ont été corrigées dans la maquette elle-même :
+  - imports cassés ;
+  - mentions de Tauri au lieu d'Electron ;
+  - cadre différent de celui de l'application : navigation en onglets sous l'en-tête, ni environnement ni version à droite ;
+  - un seul « Dossier de travail » ;
+  - chemins fictifs faux : défaut de production sous `C:\ProgramData`, recette sur `D:` ;
+  - source `.env` affichée sans son chemin ;
+  - largeur de 960 px inventée, renvoi à un `tokens.json` inexistant.
+
+  La section « Secrets techniques » reste dans la maquette comme référence de l'item 7. Elle n'est pas construite ici (décision A de l'utilisateur).
+- **Dossiers** : une ligne et un bouton « Ouvrir dans l'Explorateur » chacun pour la racine de travail, `IN`, `OUT` et `Journal`, qui donnent un accès direct aux sous-dossiers (décision B). Les trois sous-dossiers portent la légende « Sous-dossier du dossier de travail » : ils sont toujours dérivés de la racine et n'ont pas d'origine propre.
+- **Largeur** : pas de largeur maximale, comme Journal et Accueil (décision C). Le manque du 1600 px reste au backlog.
+- **Origines** :
+  - `resoudreConfiguration` renvoie `origines` à côté de `configuration`, pour ne pas toucher au schéma strict `Configuration` : `{ fichier, mode: 'config' | 'env', travail: 'config' | 'env' | 'defaut' }` ;
+  - le mode vient toujours du fichier lu, la racine vaut `defaut` seulement en prod quand elle est absente du fichier ;
+  - `config:lire` les renvoie dans `ConfigurationPublique` ;
+  - l'écran affiche le chemin réel du fichier lu (`config.json` ou `.env`).
+- **Ouverture** :
+  - canal `config:ouvrir-dossier` : l'écran envoie un nom de dossier (`travail`, `in`, `out`, `journal`), validé par zod, jamais un chemin. Un nom invalide fait rejeter l'appel, comme pour le journal ;
+  - service `src/main/services/parametres/` avec `ouvrirChemin` injecté (`shell.openPath`, lu à l'appel pour que l'e2e puisse le remplacer) ;
+  - un échec est renvoyé typé (`{ ok: false, message }`), avec le dossier, le chemin et la cause, et affiché dans une alerte au-dessus de la carte ;
+  - pendant une ouverture, les boutons sont désactivés et un second clic est ignoré.
+- **Alignement des boutons** (demande de l'utilisateur après la première vérification à l'écran) : les quatre boutons forment une seule colonne, placée juste après le chemin le plus long.
+  - Dans cet écran seulement, la `DataList` partagée est remplacée par une grille locale (`<dl>`, colonnes `max-content minmax(0, max-content) 1fr`, une entrée par ligne en `subgrid`). Le composant partagé n'est pas modifié, choix de l'utilisateur.
+  - La légende de source occupe sa propre ligne, sous la valeur et le bouton : sinon, la légende `.env`, plus longue que les chemins, repousserait les boutons.
+  - La maquette a reçu la même correction.
+- **Écran** : conteneur `pages/parametres/parametres.tsx` et vue pure `parametres-vue.tsx`, sur le modèle du journal. `App.tsx` construit la table des écrans dans le rendu pour passer la configuration à la page, sans second appel IPC. Chaque bouton a un `aria-label` distinct (« Ouvrir le dossier IN dans l'Explorateur »…).
+- **Écart 4** reporté dans `CLAUDE.md`, avec le module `Parametres` et la structure de `src/shared/types/`.
+- **Tests** :
+  - 2 476 unitaires : origines de la résolution, service, IPC (9 entrées invalides refusées sans appel au service), vue par `renderToStaticMarkup` ;
+  - 8 e2e, dont 3 pour Paramètres : affichage et sources, ouverture de `IN` avec `shell.openPath` remplacé, échec d'ouverture affiché. Le smoke inclut désormais les origines ;
+  - le hook `use-ouverture-dossier.ts` n'a pas de test unitaire, faute d'environnement DOM de test. Il est couvert par l'e2e.
+- **Non couverts automatiquement** : la source `config.json` et la valeur par défaut de prod sur l'application installée (testées en unitaire seulement), et l'ouverture réelle de l'Explorateur. À vérifier à la main, puis au prochain test sur le poste pilote (item 7).
+- **Vérification manuelle** : écran et ouverture réelle des dossiers validés par l'utilisateur en dev (2026-10-15), après l'alignement des boutons.
+- **Maquette** : les deux imports CSS de `design/handoff/parametres.tsx` sont retirés, comme dans les autres fichiers du handoff. VS Code les signalait (TS2882), car `design/` n'est couvert par aucun `tsconfig`. Le commentaire d'en-tête indique que l'aperçu doit charger `flussi-tokens.css` et `flussi.css`.
+- **Ouverture d'un dossier non tracée au journal** : rien ne le demande, et il n'y a aucun enjeu de parité avec Lazarus (YAGNI).
+- **Revue d'item** (`OK POUR MERGE`, aucun bloquant) :
+  - La correspondance entre nom de dossier et désignation (`de travail`, `IN`, `OUT`, `Journal`) est écrite deux fois : dans `src/main/services/parametres/index.ts` et dans `src/renderer/src/pages/parametres/parametres-vue.tsx`.
+  - Le nom accessible des boutons (« Ouvrir le dossier IN dans l'Explorateur ») ne contient pas leur texte visible (« Ouvrir dans l'Explorateur »), contrairement au critère WCAG 2.5.3. La commande vocale peut échouer.
+  - Rien n'indique quel bouton est en cours d'ouverture : les quatre sont simplement désactivés.
+  - Le titre de l'alerte d'échec et sa description disent deux fois « n'a pas pu être ouvert ».
+  - `AlertTitle` rend un `h5` entre le `h1` et le `h2` : manque déjà connu, au backlog depuis l'item 4.
+  - Le hook `use-ouverture-dossier.ts` n'a pas de test unitaire. Le verrou contre le double clic et le démontage pendant une ouverture ne sont pas couverts.
+  - Le comportement de `shell.openPath` quand `P:` est déconnecté n'est pas observé (blocage jusqu'au délai réseau, ou boîte système de Windows). Si l'appel ne rend jamais la main, les boutons restent désactivés jusqu'à ce que l'utilisateur quitte l'écran.
+  - `CLAUDE.md`, module `Parametres` : la phrase « La saisie des secrets par l'administrateur viendra à l'item 7 » deviendra fausse à la fin de l'item 7.
+
+**Point d'attention pour l'item 7** (l'item 7 complète l'écran Paramètres et son service) :
+
+- Partager la correspondance entre nom de dossier et désignation : par exemple `DESIGNATIONS_DOSSIER` dans `src/shared/schemas/parametres.ts`, utilisée par `src/main/services/parametres/index.ts` et `src/renderer/src/pages/parametres/parametres-vue.tsx`.
+- Boutons de dossier de `parametres-vue.tsx` :
+  - un nom accessible qui commence par le texte visible (« Ouvrir dans l'Explorateur le dossier IN »), avec les e2e adaptés ;
+  - un état de chargement sur le bouton en cours, comme les boutons « Enregistrer » et « Importer la clé… » de la maquette ;
+  - un message d'échec sans redite entre le titre et la description.
+- `CLAUDE.md`, module `Parametres` : remplacer la phrase sur l'item 7 par la description de la section des secrets.
+- Au test sur le poste pilote :
+  - vérifier sur l'application installée la source `config.json` et son chemin ;
+  - vérifier l'ouverture réelle des dossiers sur `P:`.
 
 ---
 

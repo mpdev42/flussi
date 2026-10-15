@@ -182,9 +182,10 @@ src/
       ac056-synthetique.ts      fabrique de fichiers AC056 fictifs, indépendante du lecteur
       controle-ac056.ts         aides des tests de contrôle (rattachements-, codes-anomalies-ac056.ts)
     types/
-      index.ts                  types métier partagés (réexporte stockage.ts et journal.ts)
+      index.ts                  types métier partagés (réexporte stockage.ts, journal.ts et parametres.ts)
       stockage.ts               résultats et erreurs de l'adapter stockage qui traversent l'IPC
       journal.ts                sessions, lignes et état du journal
+      parametres.ts             origines de la configuration, dossiers de travail, résultat d'ouverture
       window.d.ts               augmentation globale Window.api
 e2e/
   specs/                        specs Playwright versionnés (smoke.spec.ts)
@@ -252,7 +253,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT. S'appuie sur les adapters `sftp-msp` et `stockage`.
 - `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, structure et hiérarchie, règles de contrôle, modification de champ).
 - `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, `Journal\AAAA\MM\AAAAMMJJ-HHMMSS-{compte Windows}.txt`, sans index commun), consultation de l'historique. Fichier créé au démarrage (test d'écriture du dossier, « Réessayer » / « Quitter »), écrit au fil de l'eau en ajout seul : UTF-8 sans BOM, CRLF, une ligne par évènement `HH:MM:SS<TAB>NIVEAU<TAB>message` (`TITRE`, `INFO`, `SUCCES`, `ERREUR`), en-tête (début, compte, poste, mode, version) et ligne « Fin de session » écrite à la fermeture de la fenêtre. Échec d'écriture : lignes gardées en mémoire, bandeau « Journal non enregistré », jamais de perte silencieuse. Jamais de secret, d'identifiant VEOS ni de valeur AC056 dans le journal. Historique : seuls les noms au format Flussi sont lus (journaux Lazarus ignorés), contenu lu à la sélection. Canaux `journal:annees`, `journal:sessions`, `journal:lire`, `journal:etat` et `journal:etat-change` (main vers écran). Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé (v0.5.0).
-- `Parametres` : mode actif et dossiers de travail, issus de la configuration (canal `config:lire`, aucune surcharge locale : `%ProgramData%\Flussi\config.json` fait seul référence), saisie des secrets par l'administrateur. S'appuie sur l'adapter `config`.
+- `Parametres` : écran en lecture seule. Il affiche le mode actif, la racine de travail, `IN`, `OUT`, `Journal` et la version, issus de la configuration (aucune surcharge locale : `%ProgramData%\Flussi\config.json` fait seul référence). Le mode et la racine indiquent leur origine (`config` pour `config.json`, `env` pour le `.env`, `defaut` pour la valeur par défaut du code), avec le chemin du fichier lu. Les trois sous-dossiers sont toujours dérivés de la racine. Chaque dossier a un bouton « Ouvrir dans l'Explorateur ». Canaux : `config:lire` (configuration et origines) et `config:ouvrir-dossier`. Pour ce dernier, l'écran envoie un nom de dossier (`travail`, `in`, `out`, `journal`), validé par zod, jamais un chemin ; le main appelle `shell.openPath`. La saisie des secrets par l'administrateur viendra à l'item 7 de la v0.2.0. S'appuie sur l'adapter `config`.
 
 ---
 
@@ -265,7 +266,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 **Sources de référence** :
 
 - `DESIGN.md` : source de vérité des tokens (couleurs, typographie, espacements, ombres, mouvement) et des règles d'usage (marquage des erreurs, bandeau Recette, badges, boutons). Ne pas le modifier depuis l'adaptation.
-- `design/handoff/` : composants atomiques au format `.tsx` avec classes `.fl-*`. Référence visuelle uniquement, jamais importés par l'application.
+- `design/handoff/` : composants atomiques au format `.tsx` avec classes `.fl-*`, et maquettes d'écrans sur-mesure (`parametres.tsx`). Référence visuelle uniquement, jamais importés par l'application.
 - `design/patterns/` : patterns d'écran `list`, `form` et `list+form` au format `.tsx` self-contained (composition complète previewable, instanciée par `feature-agent`). `list+form` en priorité pour l'écran AC056.
 
 **Composants de l'application** (`src/renderer/src/components/ui/`) :

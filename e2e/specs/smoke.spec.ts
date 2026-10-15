@@ -3,7 +3,7 @@ import path from 'node:path';
 import { launchApp, lireVersionProjet } from '../fixtures/electron';
 
 test("smoke — l'app démarre et ouvre une fenêtre", async () => {
-  const { app, page, racineTravail, fermer } = await launchApp();
+  const { app, page, racineTravail, cwd, fermer } = await launchApp();
 
   try {
     // Titre de la fenêtre (page.title() lit la balise <title>, pas la fenêtre)
@@ -31,6 +31,7 @@ test("smoke — l'app démarre et ouvre une fenêtre", async () => {
         journal: path.win32.join(racineTravail, 'Journal'),
       },
       version: lireVersionProjet(),
+      origines: { fichier: path.join(cwd, '.env'), mode: 'env', travail: 'env' },
     });
   } finally {
     await fermer();

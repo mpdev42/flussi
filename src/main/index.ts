@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { chargerConfiguration, formaterErreurs } from './adapters/config';
 import { creerStockageDisque, formaterErreursStockage } from './adapters/stockage';
@@ -11,6 +11,7 @@ import {
   lirePoste,
   type SessionEcriture,
 } from './services/journal';
+import { creerServiceParametres } from './services/parametres';
 import type { Mode } from '@shared/schemas/config';
 
 let fenetrePrincipale: BrowserWindow | null = null;
@@ -61,7 +62,7 @@ async function demarrer(): Promise<void> {
     app.exit(1);
     return;
   }
-  const { configuration } = resultat;
+  const { configuration, origines } = resultat;
 
   // Stockage : IN, OUT et Journal doivent exister et se lire. « Réessayer » sert quand P: se monte
   // quelques secondes après l'ouverture de session. Pendant la boîte, il n'y a pas de fenêtre.
@@ -118,7 +119,14 @@ async function demarrer(): Promise<void> {
 
   // Smoke-test de la chaîne IPC main + preload + renderer
   ipcMain.handle('app:ping', () => 'pong');
-  enregistrerHandlersParametres({ ...configuration, version: app.getVersion() });
+  enregistrerHandlersParametres({
+    configuration: { ...configuration, version: app.getVersion(), origines },
+    parametres: creerServiceParametres({
+      dossiers: configuration.dossiers,
+      // Lambda : shell.openPath est lu à l'appel (un test e2e peut le remplacer)
+      ouvrirChemin: (chemin) => shell.openPath(chemin),
+    }),
+  });
   enregistrerHandlersJournal({
     historique: creerHistoriqueJournal(stockage, session.chemin),
     session,
