@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type {
   ConfigurationPublique,
+  DossierTravail,
   EtatJournal,
   LigneJournal,
+  ResultatOuvertureDossier,
   ResultatStockage,
   SessionJournal,
 } from '@shared/types';
@@ -11,6 +13,8 @@ const api = {
   ping: (): Promise<string> => ipcRenderer.invoke('app:ping'),
   config: {
     lire: (): Promise<ConfigurationPublique> => ipcRenderer.invoke('config:lire'),
+    ouvrirDossier: (dossier: DossierTravail): Promise<ResultatOuvertureDossier> =>
+      ipcRenderer.invoke('config:ouvrir-dossier', dossier),
   },
   journal: {
     annees: (): Promise<ResultatStockage<string[]>> => ipcRenderer.invoke('journal:annees'),

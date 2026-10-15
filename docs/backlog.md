@@ -59,6 +59,7 @@ _(aucun pour l'instant)_
 
 - Confirmer le déploiement Intune sur le poste d'un collègue (le poste pilote est celui du développeur, aux réglages possiblement plus souples), dans le groupe pilote — `docs/deploiement-intune.md` (v0.2.0, item 5)
 - Observer en conditions réelles ce que le pilote n'a pas rencontré : `P:` monté en retard (« Réessayer »), verrou OneDrive `EBUSY`/`EPERM`, copie de conflit — `src/main/adapters/stockage/` (v0.2.0, item 5)
+- Observer « Ouvrir dans l'Explorateur » avec `P:` déconnecté : message renvoyé, boîte système de Windows ou blocage jusqu'au délai réseau (boutons restés désactivés) — `src/main/services/parametres/index.ts`, `src/renderer/src/hooks/use-ouverture-dossier.ts` (v0.2.0, item 6)
 
 ### v1.0.0 — Mise en production
 
@@ -93,6 +94,7 @@ _(aucun pour l'instant)_
 - Journal : écriture partielle possible (lignes réécrites en double après une coupure pendant un ajout), `terminer()` sans délai maximal, ligne « Fin de session » absente si Windows ferme la session avec Flussi ouvert, session à cheval sur deux mois absente du mois affiché — `src/main/services/journal/session.ts`, `src/main/index.ts` (v0.2.0, item 4)
 - `scripts/icone.mjs` laisse son profil Electron jetable `%TEMP%\flussi-icone` : le supprimer en fin de génération — `scripts/icone.mjs` (v0.2.0, item 5)
 - Tests manquants : replis de `identite.ts`, hooks `use-chargement-stockage` et `use-etat-journal` (environnement DOM de test à prévoir), e2e de l'historique instable au changement de mois — `src/main/services/journal/identite.ts`, `src/renderer/src/hooks/`, `e2e/specs/journal.spec.ts` (v0.2.0, item 4)
+- Hook `use-ouverture-dossier` sans test unitaire : verrou contre le double clic et démontage pendant une ouverture (même environnement DOM de test à prévoir) — `src/renderer/src/hooks/use-ouverture-dossier.ts` (v0.2.0, item 6)
 
 ## Décisions
 

@@ -449,6 +449,62 @@ describe('resoudreConfiguration — développement', () => {
   });
 });
 
+function originesDe(resultat: ResultatConfiguration) {
+  if (!resultat.ok) throw new Error(`refus inattendu : ${JSON.stringify(resultat.erreurs)}`);
+  return resultat.origines;
+}
+
+describe('resoudreConfiguration — origines des valeurs', () => {
+  it('installée avec une racine dans config.json : mode et travail viennent de config.json', () => {
+    const origines = originesDe(
+      installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: RACINE }),
+    );
+    expect(origines).toEqual({ fichier: CONFIG_JSON, mode: 'config', travail: 'config' });
+  });
+
+  it('installée en prod avec une racine explicite : travail vient de config.json', () => {
+    const origines = originesDe(
+      installee({ FLUSSI_ENV: 'prod', STOCKAGE_DOSSIER_TRAVAIL: RACINE }),
+    );
+    expect(origines).toEqual({ fichier: CONFIG_JSON, mode: 'config', travail: 'config' });
+  });
+
+  it('installée en prod sans racine : travail vient du défaut, avec la racine de production', () => {
+    const resultat = installee({ FLUSSI_ENV: 'prod' });
+    expect(originesDe(resultat)).toEqual({
+      fichier: CONFIG_JSON,
+      mode: 'config',
+      travail: 'defaut',
+    });
+    expect(configurationDe(resultat).dossiers.travail).toBe(DOSSIER_TRAVAIL_PROD);
+  });
+
+  it('une racine vide en prod vaut absence : travail vient du défaut', () => {
+    const resultat = installee({ FLUSSI_ENV: 'prod', STOCKAGE_DOSSIER_TRAVAIL: '' });
+    expect(originesDe(resultat).travail).toBe('defaut');
+    expect(configurationDe(resultat).dossiers.travail).toBe(DOSSIER_TRAVAIL_PROD);
+  });
+
+  it('dev en recette avec une racine : mode et travail viennent du .env', () => {
+    const origines = originesDe(dev({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: RACINE }));
+    expect(origines).toEqual({ fichier: DOT_ENV, mode: 'env', travail: 'env' });
+  });
+
+  it('le fichier des origines est celui de la source', () => {
+    expect(
+      originesDe(installee({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: RACINE })).fichier,
+    ).toBe(CONFIG_JSON);
+    expect(
+      originesDe(dev({ FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: RACINE })).fichier,
+    ).toBe(DOT_ENV);
+  });
+
+  it('les origines sont à côté de la configuration, pas dedans', () => {
+    const resultat = installee({ FLUSSI_ENV: 'prod' });
+    expect(Object.keys(configurationDe(resultat))).toEqual(['mode', 'dossiers']);
+  });
+});
+
 describe('resoudreConfiguration — configuration résolue', () => {
   it('valide configurationSchema et ne contient aucune clé secrète', () => {
     const resultats = [
