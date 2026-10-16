@@ -1,6 +1,6 @@
 {
   "name": "flussi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Logiciel d'échange de fichiers entre notre logiciel de gestion métier VEOS et notre partenaire MSP",
   "private": true,
   "main": "out/main/index.cjs",

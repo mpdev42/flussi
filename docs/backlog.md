@@ -26,6 +26,8 @@ _(aucun pour l'instant)_
 - Réécriture silencieuse : une ligne non modifiée est régénérée avec le `Trim` et le bourrage de Lazarus (par exemple un `rangNaissance` à blanc sort en `00`), sans anomalie, ce qui contredit « identique octet par octet ». Ajouter une anomalie non bloquante quand la ligne régénérée diffère de l'origine ? — `src/shared/domain/ac056/ecrivain.ts`, `fpc.ts` (v0.1.0, revue release)
 - Ctrl-Z (0x1A) en fin de fichier : `ReadLn` de FPC sous Windows s'arrêterait dessus et Lazarus chargerait le fichier, alors que Flussi crée une ligne d'un octet bloquante. À vérifier dans la RTL FPC, puis documenter ou traiter — `src/shared/domain/ac056/decoupage.ts` (v0.1.0, revue release)
 - Renseigner `author` dans `package.json` ? Sans lui, l'éditeur est vide dans « Applications installées » et dans les propriétés de `Flussi.exe` — `package.json` (v0.2.0, item 5)
+- Signer `Flussi.exe` ? L'invite UAC de l'enregistrement des secrets affiche « éditeur inconnu », et le principe actuel est « aucun achat » — `electron-builder.yml` (v0.2.0, revue release)
+- Durée de conservation du journal nominatif (compte Windows, poste) à inscrire au registre des traitements : la décision actuelle est « nettoyage manuel » — `docs/backlog.md` (Décisions) (v0.2.0, revue release)
 
 ## Points reportés
 
@@ -49,6 +51,7 @@ _(aucun pour l'instant)_
 - Rejet : une 700 sans 400 déclenche une anomalie bloquante, alors que Lazarus la gère (`uac056.pas:736-757`). Choisir entre un bénéficiaire implicite (`e400: number | null`) et un écran qui liste toutes les lignes portant un `rejet`, et corriger le texte de la divergence 11 — `src/shared/domain/ac056/hierarchie.ts`, `src/shared/domain/ac056/structure.ts` (v0.1.0, revue release)
 - Afficher les valeurs d'un rejet décodées en Windows-1252 : `index.ts` n'exporte que le décodage UTF-8, un accent donnerait U+FFFD — `src/shared/domain/ac056/index.ts` (v0.1.0, revue release)
 - Messages d'anomalie à préciser : « rang non numérique » sans dire quel rang, message de la divergence 5 inexploitable, messages de structure trompeurs (« 990 en double » pour une 990 hors dossier), `encodage-incoherent` sans numéro de ligne — `src/shared/domain/ac056/controle.ts`, `src/shared/domain/ac056/structure.ts`, `src/shared/domain/ac056/lecteur.ts` (v0.1.0, revue release)
+- Journal en direct dans la fenêtre principale (panneau `rmJournal` de Lazarus), reporté au premier module qui produit de vrais évènements — `src/renderer/src/pages/`, `src/main/services/journal/` (v0.2.0, item 4)
 
 ### v0.5.0 — MSP
 
@@ -72,6 +75,9 @@ _(aucun pour l'instant)_
 - À la première mise en production, archiver les anciens journaux de Lazarus (fichiers RTF et index commun) de `Transferts\Journal` dans un autre dossier, pour laisser `Transferts\Journal` à Flussi — `P:\…\Transferts\Journal` (v0.2.0, cadrage de l'item 4)
 - Déploiement de production : groupe Intune de production distinct du groupe pilote, application « Flussi — configuration production » qui remplace celle de recette (supersedence), détection de `config.json` par empreinte SHA-256 (la présence seule ne redéploie pas un fichier modifié) — `docs/deploiement-intune.md`, `deploiement/intune/` (v0.2.0, item 5)
 - Bascule d'un poste de recette en production : `secrets.bin` est unique et ne connaît pas le mode. Les secrets MSP (mot de passe et clé, comptes différents entre recette et production) sont à ressaisir pour le compte de production ; l'ajouter à la procédure de mise en production — `docs/deploiement-intune.md` § 7 (v0.2.0, item 7)
+- Procédure de retour à la version N-1 par Intune (garder le `.intunewin` précédent, remettre sa valeur de détection) et renvoi vers le repli Lazarus `flussi_old` : mode d'échec n° 10 du pre-mortem — `docs/deploiement-intune.md` § 5-6 (v0.2.0, revue release)
+- Durcissement de la fenêtre et du paquet : `will-navigate` et `window.open` refusés, CSP `default-src 'self'`, `sandbox: true`, menu et DevTools désactivés en production, fuses Electron, `asarUnpack: ['**/*.node']` explicite avec `koffi.node` dans le contrôle de la procédure — `src/main/index.ts`, `electron-builder.yml`, `docs/deploiement-intune.md` (v0.2.0, revue release)
+- Réinitialiser le propriétaire de `%ProgramData%\Flussi` avant `/reset` (`icacls /setowner *S-1-5-32-544 /T`, nouveau code de sortie) : un compte standard qui crée le dossier en reste propriétaire — `build/installer.nsh` (v0.2.0, revue release)
 
 ### Dette technique (sans échéance)
 
@@ -99,6 +105,17 @@ _(aucun pour l'instant)_
 - `scripts/icone.mjs` laisse son profil Electron jetable `%TEMP%\flussi-icone` : le supprimer en fin de génération — `scripts/icone.mjs` (v0.2.0, item 5)
 - Tests manquants : replis de `identite.ts`, hooks `use-chargement-stockage` et `use-etat-journal` (environnement DOM de test à prévoir), e2e de l'historique instable au changement de mois — `src/main/services/journal/identite.ts`, `src/renderer/src/hooks/`, `e2e/specs/journal.spec.ts` (v0.2.0, item 4)
 - Hook `use-ouverture-dossier` sans test unitaire : verrou contre le double clic et démontage pendant une ouverture (même environnement DOM de test à prévoir) — `src/renderer/src/hooks/use-ouverture-dossier.ts` (v0.2.0, item 6)
+- Secrets : champ mot de passe non contrôlé (React recopie la valeur dans l'attribut DOM `value`, visible dans les DevTools), avec un test DOM — `src/renderer/src/pages/parametres/secrets-vue.tsx` (v0.2.0, revue release)
+- Élévation : empreinte SHA-256 du blob passée avec le canal (`--flussi-ecrire-secrets=<canal>:<sha256>`), fenêtre propriétaire (`hwnd`) de l'invite UAC, nouvelles tentatives sur le renommage de `secrets.bin` (verrou d'antivirus), messages d'échec traduits en consignes, argument invalide traité comme une erreur, `%ProgramData%` lu par `SHGetKnownFolderPath` — `src/main/adapters/config/{elevation,ecriture-secrets,api-windows}.ts`, `src/main/index.ts` (v0.2.0, revue release)
+- Journal : attendre la file d'enregistrement des secrets avant `session.terminer()`, sinon la ligne « Secret renseigné » est perdue si la fenêtre se ferme pendant l'attente — `src/main/services/journal/session.ts`, `src/main/index.ts` (v0.2.0, revue release)
+- Messages techniques bruts (« Error invoking remote method… ») affichés à l'écran, détail de l'erreur de configuration ni affiché ni tracé : message générique et `console.error` — `src/renderer/src/hooks/{use-secrets,use-ouverture-dossier,use-chargement-stockage}.ts`, `src/renderer/src/App.tsx` (v0.2.0, revue release)
+- Écrans Journal et Paramètres : défilement de `<main>` conservé d'un écran à l'autre, focus perdu aux changements de vue, deux champs au même nom accessible « Nouveau mot de passe », ligne `<tr>` cliquable sans rôle, navigation active pendant « Enregistrement… » — `src/renderer/src/components/cadre-application.tsx`, `src/renderer/src/pages/` (v0.2.0, revue release)
+- Tests : e2e du chemin `journal:etat-change` vers le bandeau « Journal non enregistré » ; tests de démontage de `use-secrets` et `use-ouverture-dossier` qui ne testent plus rien sous React 19 — `e2e/specs/`, `src/renderer/src/hooks/*.test.tsx` (v0.2.0, revue release)
+- ESLint : étendre `no-restricted-imports` de `@primno/dpapi` et `koffi` à `src/shared/**` et aux sous-chemins — `eslint.config.js` (v0.2.0, revue release)
+- Passer en `devDependencies` les paquets du renderer déjà regroupés par Vite (`app.asar` de 48 Mo) — préférence — `package.json` (v0.2.0, revue release)
+- Textes : `accueil.tsx` cite encore le journal parmi les fonctions à venir ; `AIDE_CLE` ne mentionne ni PEM ni la limite RSA/DSA — `src/renderer/src/pages/accueil.tsx`, `src/renderer/src/pages/parametres/textes-secrets.ts` (v0.2.0, revue release)
+- Documentation : commentaire de `installer.nsh` (« lancé en administrateur »), contrôles des modules natifs dans la procédure Dependabot, retrait définitif d'un poste (supprimer `%ProgramData%\Flussi`), `README.md` (configuration et guides Intune) — `build/installer.nsh`, `CLAUDE.md`, `docs/deploiement-intune.md`, `README.md` (v0.2.0, revue release)
+- Second lancement pendant une boîte de démarrage : rien de visible ; afficher « Flussi est déjà ouvert » — `src/main/index.ts` (v0.2.0, revue release)
 
 ## Décisions
 

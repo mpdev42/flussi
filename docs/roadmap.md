@@ -10,22 +10,6 @@
 
 ---
 
-## v0.2.0 — Socle applicatif
-
-Objectif : configuration, stockage, journal, paramètres et premier installeur. L'installeur est testé dès cette version sur un vrai poste du service.
-
-- Adapter `config` : mode `recette`/`prod` (`FLUSSI_ENV`, `%ProgramData%\Flussi\config.json`, surcharges dans `%APPDATA%\Flussi\`), mode affiché dans le titre, bandeau Recette.
-- `config.json` absent, partiel ou illisible, ou `FLUSSI_ENV` vide ou invalide : l'application refuse de démarrer avec un message clair, sans repli sur `prod`.
-- Adapter `stockage` : emplacements logiques `in`, `out`, `journal` vers des dossiers configurables.
-- `P:` indisponible ou instable (non monté, déconnecté, verrou OneDrive `EBUSY`/`EPERM`, copies de conflit `*-NOMPOSTE*`) : vérification des trois dossiers au démarrage, signalement du dossier inaccessible et courte nouvelle tentative en cas de verrou. Jamais d'échec silencieux ni d'écrasement.
-- Module `Journal` : arborescence de Lazarus conservée (`Journal\AAAA\MM\`, mois de `01` à `12`), un fichier par session, sans index commun. Nom `AAAAMMJJ-HHMMSS.txt` suffixé du compte Windows (ex. `20261002-141425-c.mathevon.txt`), écrit en ajout seul. Consultation de l'historique en parcourant les dossiers.
-- Module `Parametres` : mode actif, dossiers de travail.
-- Secrets techniques jamais saisis par les utilisateurs : l'administrateur les renseigne une fois après le déploiement (mots de passe FTP IGA et SFTP MSP au clavier, clé `.ppk` FileZilla importée par un sélecteur de fichier, convertie avec PuTTYgen si elle est au format PPK v3). Stockage chiffré choisi à l'implémentation, jamais affiché, utilisable par les utilisateurs du service. Pas de procédure de rotation.
-- Instance unique : un second lancement remet au premier plan la fenêtre déjà ouverte.
-- Version de l'application visible dans l'interface et inscrite dans chaque fichier de session du journal.
-- Premier installeur NSIS, testé tôt sur un poste pilote avec un compte standard (installation, premier lancement, mise à jour) : l'installeur non signé, déployé par Intune, est-il bloqué par Defender ou par une règle ASR ? En cas de blocage, aucun achat : installation manuelle sur les postes, en confirmant l'alerte SmartScreen éventuelle.
-- Dependabot encadré par `.github/dependabot.yml` : pas de mises à jour de version, seulement les mises à jour de sécurité, regroupées en une seule PR. Règles `ignore` par plage de versions (`versions`, pas `update-types`, ignoré pour la sécurité) qui écartent toute montée contraire aux contraintes de `CLAUDE.md` (`tailwindcss` ≥ 4, `vite` ≥ 8, `@vitejs/plugin-react` ≥ 6, `tailwind-merge` ≥ 3, `typescript` ≥ 6.1). Les PR Dependabot sont traitées par Claude à la demande (« traite les PR Dependabot » : vérification des contraintes, tests, build, fusion ou fermeture expliquée). Traiter l'alerte ouverte `postcss-selector-parser` (correctif 7.1.6) si compatible avec Tailwind 3.4.
-
 ## v0.3.0 — Écran AC056
 
 Objectif : le service peut charger, contrôler et corriger un fichier AC056 local. C'est l'écran qui décidera de l'acceptation, face à la grille de Lazarus.

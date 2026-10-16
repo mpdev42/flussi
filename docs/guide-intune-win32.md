@@ -51,7 +51,7 @@ Par défaut, `C:\ProgramData` laisse les utilisateurs créer des fichiers dans s
   ReadEnvStr $0 "PROGRAMDATA"
   StrCpy $1 "$0\Flussi"
   CreateDirectory "$1"
-  nsExec::ExecToLog `"$SYSDIR\icacls.exe" "$1" /reset`
+  nsExec::ExecToLog `"$SYSDIR\icacls.exe" "$1" /reset /T`
   Pop $2
   nsExec::ExecToLog `"$SYSDIR\icacls.exe" "$1" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX`
   Pop $2
