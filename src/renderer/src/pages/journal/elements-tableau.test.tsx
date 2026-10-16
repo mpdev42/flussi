@@ -5,7 +5,6 @@ import {
   EnTeteTableau,
   ErreurChargement,
   EtatVide,
-  Pastille,
   TableauChargement,
   type ColonneJournal,
 } from './elements-tableau';
@@ -75,27 +74,5 @@ describe('ErreurChargement', () => {
     expect(html).toContain('Échec');
     expect(html).toContain('Disque absent');
     expect(html).toMatch(/<button[^>]*type="button"[^>]*>.*Réessayer<\/button>/);
-  });
-});
-
-describe('Pastille', () => {
-  it('rend l’icône puis le texte, avec son infobulle', () => {
-    const html = texte(
-      <Pastille ton="warning" title="Info bulle" icone={<svg />}>
-        Texte
-      </Pastille>,
-    );
-    expect(html).toContain('title="Info bulle"');
-    expect(html).toMatch(/<svg><\/svg>Texte<\/span>/);
-    expect(html).toContain('text-warning-text');
-  });
-
-  it('n’a pas d’infobulle par défaut', () => {
-    const html = texte(
-      <Pastille ton="info" icone={<svg />}>
-        Texte
-      </Pastille>,
-    );
-    expect(html).not.toContain('title=');
   });
 });

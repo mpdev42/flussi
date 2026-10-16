@@ -75,7 +75,7 @@ test('paramètres — « Ouvrir dans l’Explorateur » ouvre le chemin du dossi
     await remplacerOuvertureChemin(app, '');
     await ouvrirParametres(page);
 
-    await page.getByRole('button', { name: "Ouvrir le dossier IN dans l'Explorateur" }).click();
+    await page.getByRole('button', { name: "Ouvrir dans l'Explorateur le dossier IN" }).click();
 
     await expect
       .poll(() => app.evaluate(() => (globalThis as unknown as GlobalOuvertures).__ouvertures))
@@ -94,7 +94,7 @@ test('paramètres — un échec d’ouverture affiche une alerte et réactive le
     await ouvrirParametres(page);
 
     const boutonJournal = page.getByRole('button', {
-      name: "Ouvrir le dossier Journal dans l'Explorateur",
+      name: "Ouvrir dans l'Explorateur le dossier Journal",
     });
     await boutonJournal.click();
 

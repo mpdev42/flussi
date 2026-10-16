@@ -4,7 +4,6 @@ import {
   LIBELLES_NIVEAU,
   MOIS_JOURNAL,
   contientFinDeSession,
-  formaterDate,
   mettreMajuscule,
   nomMois,
   periodeEnLettres,
@@ -14,16 +13,6 @@ import {
 function ligne(niveau: LigneJournal['niveau'], message: string): LigneJournal {
   return { heure: niveau === null ? null : '09:15:00', niveau, message };
 }
-
-describe('formaterDate', () => {
-  it('convertit AAAA-MM-JJ en JJ/MM/AAAA', () => {
-    expect(formaterDate('2026-10-14')).toBe('14/10/2026');
-  });
-
-  it('conserve les zéros de tête', () => {
-    expect(formaterDate('2026-01-05')).toBe('05/01/2026');
-  });
-});
 
 describe('MOIS_JOURNAL et nomMois', () => {
   it('compte 12 mois de 01 à 12', () => {

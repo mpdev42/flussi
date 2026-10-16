@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { CircleAlert, Inbox, RefreshCw } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -87,10 +86,7 @@ export interface ErreurChargementProps {
 export function ErreurChargement({ titre, cause, onReessayer }: ErreurChargementProps) {
   return (
     <div className="p-6">
-      <Alert
-        variant="destructive"
-        className="border-error-border bg-error-bg text-error-text [&>svg]:text-error-text"
-      >
+      <Alert variant="error">
         <CircleAlert className="size-4" aria-hidden="true" />
         <AlertTitle>{titre}</AlertTitle>
         <AlertDescription>{cause}</AlertDescription>
@@ -102,35 +98,5 @@ export function ErreurChargement({ titre, cause, onReessayer }: ErreurChargement
         </div>
       </Alert>
     </div>
-  );
-}
-
-/** Pastille de ton libre (icône + mot), pour les statuts que StatusBadge ne couvre pas. */
-export type TonPastille = 'neutral' | 'info' | 'success' | 'warning' | 'error';
-
-const CLASSES_PASTILLE: Record<TonPastille, string> = {
-  neutral: 'border-border bg-muted text-neutral-700',
-  info: 'border-info-border bg-info-bg text-info-text',
-  success: 'border-success-border bg-success-bg text-success-text',
-  warning: 'border-warning-border bg-warning-bg text-warning-text',
-  error: 'border-error-border bg-error-bg text-error-text',
-};
-
-export interface PastilleProps {
-  ton: TonPastille;
-  icone: ReactNode;
-  children: ReactNode;
-  title?: string;
-}
-
-export function Pastille({ ton, icone, children, title }: PastilleProps) {
-  return (
-    <span
-      title={title}
-      className={`inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 align-middle text-xs font-medium ${CLASSES_PASTILLE[ton]}`}
-    >
-      {icone}
-      {children}
-    </span>
   );
 }

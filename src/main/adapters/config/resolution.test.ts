@@ -8,6 +8,7 @@ import {
 import { formaterErreurs } from './lecture';
 import {
   DOSSIER_TRAVAIL_PROD,
+  analyserConfigJson,
   resoudreConfiguration,
   type ErreurConfiguration,
   type ResultatConfiguration,
@@ -529,5 +530,154 @@ describe('resoudreConfiguration — configuration résolue', () => {
   it('ne partage aucune clé entre clés de configuration, secrets et clés de développement', () => {
     const toutes = [...CLES_CONFIGURATION, ...CLES_SECRETES, ...CLES_DEV];
     expect(new Set(toutes).size).toBe(toutes.length);
+  });
+});
+
+function secretsEnvDe(resultat: ResultatConfiguration) {
+  if (!resultat.ok) throw new Error(`refus inattendu : ${JSON.stringify(resultat.erreurs)}`);
+  return resultat.secretsEnv;
+}
+
+describe('resoudreConfiguration — présence des secrets du .env (secretsEnv)', () => {
+  const base = { FLUSSI_ENV: 'recette', STOCKAGE_DOSSIER_TRAVAIL: RACINE };
+  const TOUT_FAUX = {
+    'iga-ftp-mot-de-passe': false,
+    'msp-sftp-mot-de-passe': false,
+    'msp-sftp-cle-privee': false,
+  };
+
+  it('en dev, les trois clés non vides donnent tout vrai', () => {
+    const resultat = dev({
+      ...base,
+      IGA_FTP_PASSWORD: SECRET_FICTIF,
+      MSP_SFTP_PASSWORD: SECRET_FICTIF,
+      MSP_SFTP_CLE_PRIVEE_CHEMIN: 'D:\cle-fictive.ppk',
+    });
+    expect(secretsEnvDe(resultat)).toEqual({
+      'iga-ftp-mot-de-passe': true,
+      'msp-sftp-mot-de-passe': true,
+      'msp-sftp-cle-privee': true,
+    });
+  });
+
+  it('en dev, chaque clé correspond à son secret', () => {
+    expect(secretsEnvDe(dev({ ...base, IGA_FTP_PASSWORD: SECRET_FICTIF }))).toEqual({
+      ...TOUT_FAUX,
+      'iga-ftp-mot-de-passe': true,
+    });
+    expect(secretsEnvDe(dev({ ...base, MSP_SFTP_PASSWORD: SECRET_FICTIF }))).toEqual({
+      ...TOUT_FAUX,
+      'msp-sftp-mot-de-passe': true,
+    });
+    expect(secretsEnvDe(dev({ ...base, MSP_SFTP_CLE_PRIVEE_CHEMIN: 'D:\k.ppk' }))).toEqual({
+      ...TOUT_FAUX,
+      'msp-sftp-cle-privee': true,
+    });
+  });
+
+  it('en dev, une valeur vide vaut absence', () => {
+    const resultat = dev({
+      ...base,
+      IGA_FTP_PASSWORD: '',
+      MSP_SFTP_PASSWORD: '',
+      MSP_SFTP_CLE_PRIVEE_CHEMIN: '',
+    });
+    expect(secretsEnvDe(resultat)).toEqual(TOUT_FAUX);
+  });
+
+  it('en dev, des clés absentes donnent tout faux', () => {
+    expect(secretsEnvDe(dev(base))).toEqual(TOUT_FAUX);
+  });
+
+  it('en installée, un config.json valide sans secret donne tout faux', () => {
+    expect(secretsEnvDe(installee(base))).toEqual(TOUT_FAUX);
+    expect(secretsEnvDe(installee({ FLUSSI_ENV: 'prod' }))).toEqual(TOUT_FAUX);
+  });
+
+  it.each(CLES_SECRETES)('en installée, la clé %s est refusée : aucun secretsEnv', (cle) => {
+    const resultat = installee({ ...base, [cle]: SECRET_FICTIF });
+    expect(resultat.ok).toBe(false);
+    expect(resultat).not.toHaveProperty('secretsEnv');
+  });
+
+  it('en installée avec les trois clés, le résultat est un refus sans secretsEnv', () => {
+    const valeurs: Record<string, unknown> = { ...base };
+    for (const cle of CLES_SECRETES) valeurs[cle] = SECRET_FICTIF;
+    const resultat = installee(valeurs);
+    expect(erreursDe(resultat)).toHaveLength(CLES_SECRETES.length);
+    expect(resultat).not.toHaveProperty('secretsEnv');
+  });
+
+  it('ne contient jamais la valeur d’un secret du .env dans le résultat', () => {
+    const resultat = dev({
+      ...base,
+      IGA_FTP_PASSWORD: SECRET_FICTIF,
+      MSP_SFTP_PASSWORD: SECRET_FICTIF,
+      MSP_SFTP_CLE_PRIVEE_CHEMIN: `D:\${SECRET_FICTIF}.ppk`,
+    });
+    expect(resultat.ok).toBe(true);
+    expect(JSON.stringify(resultat)).not.toContain(SECRET_FICTIF);
+  });
+
+  it('ne renvoie que des booléens', () => {
+    const resultat = dev({ ...base, IGA_FTP_PASSWORD: SECRET_FICTIF });
+    for (const valeur of Object.values(secretsEnvDe(resultat))) {
+      expect(typeof valeur).toBe('boolean');
+    }
+  });
+});
+
+describe('analyserConfigJson', () => {
+  it('renvoie les valeurs d’un objet valide', () => {
+    expect(analyserConfigJson('{"FLUSSI_ENV":"prod","VEOS_URL":"https://exemple.test"}')).toEqual({
+      ok: true,
+      valeurs: { FLUSSI_ENV: 'prod', VEOS_URL: 'https://exemple.test' },
+    });
+  });
+
+  it('accepte un objet vide', () => {
+    expect(analyserConfigJson('{}')).toEqual({ ok: true, valeurs: {} });
+  });
+
+  it('retire le BOM initial', () => {
+    expect(analyserConfigJson('\uFEFF{"FLUSSI_ENV":"prod"}')).toEqual({
+      ok: true,
+      valeurs: { FLUSSI_ENV: 'prod' },
+    });
+  });
+
+  it('ne retire le BOM qu’en tête du texte', () => {
+    const analyse = analyserConfigJson('{"FLUSSI_ENV":"\uFEFFprod"}');
+    expect(analyse).toEqual({ ok: true, valeurs: { FLUSSI_ENV: '\uFEFFprod' } });
+  });
+
+  it('refuse un JSON invalide avec le message fixe, sans extrait du texte', () => {
+    const analyse = analyserConfigJson(`{ "FLUSSI_ENV": "${SECRET_FICTIF}" `);
+    expect(analyse).toEqual({ ok: false, message: 'JSON invalide.' });
+    expect(JSON.stringify(analyse)).not.toContain(SECRET_FICTIF);
+  });
+
+  it('refuse un texte vide comme JSON invalide', () => {
+    expect(analyserConfigJson('')).toEqual({ ok: false, message: 'JSON invalide.' });
+  });
+
+  it('refuse un BOM seul comme JSON invalide', () => {
+    expect(analyserConfigJson('\uFEFF')).toEqual({ ok: false, message: 'JSON invalide.' });
+  });
+
+  it.each([
+    ['tableau', '[]'],
+    ['tableau d’objets', '[{"FLUSSI_ENV":"prod"}]'],
+    ['null', 'null'],
+    ['nombre', '42'],
+    ['chaîne', `"${SECRET_FICTIF}"`],
+    ['booléen', 'true'],
+  ])('refuse une racine qui n’est pas un objet (%s)', (_nom, texte) => {
+    const analyse = analyserConfigJson(texte);
+    expect(analyse).toEqual({
+      ok: false,
+      message: 'un objet JSON de clés à plat est attendu.',
+    });
+    expect(JSON.stringify(analyse)).not.toContain(SECRET_FICTIF);
   });
 });

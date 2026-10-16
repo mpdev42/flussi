@@ -6,15 +6,14 @@ import type { NiveauJournal } from '@shared/schemas/journal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ToneBadge, type ToneBadgeTone } from '@/components/ui/status-badge';
 
 import {
   CLASSE_TD,
   EnTeteTableau,
   ErreurChargement,
-  Pastille,
   TableauChargement,
   type ColonneJournal,
-  type TonPastille,
 } from './elements-tableau';
 import { LIBELLES_NIVEAU, contientFinDeSession, titreSession } from './format-journal';
 import { MiseEnPageJournal } from './mise-en-page-journal';
@@ -25,11 +24,11 @@ const COLONNES: ColonneJournal[] = [
   { libelle: 'Message' },
 ];
 
-const PRESENTATION_NIVEAU: Record<NiveauJournal, { ton: TonPastille; Icone: LucideIcon }> = {
-  TITRE: { ton: 'neutral', Icone: Heading },
-  INFO: { ton: 'info', Icone: Info },
-  SUCCES: { ton: 'success', Icone: CircleCheck },
-  ERREUR: { ton: 'error', Icone: CircleAlert },
+const PRESENTATION_NIVEAU: Record<NiveauJournal, { tone: ToneBadgeTone; Icone: LucideIcon }> = {
+  TITRE: { tone: 'neutral', Icone: Heading },
+  INFO: { tone: 'info', Icone: Info },
+  SUCCES: { tone: 'success', Icone: CircleCheck },
+  ERREUR: { tone: 'error', Icone: CircleAlert },
 };
 
 export interface BadgeNiveauProps {
@@ -38,14 +37,11 @@ export interface BadgeNiveauProps {
 
 /** Niveau d'une ligne du journal : icône + mot, jamais la couleur seule. */
 export function BadgeNiveau({ niveau }: BadgeNiveauProps) {
-  const { ton, Icone } = PRESENTATION_NIVEAU[niveau];
+  const { tone, Icone } = PRESENTATION_NIVEAU[niveau];
   return (
-    <Pastille
-      ton={ton}
-      icone={<Icone className="shrink-0" size={14} strokeWidth={1.75} aria-hidden />}
-    >
+    <ToneBadge tone={tone} icon={Icone}>
       {LIBELLES_NIVEAU[niveau]}
-    </Pastille>
+    </ToneBadge>
   );
 }
 
@@ -127,7 +123,7 @@ export function DetailSessionVue({
       }
     >
       {sansFin && (
-        <Alert className="border-warning-border bg-warning-bg text-warning-text [&>svg]:text-warning-text">
+        <Alert variant="warning">
           <TriangleAlert className="size-4" aria-hidden="true" />
           <AlertTitle>Pas de ligne « Fin de session »</AlertTitle>
           <AlertDescription>

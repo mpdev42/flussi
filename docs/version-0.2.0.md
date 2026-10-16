@@ -487,7 +487,7 @@
 
 ### 7. Secrets techniques : saisie par l'administrateur, chiffrement pour tout le poste
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : custom
 
 **Description** — Secrets techniques jamais saisis par les utilisateurs : l'administrateur les renseigne une fois après le déploiement (mots de passe FTP IGA et SFTP MSP au clavier, clé `.ppk` FileZilla importée par un sélecteur de fichier, convertie avec PuTTYgen si elle est au format PPK v3). Stockage chiffré, jamais affiché, utilisable par tous les comptes du poste. Pas de procédure de rotation.
@@ -514,6 +514,125 @@
 **Tests** : unitaires (refus des formats de clé, absence de secret dans les réponses IPC et dans le journal) ; e2e de la section en lecture seule sans droits administrateur.
 
 **Fichiers impactés** : `src/main/adapters/config/` (lecture et écriture des secrets), `src/main/services/parametres/`, `src/main/ipc/parametres/`, `src/preload/index.ts`, `src/shared/schemas/`, section administrateur de la page Paramètres, `build/installer.nsh` (droits), tests unitaires et e2e.
+
+**Décisions d'implémentation** (2026-10-16) :
+
+- **DPAPI par le module natif `@primno/dpapi` 2.0.1**, épinglé en version exacte : N-API, binaires précompilés x64 et arm64, aucune compilation à l'installation (`install: exit 0`), dérivé du module DPAPI de `msal-node-extensions` de Microsoft. Contenu et intégrité vérifiés à l'installation (13 fichiers, aucun dossier `build/`).
+  - PowerShell `ProtectedData` est écarté : un déchiffrement de secrets par PowerShell lancé par un exécutable inconnu est un signal classique de vol d'identifiants pour une solution de sécurité, et le mode de langage restreint est possible sur un poste Intune.
+  - `npmRebuild: false` dans `electron-builder.yml` : `@electron/rebuild` ne reconnaît pas le nom de ses binaires et lancerait une compilation `node-gyp`.
+  - Module externalisé, chargé par le main seulement (vérifié dans `out/`) ; règle ESLint `no-restricted-imports` dans le renderer et le preload.
+  - Si le binaire ne se charge pas, Flussi démarre et la section affiche « Le chiffrement Windows (DPAPI) n'est pas disponible… ».
+- **`secrets.bin`** : blob DPAPI `LocalMachine`, avec une entropie applicative fixe, d'un JSON `{ format: 1, secrets: { id: { valeur, date } } }`.
+  - Écriture par copie élevée (voir « Refonte de l'enregistrement »), puis relecture et comparaison octet par octet.
+  - Identifiants inconnus conservés à la réécriture.
+  - Fichier illisible (autre poste, endommagé) : signalé, réécrit à partir de zéro au prochain enregistrement, avec une ligne `INFO` au journal.
+  - Erreur de lecture disque : écriture refusée.
+- **Refonte de l'enregistrement** (2026-10-16, après le premier essai au poste pilote) :
+  - **Constat** : Flussi lancé « en tant qu'administrateur » tourne sous le compte administrateur dédié, qui ne voit pas `P:` (un `subst` de la session de l'utilisateur vers son dossier SharePoint synchronisé). Flussi refusait donc de démarrer. Le contournement (recréer `P:` dans la console élevée) a été jugé trop lourd par l'utilisateur.
+  - **Décision de l'utilisateur** : Flussi n'est plus jamais lancé en administrateur. Un seul bouton « Modifier les secrets » déverrouille tous les champs, et un seul « Enregistrer » ouvre une seule invite UAC : les mots de passe sont longs, il ne faut pas saisir le mot de passe administrateur plusieurs fois.
+  - **Fonctionnement** : Flussi chiffre lui-même le nouveau `secrets.bin` (DPAPI `LocalMachine` fonctionne pour un compte standard) dans `flussi-secrets-<uuid>.bin` du dossier temporaire. `cmd.exe` élevé, lancé par PowerShell `Start-Process -Verb RunAs` (`src/main/adapters/config/elevation.ts`), le copie dans `secrets.bin.<uuid>.tmp` du dossier `%ProgramData%\Flussi`, qui hérite des droits du dossier, puis le renomme en `secrets.bin`. Flussi relit ensuite le fichier et le compare octet par octet.
+  - **Ce qui reste protégé** : les droits du dossier ne changent pas, les utilisateurs y restent en lecture seule, et l'invite UAC authentifie l'administrateur. PowerShell ne reçoit que trois chemins, par des variables d'environnement : ni secret ni DPAPI. Son script est une constante, sans `-EncodedCommand`, sans `-ExecutionPolicy` et sans fichier `.ps1`. Les chemins contenant `"` ou `%` sont refusés.
+  - **Options écartées** :
+    - mot de passe de déverrouillage : il aurait fallu ouvrir le dossier en écriture aux utilisateurs, si bien que le mot de passe n'aurait verrouillé que l'écran, pas le fichier ;
+    - enregistrement par secret : une invite par secret.
+  - **Clé** : contrôlée dès le choix du fichier et gardée en mémoire dans le main (`secrets:preparer-cle`). L'écran ne reçoit que son format. Elle est oubliée après un enregistrement réussi ou sur « Annuler » (`secrets:abandonner-cle`), et conservée si l'invite est fermée.
+  - **Invite fermée sans valider** : « annulé », saisie conservée, rien au journal.
+  - L'essai d'écriture par fichier sonde est supprimé.
+- **Incident pendant la refonte** (2026-10-16) :
+  - le coffre branchait par défaut la vraie copie élevée, et un agent a lancé les anciens tests du coffre, ce qui a ouvert une dizaine de vraies invites UAC sur le poste ;
+  - correction structurelle : la copie élevée est une dépendance obligatoire, branchée seulement dans `src/main/index.ts`, que les tests ne chargent jamais ;
+  - défense en plus : le lanceur réel (`lanceurSysteme`) refuse de démarrer sous Vitest (`VITEST`) ;
+  - les consignes des agents interdisent toute exécution de la vraie élévation.
+- **Dev** : aucun coffre (`secrets.bin` jamais lu ni écrit). La résolution ne renvoie que la présence des trois secrets du `.env` (`secretsEnv`, booléens). Section en lecture seule, avec « Renseigné dans le .env ».
+- **Clé privée** : sont acceptées les clés PPK version 2 RSA ou DSA, OpenSSH (nom du chiffrement lu dans le binaire) ou PEM, sans phrase secrète. Sont refusées, avec un message et la marche à suivre PuTTYgen : PPK version 3, clé avec phrase secrète, PPK d'un autre type (ed25519…), PKCS#8, clé publique et fichier non reconnu. `ssh2` 1.16 ne lit ni les PPK ed25519 ni le PKCS#8 : les refuser dès maintenant évite un échec à la connexion en v0.5.0. Taille maximale : 64 Ko.
+- **IPC** : `secrets:etat`, `secrets:preparer-cle` et `secrets:abandonner-cle` (sans entrée), et `secrets:enregistrer` (`{ motsDePasse, cle }`, validé par zod, au moins un changement). Un échec de validation lève une erreur générique sans le détail, qui pourrait citer la valeur. Aucun canal de relecture. Les écritures sont sérialisées dans le service.
+- **Journal** :
+  - une ligne `SUCCES` par secret modifié, « Secret renseigné : … » ou « Secret remplacé : … » ;
+  - « Secret refusé : … » quand le format de la clé est refusé ;
+  - « Secrets non enregistrés : … » quand l'écriture échoue, ou quand DPAPI est indisponible ou le fichier illisible ;
+  - jamais la valeur, le contenu ni le chemin de la clé ;
+  - pas de ligne pour une invite fermée, une clé trop volumineuse ou illisible, ou « aucun changement » (asymétrie relevée par les tests, sans enjeu).
+- **Composants partagés** (option A, choix de l'utilisateur) :
+  - `ToneBadge` (ton et icône libres) et variantes `info`, `success`, `warning`, `error` d'`Alert` ;
+  - `formaterDate` déplacé dans `src/renderer/src/lib/dates.ts` ;
+  - Journal migré (`Pastille` supprimée), rendu inchangé à `font-sans` près ;
+  - ligne du backlog réduite à `AlertTitle`.
+- **Écran** : carte « Secrets techniques » sous « Configuration » (`secrets-vue.tsx`, hook `use-secrets.ts`).
+  - **Section verrouillée** : statuts, et bouton « Modifier les secrets » si Flussi est installé, DPAPI disponible et le fichier lisible. En dev, ni bouton ni champ.
+  - **Section déverrouillée** : un formulaire avec deux champs « Nouveau mot de passe » (vide = inchangé) et « Choisir la clé… », qui affiche « Clé prête (format) » ou le refus, puis « Enregistrer » et « Annuler ».
+  - **Retours** : succès « Secrets enregistrés : … », information pour une invite fermée, erreur sinon.
+  - **Valeurs** : celles des mots de passe ne vivent que dans l'état local du formulaire. Un rejet IPC donne un message générique.
+  - **Anomalie** : affichée dans une alerte d'avertissement.
+- **Points d'attention traités** :
+  - item 6 : `DESIGNATIONS_DOSSIER` partagé ; nom accessible « Ouvrir dans l'Explorateur le dossier IN » ; `Spinner` sur le bouton en cours ; message d'échec « Dossier IN (chemin) : cause », sans redite avec le titre ; `CLAUDE.md` à jour ;
+  - item 5 : clé de désinstallation supprimée en cas d'échec de la pose des droits (`DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"`, comme `uninstaller.nsh`) ; `icacls /reset /T` ; `analyserConfigJson` partagé par `lecture.ts` et `deploiement.test.ts` (la regex au BOM littéral disparaît) ;
+  - item 4 : le service reçoit la session du journal. Le bandeau en conditions réelles reste à vérifier (liste de contrôle).
+- **Protections du dépôt** :
+  - `.gitignore` : `*.ppk`, `id_rsa*`, `id_ed25519*`, `secrets.bin` ;
+  - `.claude/settings.json` : lecture des `*.ppk` refusée, par l'outil comme par le shell.
+  - Écart avec le plan : `secrets.bin` n'est pas bloqué dans `.claude/settings.json`. Il est chiffré, et la règle shell empêcherait les vérifications par `icacls`.
+- **Tests** :
+  - 3 019 unitaires (71 fichiers) :
+    - format de clé, en TDD ;
+    - format de `secrets.bin` ;
+    - mécanique `koffi` réelle, sans élévation : verbe `open` sur un script Node masqué (code de sortie 7 relu par `WaitForSingleObject` puis `GetExitCodeProcess`), fichier inexistant (`GetLastError` = 2), garde-fous `runas` sous Vitest à deux niveaux ;
+    - mode écriture, sur un vrai canal nommé (tous les codes de sortie) ;
+    - chaîne complète dans le même processus : coffre, canal, mode écriture, vérification ;
+    - coffre, avec une élévation simulée et des pannes de disque simulées ;
+    - DPAPI réel `LocalMachine` sous Windows ;
+    - service, avec un contrôle de confidentialité après chaque test ;
+    - IPC (31 entrées invalides) ;
+    - vue des secrets ;
+    - jsdom du formulaire et des hooks `use-secrets` et `use-ouverture-dossier`, ce dernier relevé par la revue de l'item 6 ;
+  - 12 e2e, dont 4 pour les secrets :
+    - lecture seule en dev, sans bouton « Modifier les secrets » ;
+    - valeur témoin absente du DOM, des réponses IPC et du journal ;
+    - préparation de la clé et enregistrement refusés en dev, sans ouvrir le sélecteur ;
+    - entrées invalides rejetées sans écho.
+- **Écart de test** : la vraie invite UAC, la copie élevée et la section modifiable de l'application installée ne sont pas couvertes automatiquement, et ne doivent pas l'être (voir l'incident). Les e2e tournent en dev, sans porte dérobée dans l'application installée. Couverture : tests unitaires et liste de contrôle du pilote.
+- **Packaging `0.2.2-pilote`** (2026-10-16, avant la refonte, désormais obsolète) : il a validé la compilation de `installer.nsh` modifié, l'absence de recompilation (« skipped dependencies rebuild ») et la sortie de `@primno/dpapi` dans `app.asar.unpacked`.
+- **Packaging `0.2.3-pilote`** (2026-10-16, après la refonte) :
+  - `release\Flussi-0.2.3-pilote-setup.exe` produit ; `@primno/dpapi` est toujours sorti dans `app.asar.unpacked`.
+  - Premier essai en échec, « No JSON content found in output » : electron-builder lance `npm list` par `powershell.exe -EncodedCommand`, et Windows a trouvé un fichier `npm.cmd` **vide** à la racine du projet (résidu de commande créé à 08:49) avant le vrai `npm`.
+  - Fichier supprimé, build réussi. Diagnostic obtenu avec `$env:DEBUG = "electron-builder"`.
+- **Pilote, `0.2.3-pilote`** (2026-10-16) :
+  - mise à jour par Intune réussie ;
+  - deux mots de passe et la clé enregistrés depuis la session de l'utilisateur ;
+  - invite UAC affichée puis validée avec le compte administrateur ;
+  - points vérifiés conformes selon l'utilisateur ;
+  - mot de passe SFTP saisi : celui du compte de **production**, alors que les comptes et mots de passe diffèrent entre recette et production. Comme `secrets.bin` ne connaît pas le mode, celui de recette est à ressaisir avant la v0.5.0, et les secrets de production à la bascule d'un poste. Deux lignes ajoutées au backlog (v0.5.0, v1.0.0) ;
+  - **l'EDR du poste a réagi à l'enregistrement** (2026-10-16, 13:13) :
+    - règle `windows_binary_copy_and_subsequent_deletion`, gravité HIGH, MITRE T1036 et T1059.001 ;
+    - processus visé : `powershell.exe` lancé par `Flussi.exe`, avec la ligne de commande `copy /Y … && move /Y … || del /Q …` ;
+    - détection seule : l'enregistrement a réussi ;
+    - une exception dans l'EDR est écartée, car elle masquerait une alerte haute sur PowerShell.
+- **Auto-élévation par `koffi`** (2026-10-16, décision de l'utilisateur, à la suite de la réaction de l'EDR) :
+  - **Mécanisme** : Flussi se relance lui-même élevé par `ShellExecuteExW` « runas » (`koffi` 3.3.2, `api-windows.ts`). L'arbre devient `Flussi.exe` → `Flussi.exe`, sans PowerShell ni `cmd.exe`.
+  - **Mode écriture** : `--flussi-ecrire-secrets=<canal>`, traité tout en haut de `src/main/index.ts`. Il reçoit le blob chiffré par un canal nommé (aucun fichier temporaire, rien sur la ligne de commande), vérifie qu'il se déchiffre et se décode, puis écrit `secrets.bin` (temporaire et renommage dans le dossier) et sort avec un code (`ecriture-secrets.ts`).
+  - **Invite UAC** : « Flussi.exe — éditeur inconnu », puisque Flussi n'est pas signé.
+  - **`ShellExecuteExW` synchrone, sur le thread principal**, volontairement : COM y est initialisé, comme le recommande la documentation de `ShellExecuteEx`, et `GetLastError()` y est fiable (1223 = invite refusée). En contrepartie, la fenêtre de Flussi est figée pendant l'invite, qui occupe de toute façon le bureau sécurisé. L'attente de fin (`WaitForSingleObject`) reste asynchrone.
+  - **Brique bas niveau `creerApiShellWindows`** : verbe `runas` ou `open`. Sous Vitest, `runas` est refusé à deux niveaux, ce qui permet de tester la mécanique `koffi` avec `open` sans élévation.
+  - **Choix de `koffi`** :
+    - préféré à `elevate.exe` d'electron-builder, utilitaire interne, non signé et peu documenté ;
+    - version 3.3.2 plutôt que la 3.3.3, publiée six jours plus tôt (prudence face à la chaîne d'approvisionnement) ;
+    - empreintes de `koffi` et `@koromix/koffi-win32-x64` vérifiées contre le registre ; seul le binaire Windows x64 est installé.
+- **Fichiers parasites** : quatre fichiers vides créés à 08:49:21 à la racine du projet (`npm.cmd`, `cd`, `electron-vite`, `flussi@0.1.0`). Une transcription de terminal collée dans PowerShell, sans doute par un clic droit, transforme chaque `>` en redirection. Les fichiers ont été supprimés.
+- **Test 9 (relance, `0.2.3-pilote`)** : conforme, les statuts « Renseigné le … » sont conservés.
+- **Packaging `0.2.4-pilote`** : produit, `koffi.node` sorti dans `app.asar.unpacked\node_modules\@koromix\koffi-win32-x64\win32_x64\`, à côté de `@primno+dpapi.node`.
+- **Auto-élévation au pilote** (`0.2.5-pilote`, `0.2.4-pilote` étant déjà déployée avec la version PowerShell), tout est conforme :
+  - **test 11** : après la mise à jour Intune, `secrets.bin` est conservé et les statuts « Renseigné le … » ×3 sont lisibles par le compte standard ;
+  - **enregistrement** : mot de passe SFTP MSP **de recette** ressaisi, invite « Flussi.exe » validée avec le compte administrateur, statut mis à jour, ligne « Secret remplacé » au journal ;
+  - **EDR** : aucune réaction ;
+  - **droits** : `icacls secrets.bin` donne `BUILTIN\Utilisateurs:(I)(RX)`, `BUILTIN\Administrateurs:(I)(F)` et `AUTORITE NT\Système:(I)(F)`, soit uniquement des droits hérités.
+- **Non confirmés explicitement** : le bandeau « Journal non enregistré » en conditions réelles (test 10, point d'attention de l'item 4) et le fichier illisible (test 12, facultatif).
+- **Revue d'item** (`OK POUR MERGE`, aucun bloquant) :
+  - **Clé préparée** : elle reste dans la mémoire du main quand l'utilisateur quitte l'écran Paramètres sans « Annuler » (le hook `use-secrets.ts` n'appelle pas `abandonnerCle` au démontage). Elle n'est plus utilisable, puisque l'écran a perdu `clePrete`, mais elle reste en mémoire jusqu'à la fermeture.
+  - **`preparerCle`** n'est pas sérialisé avec `enregistrer` (`src/main/services/parametres/secrets.ts`). Un appel IPC direct pendant un enregistrement verrait sa clé effacée ; l'écran l'empêche déjà.
+  - **Journal** : une clé trop volumineuse ou illisible est refusée sans ligne au journal, alors qu'un format refusé en écrit une.
+  - **Duplication** : les petites fonctions d'erreur (`codeErreur`, `messageErreur`, `codeSortieDisque`) sont recopiées dans `secrets.ts`, `elevation.ts` et `ecriture-secrets.ts`.
+  - **Attente sans délai maximal** : `attendreFin` attend sans limite (`INFINITE`, `api-windows.ts`). Un processus élevé qui ne se termine jamais laisserait l'écran sur « Enregistrement… ». Risque faible : l'enfant a un délai de 15 s sur le canal.
+  - **Tests** : la vraie invite et l'aiguillage du mode écriture dans `src/main/index.ts` ne sont couverts que par le pilote, ce qui est voulu. Le test « seconde connexion » du canal accepte deux issues.
+  - **Lancement trompeur** : un programme local pourrait lancer `Flussi.exe --flussi-ecrire-secrets=<son canal>` et compter sur l'accord d'un administrateur à une invite qu'il n'a pas demandée. Risque inhérent à l'élévation par UAC ; les secrets restent de toute façon lisibles par tout code du poste (limite assumée au cadrage).
 
 ---
 

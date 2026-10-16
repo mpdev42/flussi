@@ -11,6 +11,11 @@ const alertVariants = cva(
         default: 'bg-background text-foreground',
         destructive:
           'border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive',
+        // Tons de la charte (DESIGN.md §2.4) : jamais la couleur seule, toujours icône + mots.
+        info: 'border-info-border bg-info-bg text-info-text [&>svg]:text-info-text',
+        success: 'border-success-border bg-success-bg text-success-text [&>svg]:text-success-text',
+        warning: 'border-warning-border bg-warning-bg text-warning-text [&>svg]:text-warning-text',
+        error: 'border-error-border bg-error-bg text-error-text [&>svg]:text-error-text',
       },
     },
     defaultVariants: {

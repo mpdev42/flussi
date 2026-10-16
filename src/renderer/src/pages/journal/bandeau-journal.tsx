@@ -11,10 +11,7 @@ export interface BandeauJournalProps {
 /** Alerte globale « Journal non enregistré », pleine largeur, sous l'en-tête de l'application. */
 export function BandeauJournal({ lignesEnAttente }: BandeauJournalProps) {
   return (
-    <Alert
-      variant="destructive"
-      className="rounded-none border-x-0 border-error-border bg-error-bg px-10 text-error-text [&>svg]:left-10 [&>svg]:text-error-text"
-    >
+    <Alert variant="error" className="rounded-none border-x-0 px-10 [&>svg]:left-10">
       <CircleAlert aria-hidden="true" />
       <AlertTitle>Journal non enregistré</AlertTitle>
       <AlertDescription>

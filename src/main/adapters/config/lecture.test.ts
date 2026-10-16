@@ -220,6 +220,91 @@ describe('chargerConfiguration — développement', () => {
   });
 });
 
+describe('chargerConfiguration — présence des secrets (secretsEnv)', () => {
+  const TOUT_FAUX = {
+    'iga-ftp-mot-de-passe': false,
+    'msp-sftp-mot-de-passe': false,
+    'msp-sftp-cle-privee': false,
+  };
+
+  it('dev : lit la présence des trois secrets dans le .env, sans en verser la valeur', () => {
+    ecrireDotEnv(
+      [
+        'FLUSSI_ENV=recette',
+        `STOCKAGE_DOSSIER_TRAVAIL=${RACINE}`,
+        `IGA_FTP_PASSWORD=${SECRET_FICTIF}`,
+        `MSP_SFTP_PASSWORD=${SECRET_FICTIF}`,
+        `MSP_SFTP_CLE_PRIVEE_CHEMIN=D:\${SECRET_FICTIF}.ppk`,
+        '',
+      ].join('\n'),
+    );
+    const resultat = chargerConfiguration(parametres(false));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) {
+      expect(resultat.secretsEnv).toEqual({
+        'iga-ftp-mot-de-passe': true,
+        'msp-sftp-mot-de-passe': true,
+        'msp-sftp-cle-privee': true,
+      });
+    }
+    expect(JSON.stringify(resultat)).not.toContain(SECRET_FICTIF);
+    expect(Object.values(process.env)).not.toContain(SECRET_FICTIF);
+  });
+
+  it('dev : une valeur vide ou une clé absente du .env vaut absence', () => {
+    ecrireDotEnv(
+      [
+        'FLUSSI_ENV=recette',
+        `STOCKAGE_DOSSIER_TRAVAIL=${RACINE}`,
+        'IGA_FTP_PASSWORD=',
+        `MSP_SFTP_PASSWORD=${SECRET_FICTIF}`,
+        '',
+      ].join('\n'),
+    );
+    const resultat = chargerConfiguration(parametres(false));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) {
+      expect(resultat.secretsEnv).toEqual({ ...TOUT_FAUX, 'msp-sftp-mot-de-passe': true });
+    }
+  });
+
+  it('dev : les variables du processus ne comptent pas', () => {
+    vi.stubEnv('IGA_FTP_PASSWORD', SECRET_FICTIF);
+    ecrireDotEnv(`FLUSSI_ENV=recette\nSTOCKAGE_DOSSIER_TRAVAIL=${RACINE}\n`);
+    const resultat = chargerConfiguration(parametres(false));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.secretsEnv).toEqual(TOUT_FAUX);
+  });
+
+  it('installée : un config.json valide sans secret donne tout faux', () => {
+    ecrireConfigJson(JSON.stringify({ FLUSSI_ENV: 'prod' }));
+    const resultat = chargerConfiguration(parametres(true));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.secretsEnv).toEqual(TOUT_FAUX);
+  });
+
+  it('installée : le .env et ses secrets sont ignorés', () => {
+    ecrireConfigJson(JSON.stringify({ FLUSSI_ENV: 'prod' }));
+    ecrireDotEnv(`IGA_FTP_PASSWORD=${SECRET_FICTIF}\n`);
+    const resultat = chargerConfiguration(parametres(true));
+    expect(resultat.ok).toBe(true);
+    if (resultat.ok) expect(resultat.secretsEnv).toEqual(TOUT_FAUX);
+  });
+
+  it('installée : un secret dans config.json est un refus, sans valeur dans le résultat', () => {
+    ecrireConfigJson(JSON.stringify({ FLUSSI_ENV: 'prod', IGA_FTP_PASSWORD: SECRET_FICTIF }));
+    const resultat = chargerConfiguration(parametres(true));
+    expect(resultat.ok).toBe(false);
+    expect(JSON.stringify(resultat)).not.toContain(SECRET_FICTIF);
+  });
+
+  it('installée : un config.json avec BOM et JSON invalide ne cite pas son contenu', () => {
+    ecrireConfigJson(`\uFEFF{ "IGA_FTP_PASSWORD": "${SECRET_FICTIF}" `);
+    const erreurs = erreursDe(chargerConfiguration(parametres(true)));
+    expect(erreurs).toEqual([{ source: cheminConfigJson(), message: 'JSON invalide.' }]);
+  });
+});
+
 describe('formaterErreurs', () => {
   it('encadre le message : introduction et contact du service informatique', () => {
     const texte = formaterErreurs([{ source: 'C:\\x\\config.json', message: 'JSON invalide.' }]);

@@ -3,7 +3,8 @@ import { TriangleAlert } from 'lucide-react';
 import type { SessionJournal } from '@shared/types';
 
 import { Card } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusBadge, ToneBadge } from '@/components/ui/status-badge';
+import { formaterDate } from '@/lib/dates';
 import { pluralize } from '@/lib/pluralize';
 
 import {
@@ -11,11 +12,10 @@ import {
   EnTeteTableau,
   ErreurChargement,
   EtatVide,
-  Pastille,
   TableauChargement,
   type ColonneJournal,
 } from './elements-tableau';
-import { formaterDate, periodeEnLettres, titreSession } from './format-journal';
+import { periodeEnLettres, titreSession } from './format-journal';
 import { MiseEnPageJournal } from './mise-en-page-journal';
 import { SelecteursPeriode } from './selecteurs-periode';
 
@@ -62,13 +62,9 @@ function StatutSession({ session }: { session: SessionJournal }) {
     <span className="flex flex-wrap items-center gap-2">
       {session.enCours && <StatusBadge status="du-jour" label="En cours" />}
       {session.copieConflitProbable && (
-        <Pastille
-          ton="warning"
-          title={INFOBULLE_COPIE_CONFLIT}
-          icone={<TriangleAlert className="shrink-0" size={14} strokeWidth={1.75} aria-hidden />}
-        >
+        <ToneBadge tone="warning" title={INFOBULLE_COPIE_CONFLIT} icon={TriangleAlert}>
           Copie de conflit
-        </Pastille>
+        </ToneBadge>
       )}
     </span>
   );

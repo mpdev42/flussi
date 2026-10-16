@@ -1,6 +1,19 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { join } from 'path';
-import { chargerConfiguration, formaterErreurs } from './adapters/config';
+import {
+  CODES_ECRITURE,
+  canalEcritureDemande,
+  chargerConfiguration,
+  creerChiffrementDpapi,
+  creerCoffreSecrets,
+  ecrireEnAdministrateur,
+  ecrireSecretsDepuisCanal,
+  formaterErreurs,
+  lireFichierCle,
+  type ApiElevationWindows,
+} from './adapters/config';
+// Import direct : l'API Windows réelle n'est créée qu'ici (jamais chargée par les tests)
+import { creerApiElevationWindows } from './adapters/config/api-windows';
 import { creerStockageDisque, formaterErreursStockage } from './adapters/stockage';
 import { enregistrerHandlersJournal } from './ipc/journal';
 import { enregistrerHandlersParametres } from './ipc/parametres';
@@ -11,10 +24,13 @@ import {
   lirePoste,
   type SessionEcriture,
 } from './services/journal';
-import { creerServiceParametres } from './services/parametres';
+import { creerServiceParametres, creerServiceSecrets } from './services/parametres';
 import type { Mode } from '@shared/schemas/config';
 
 let fenetrePrincipale: BrowserWindow | null = null;
+
+// API Windows de l'élévation : créée une seule fois, à la première écriture des secrets
+let apiElevation: ApiElevationWindows | null = null;
 
 function creerFenetrePrincipale(mode: Mode): BrowserWindow {
   const fenetre = new BrowserWindow({
@@ -47,13 +63,34 @@ function creerFenetrePrincipale(mode: Mode): BrowserWindow {
 }
 
 /**
+ * Sélecteur de la clé privée SFTP MSP, ouvert par le main (le chemin ne vient jamais de l'écran).
+ * `dialog.showOpenDialog` est lu à l'appel : un test e2e peut le remplacer.
+ */
+async function choisirFichierCle(): Promise<string | null> {
+  const options: Electron.OpenDialogOptions = {
+    title: 'Importer la clé privée SFTP MSP',
+    buttonLabel: 'Importer',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Clé privée (PPK, OpenSSH)', extensions: ['ppk', 'pem', 'key'] },
+      { name: 'Tous les fichiers', extensions: ['*'] },
+    ],
+  };
+  const { canceled, filePaths } = fenetrePrincipale
+    ? await dialog.showOpenDialog(fenetrePrincipale, options)
+    : await dialog.showOpenDialog(options);
+  return canceled ? null : (filePaths[0] ?? null);
+}
+
+/**
  * Séquence de démarrage : verrou d'instance (au niveau du module), configuration, stockage
  * (accès aux dossiers de travail), journal de session (ouverture), fenêtre.
  */
 async function demarrer(): Promise<void> {
+  const dossierProgramData = process.env.ProgramData ?? 'C:\\ProgramData';
   const resultat = chargerConfiguration({
     estInstallee: app.isPackaged,
-    dossierProgramData: process.env.ProgramData ?? 'C:\\ProgramData',
+    dossierProgramData,
     dossierCourant: process.cwd(),
   });
 
@@ -62,7 +99,7 @@ async function demarrer(): Promise<void> {
     app.exit(1);
     return;
   }
-  const { configuration, origines } = resultat;
+  const { configuration, origines, secretsEnv } = resultat;
 
   // Stockage : IN, OUT et Journal doivent exister et se lire. « Réessayer » sert quand P: se monte
   // quelques secondes après l'ouverture de session. Pendant la boîte, il n'y a pas de fenêtre.
@@ -125,6 +162,25 @@ async function demarrer(): Promise<void> {
       dossiers: configuration.dossiers,
       // Lambda : shell.openPath est lu à l'appel (un test e2e peut le remplacer)
       ouvrirChemin: (chemin) => shell.openPath(chemin),
+    }),
+    secrets: creerServiceSecrets({
+      presenceEnv: secretsEnv,
+      // En dev, pas de coffre : secrets.bin n'est jamais lu ni écrit (les secrets viennent du .env)
+      coffre: app.isPackaged
+        ? creerCoffreSecrets({
+            dossier: join(dossierProgramData, 'Flussi'),
+            chiffrement: creerChiffrementDpapi(),
+            // Seul endroit qui branche la vraie élévation (invite UAC) : jamais atteint par les tests
+            ecrireEleve: async (blob) => {
+              apiElevation ??= creerApiElevationWindows();
+              return ecrireEnAdministrateur({ blob, executable: process.execPath }, apiElevation);
+            },
+          })
+        : null,
+      choisirFichierCle,
+      lireFichierCle,
+      journal: session,
+      maintenant: () => new Date(),
     }),
   });
   enregistrerHandlersJournal({
@@ -196,22 +252,47 @@ function brancherFermeture(fenetre: BrowserWindow, session: SessionEcriture): vo
   });
 }
 
-// En dev, profil distinct de Flussi installé : verrou et données séparés, les deux tournent côte à
-// côte. FLUSSI_PROFIL_DEV (variable du processus uniquement) donne un profil temporaire aux tests e2e.
-if (!app.isPackaged) {
-  app.setPath(
-    'userData',
-    process.env.FLUSSI_PROFIL_DEV || join(app.getPath('appData'), 'Flussi-dev'),
-  );
+/**
+ * Mode écriture des secrets : Flussi relancé en administrateur par le Flussi de l'utilisateur
+ * (`--flussi-ecrire-secrets=<canal>`). Ni fenêtre, ni configuration, ni verrou d'instance, ni
+ * journal, ni handler IPC : il reçoit le blob chiffré par le canal nommé, l'écrit dans
+ * `%ProgramData%\Flussi` et sort avec un code de `CODES_ECRITURE`.
+ */
+async function ecrireSecretsEnAdministrateur(nomCanal: string): Promise<void> {
+  try {
+    const code = await ecrireSecretsDepuisCanal({
+      nomCanal,
+      dossier: join(process.env.ProgramData ?? 'C:\\ProgramData', 'Flussi'),
+      chiffrement: creerChiffrementDpapi(),
+    });
+    app.exit(code);
+  } catch {
+    // Aucun détail : l'erreur pourrait citer un extrait du contenu
+    app.exit(CODES_ECRITURE.inattendu);
+  }
 }
 
-// Instance unique : verrou pris en tout premier, avant la configuration
-if (!app.requestSingleInstanceLock()) {
-  console.info(
-    "Flussi est déjà ouvert : ce second lancement s'arrête, la fenêtre existante est remise au premier plan.",
-  );
-  app.quit();
-} else {
+/** Démarrage normal : profil dev, verrou d'instance, configuration, stockage, journal, fenêtre. */
+function demarrerApplication(): void {
+  // En dev, profil distinct de Flussi installé : verrou et données séparés, les deux tournent côte
+  // à côte. FLUSSI_PROFIL_DEV (variable du processus uniquement) donne un profil temporaire aux
+  // tests e2e.
+  if (!app.isPackaged) {
+    app.setPath(
+      'userData',
+      process.env.FLUSSI_PROFIL_DEV || join(app.getPath('appData'), 'Flussi-dev'),
+    );
+  }
+
+  // Instance unique : verrou pris en tout premier, avant la configuration
+  if (!app.requestSingleInstanceLock()) {
+    console.info(
+      "Flussi est déjà ouvert : ce second lancement s'arrête, la fenêtre existante est remise au premier plan.",
+    );
+    app.quit();
+    return;
+  }
+
   app.on('second-instance', () => {
     // Pas de fenêtre (erreur de démarrage affichée) : rien à faire
     if (!fenetrePrincipale) return;
@@ -235,4 +316,13 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     app.quit();
   });
+}
+
+// Premier aiguillage, avant le profil dev et le verrou d'instance. En dev, l'argument est ignoré
+// (le mode écriture n'existe que dans l'application installée).
+const canalEcriture = app.isPackaged ? canalEcritureDemande(process.argv) : null;
+if (canalEcriture !== null) {
+  void ecrireSecretsEnAdministrateur(canalEcriture);
+} else {
+  demarrerApplication();
 }

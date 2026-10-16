@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import {
+  analyserConfigJson,
   resoudreConfiguration,
   type ErreurConfiguration,
   type ResultatConfiguration,
@@ -49,21 +50,13 @@ function chargerInstallee(parametres: ParametresChargement): ResultatConfigurati
     );
   }
 
-  let contenu: unknown;
-  try {
-    contenu = JSON.parse(lecture.texte);
-  } catch {
-    // Le détail de l'erreur de syntaxe est omis : il peut citer un extrait du contenu
-    return echec(fichier, 'JSON invalide.');
-  }
-  if (typeof contenu !== 'object' || contenu === null || Array.isArray(contenu)) {
-    return echec(fichier, 'un objet JSON de clés à plat est attendu.');
-  }
+  const analyse = analyserConfigJson(lecture.texte);
+  if (!analyse.ok) return echec(fichier, analyse.message);
 
   return resoudreConfiguration({
     contexte: 'installee',
     fichier,
-    valeursFichier: contenu as Record<string, unknown>,
+    valeursFichier: analyse.valeurs,
   });
 }
 

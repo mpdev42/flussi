@@ -2,9 +2,13 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type {
   ConfigurationPublique,
   DossierTravail,
+  DemandeEnregistrementSecrets,
   EtatJournal,
+  EtatSecrets,
   LigneJournal,
   ResultatOuvertureDossier,
+  ResultatPreparationCle,
+  ResultatSecret,
   ResultatStockage,
   SessionJournal,
 } from '@shared/types';
@@ -15,6 +19,16 @@ const api = {
     lire: (): Promise<ConfigurationPublique> => ipcRenderer.invoke('config:lire'),
     ouvrirDossier: (dossier: DossierTravail): Promise<ResultatOuvertureDossier> =>
       ipcRenderer.invoke('config:ouvrir-dossier', dossier),
+  },
+  secrets: {
+    /** Statuts seulement ; aucun canal ne relit une valeur. */
+    etat: (): Promise<EtatSecrets> => ipcRenderer.invoke('secrets:etat'),
+    /** Le sélecteur de fichier est ouvert par le main : aucun chemin ne vient de l'écran. */
+    preparerCle: (): Promise<ResultatPreparationCle> => ipcRenderer.invoke('secrets:preparer-cle'),
+    abandonnerCle: (): Promise<void> => ipcRenderer.invoke('secrets:abandonner-cle'),
+    /** Un seul enregistrement, donc une seule invite de contrôle de compte. */
+    enregistrer: (demande: DemandeEnregistrementSecrets): Promise<ResultatSecret> =>
+      ipcRenderer.invoke('secrets:enregistrer', demande),
   },
   journal: {
     annees: (): Promise<ResultatStockage<string[]>> => ipcRenderer.invoke('journal:annees'),

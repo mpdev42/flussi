@@ -29,5 +29,29 @@ export default defineConfig([
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // Le chiffrement DPAPI et l'API Windows d'élévation restent dans le main
+    // (src/main/adapters/config/dpapi.ts et api-windows.ts)
+    files: ['src/renderer/**/*.{ts,tsx}', 'src/preload/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@primno/dpapi',
+              message:
+                'DPAPI reste dans le processus principal (src/main/adapters/config/dpapi.ts).',
+            },
+            {
+              name: 'koffi',
+              message:
+                "L'API Windows (koffi) reste dans le processus principal (src/main/adapters/config/api-windows.ts).",
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 ]);

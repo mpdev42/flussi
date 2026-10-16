@@ -1,6 +1,8 @@
 import type { LigneJournal, SessionJournal } from '@shared/types';
 import type { NiveauJournal } from '@shared/schemas/journal';
 
+import { formaterDate } from '@/lib/dates';
+
 export interface MoisJournal {
   /** `01` à `12`, comme le dossier du journal. */
   valeur: string;
@@ -24,12 +26,6 @@ export const MOIS_JOURNAL: MoisJournal[] = [
   { valeur: '11', court: 'Nov.', long: 'novembre' },
   { valeur: '12', court: 'Déc.', long: 'décembre' },
 ];
-
-/** `2026-10-14` → `14/10/2026`. */
-export function formaterDate(date: string): string {
-  const [annee, mois, jour] = date.split('-');
-  return `${jour}/${mois}/${annee}`;
-}
 
 /** Nom du mois en toutes lettres et en minuscules (`10` → `octobre`) ; le code reçu si inconnu. */
 export function nomMois(mois: string): string {
