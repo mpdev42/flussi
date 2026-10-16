@@ -25,7 +25,7 @@ function App() {
   if (erreur) {
     return (
       <div className="p-10">
-        <Alert variant="destructive">
+        <Alert variant="error">
           <AlertTitle>Configuration indisponible</AlertTitle>
           <AlertDescription>
             Flussi n&apos;a pas pu lire sa configuration. Contactez le service informatique.
