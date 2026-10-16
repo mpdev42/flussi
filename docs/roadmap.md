@@ -16,9 +16,9 @@ Objectif : le service peut charger, contrôler et corriger un fichier AC056 loca
 
 - Chargement d'un fichier issu de VEOS (UTF-8) ou de rejet (ANSI).
 - Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle à la sortie d'un champ et marquage des erreurs.
-- Modification et enregistrement, seulement si le fichier ne contient plus d'erreur.
+- Modification et enregistrement, même si le fichier contient encore des erreurs (le dépôt MSP les refuse).
 - Rejets rattachés : message par ligne et explication `ERRxxx`.
-- Liste récapitulative des erreurs (ligne, entité, champ, message ou `ERRxxx`). Un clic ouvre directement le champ concerné, et des raccourcis clavier passent à l'erreur suivante ou précédente. Objectif : corriger quinze erreurs au moins aussi vite que dans Lazarus.
+- Liste récapitulative des erreurs (ligne, entité, champ, message ou `ERRxxx`). Un clic ouvre directement le champ concerné, et deux boutons passent à l'erreur précédente ou suivante.
 
 ## v0.4.0 — IGA et VEOS
 
