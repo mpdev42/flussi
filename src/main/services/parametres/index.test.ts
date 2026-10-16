@@ -54,7 +54,7 @@ describe('ServiceParametres.ouvrirDossier — échec', () => {
 
       expect(resultat).toEqual({
         ok: false,
-        message: `Le dossier ${designation} (${chemin}) n'a pas pu être ouvert dans l'Explorateur : Accès refusé`,
+        message: `Dossier ${designation} (${chemin}) : Accès refusé`,
       });
     },
   );

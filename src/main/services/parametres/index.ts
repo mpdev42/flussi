@@ -1,5 +1,8 @@
 import type { Configuration } from '@shared/schemas/config';
+import { DESIGNATIONS_DOSSIER } from '@shared/schemas/parametres';
 import type { DossierTravail, ResultatOuvertureDossier } from '@shared/types';
+
+export { creerServiceSecrets, type DependancesSecrets, type ServiceSecrets } from './secrets';
 
 export interface ServiceParametres {
   /** Ouvre un dossier de travail dans l'Explorateur. Ne lève jamais : l'échec est dans le résultat. */
@@ -12,14 +15,6 @@ export interface DependancesParametres {
   ouvrirChemin: (chemin: string) => Promise<string>;
 }
 
-/** Désignation du dossier dans les messages (« Le dossier … (chemin) »). */
-const DESIGNATIONS: Record<DossierTravail, string> = {
-  travail: 'de travail',
-  in: 'IN',
-  out: 'OUT',
-  journal: 'Journal',
-};
-
 export function creerServiceParametres({
   dossiers,
   ouvrirChemin,
@@ -29,7 +24,8 @@ export function creerServiceParametres({
       const chemin = dossiers[dossier];
       const echec = (cause: string): ResultatOuvertureDossier => ({
         ok: false,
-        message: `Le dossier ${DESIGNATIONS[dossier]} (${chemin}) n'a pas pu être ouvert dans l'Explorateur : ${cause}`,
+        // Le titre de l'écran dit déjà « Le dossier n'a pas pu être ouvert » : pas de redite
+        message: `Dossier ${DESIGNATIONS_DOSSIER[dossier]} (${chemin}) : ${cause}`,
       });
 
       try {

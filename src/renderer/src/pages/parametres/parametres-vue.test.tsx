@@ -35,6 +35,7 @@ function rendre(props: Partial<ParametresVueProps> = {}): string {
       enCours={null}
       erreur={null}
       onOuvrir={vi.fn()}
+      secrets={null}
       {...props}
     />,
   ).replaceAll('<!-- -->', '');
@@ -139,10 +140,10 @@ describe('ParametresVue — structure de la liste', () => {
 
 describe('ParametresVue — boutons d’ouverture', () => {
   const ARIA_LABELS = [
-    'Ouvrir le dossier de travail dans l&#x27;Explorateur',
-    'Ouvrir le dossier IN dans l&#x27;Explorateur',
-    'Ouvrir le dossier OUT dans l&#x27;Explorateur',
-    'Ouvrir le dossier Journal dans l&#x27;Explorateur',
+    'Ouvrir dans l&#x27;Explorateur le dossier de travail',
+    'Ouvrir dans l&#x27;Explorateur le dossier IN',
+    'Ouvrir dans l&#x27;Explorateur le dossier OUT',
+    'Ouvrir dans l&#x27;Explorateur le dossier Journal',
   ];
 
   function boutons(html: string): string[] {
@@ -176,6 +177,49 @@ describe('ParametresVue — boutons d’ouverture', () => {
       for (const balise of balises) expect(balise).toContain('disabled=""');
     },
   );
+});
+
+describe('ParametresVue — indicateur d’ouverture en cours', () => {
+  function contenusBoutons(html: string): string[] {
+    return [...html.matchAll(/<button\b[^>]*>(.*?)<\/button>/g)].map((m) => m[1]);
+  }
+
+  it('affiche le Spinner à la place de l’icône dossier sur le bouton en cours seulement', () => {
+    const contenus = contenusBoutons(rendre({ enCours: 'in' }));
+    expect(contenus).toHaveLength(4);
+    // Ordre des boutons : dossier de travail, IN, OUT, Journal
+    expect(contenus[1]).toContain('animate-spin');
+    expect(contenus[1]).not.toContain('lucide-folder-open');
+    for (const index of [0, 2, 3]) {
+      expect(contenus[index]).not.toContain('animate-spin');
+      expect(contenus[index]).toContain('lucide-folder-open');
+    }
+  });
+
+  it('garde le texte visible sur le bouton en cours et masque le Spinner aux lecteurs d’écran', () => {
+    const contenus = contenusBoutons(rendre({ enCours: 'in' }));
+    expect(contenus[1]).toContain('Ouvrir dans l&#x27;Explorateur');
+    expect(contenus[1]).toContain('aria-hidden="true"');
+    expect(contenus[1]).not.toContain('role="status"');
+  });
+
+  it('n’affiche aucun Spinner quand aucune ouverture n’est en cours', () => {
+    expect(rendre({ enCours: null })).not.toContain('animate-spin');
+  });
+});
+
+describe('ParametresVue — emplacement des secrets', () => {
+  it('rend la section secrets sous la carte « Configuration »', () => {
+    const html = rendre({ secrets: <section data-testid="secrets">Section secrets</section> });
+    const positionConfiguration = html.indexOf('>Configuration</h2>');
+    const positionSecrets = html.indexOf('Section secrets');
+    expect(positionConfiguration).toBeGreaterThan(-1);
+    expect(positionSecrets).toBeGreaterThan(positionConfiguration);
+  });
+
+  it('ne rend rien de plus quand secrets vaut null', () => {
+    expect(rendre({ secrets: null })).not.toContain('Secrets techniques');
+  });
 });
 
 describe('ParametresVue — erreur d’ouverture', () => {

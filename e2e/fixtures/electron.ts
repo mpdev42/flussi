@@ -19,6 +19,15 @@ export interface AppLancee {
   fermer: () => Promise<void>;
 }
 
+export interface OptionsLancement {
+  /**
+   * Lignes `CLE=valeur` ajoutées à la fin du `.env` écrit par la fixture (secrets de dev, chemin de
+   * clé…). Sans effet sur les clés déjà écrites : ne pas redéfinir `FLUSSI_ENV` ni
+   * `STOCKAGE_DOSSIER_TRAVAIL`.
+   */
+  lignesEnv?: string[];
+}
+
 /** Version déclarée dans `package.json`, celle que doit renvoyer `app.getVersion()`. */
 export function lireVersionProjet(): string {
   const contenu = readFileSync(path.join(RACINE_PROJET, 'package.json'), 'utf8');
@@ -48,13 +57,16 @@ export function lireVersionProjet(): string {
  *   `Journal` déjà créés : l'application vérifie leur accès au démarrage et ne les crée jamais.
  * `ELECTRON_RENDERER_URL` et `ELECTRON_RUN_AS_NODE` ne sont pas transmises.
  *
+ * `options.lignesEnv` (facultatif) ajoute des lignes `CLE=valeur` à ce `.env` ; sans option, le `.env`
+ * reste identique à celui des lancements existants.
+ *
  * Toujours appeler `fermer()` en fin de test (dans un `finally`) : il ferme l'application et
  * supprime les dossiers temporaires, sans laisser de processus Electron orphelin.
  *
  * Retour : la propriété `page` est nommée ainsi (et non `window`) pour ne pas masquer le `window`
  * global du renderer dans les callbacks `page.evaluate(() => ...)`.
  */
-export async function launchApp(): Promise<AppLancee> {
+export async function launchApp(options: OptionsLancement = {}): Promise<AppLancee> {
   const base = mkdtempSync(path.join(tmpdir(), 'flussi-e2e-'));
   const cwd = path.join(base, 'courant');
   const profil = path.join(base, 'profil');
@@ -73,11 +85,12 @@ export async function launchApp(): Promise<AppLancee> {
   delete env.ELECTRON_RENDERER_URL;
   delete env.ELECTRON_RUN_AS_NODE;
   env.FLUSSI_PROFIL_DEV = profil;
-  writeFileSync(
-    path.join(cwd, '.env'),
-    `FLUSSI_ENV=recette\nSTOCKAGE_DOSSIER_TRAVAIL=${racineTravail}\n`,
-    'utf8',
-  );
+  const lignesEnv = [
+    'FLUSSI_ENV=recette',
+    `STOCKAGE_DOSSIER_TRAVAIL=${racineTravail}`,
+    ...(options.lignesEnv ?? []),
+  ];
+  writeFileSync(path.join(cwd, '.env'), `${lignesEnv.join('\n')}\n`, 'utf8');
 
   let app: ElectronApplication | undefined;
   const fermer = async (): Promise<void> => {

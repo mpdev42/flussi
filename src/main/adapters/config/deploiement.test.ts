@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { resoudreConfiguration } from './resolution';
+import { analyserConfigJson, resoudreConfiguration } from './resolution';
 
 // Garde des paquets de configuration Intune (deploiement/intune/*/config.json) : une faute de
 // frappe dans une clé serait sinon découverte au démarrage du poste (refus de démarrer).
@@ -14,17 +14,15 @@ const paquets = readdirSync(DOSSIER_PAQUETS, { withFileTypes: true })
   .filter((entree) => entree.isDirectory())
   .map((entree) => entree.name);
 
-// Même enchaînement que chargerInstallee (lecture.ts) : BOM retiré, JSON.parse, objet attendu.
+// Même analyse que chargerInstallee (lecture.ts), partagée par analyserConfigJson.
 function resoudrePaquet(nom: string) {
   const fichier = join(DOSSIER_PAQUETS, nom, 'config.json');
-  const contenu: unknown = JSON.parse(readFileSync(fichier, 'utf8').replace(/^﻿/, ''));
-  if (typeof contenu !== 'object' || contenu === null || Array.isArray(contenu)) {
-    throw new Error(`${fichier} : un objet JSON de clés à plat est attendu.`);
-  }
+  const analyse = analyserConfigJson(readFileSync(fichier, 'utf8'));
+  if (!analyse.ok) throw new Error(`${fichier} : ${analyse.message}`);
   return resoudreConfiguration({
     contexte: 'installee',
     fichier,
-    valeursFichier: contenu as Record<string, unknown>,
+    valeursFichier: analyse.valeurs,
   });
 }
 

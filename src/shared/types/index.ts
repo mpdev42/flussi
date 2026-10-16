@@ -5,10 +5,17 @@ import type { OriginesConfiguration } from './parametres';
 
 export type { EtatJournal, LigneJournal, SessionJournal } from './journal';
 export type {
+  DemandeEnregistrementSecrets,
   DossierTravail,
+  EtatSecrets,
+  MotDePasseTechnique,
   OrigineValeur,
   OriginesConfiguration,
   ResultatOuvertureDossier,
+  ResultatPreparationCle,
+  ResultatSecret,
+  SecretTechnique,
+  StatutSecret,
 } from './parametres';
 export type {
   CodeErreurStockage,

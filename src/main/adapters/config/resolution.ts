@@ -10,11 +10,38 @@ import {
   type Configuration,
   type Mode,
 } from '@shared/schemas/config';
-import type { OriginesConfiguration } from '@shared/types';
+import type { OriginesConfiguration, SecretTechnique } from '@shared/types';
 
 // Résolution pure de la configuration : aucune entrée-sortie, testable sans Electron.
 
 export type ContexteConfiguration = 'installee' | 'dev';
+
+export type AnalyseConfigJson =
+  { ok: true; valeurs: Record<string, unknown> } | { ok: false; message: string };
+
+/**
+ * Analyse le texte de config.json : BOM initial retiré (PowerShell 5.1 en écrit un), JSON, objet
+ * de clés à plat. Le message de `JSON.parse` n'est jamais repris : V8 y recopie un extrait du texte.
+ */
+export function analyserConfigJson(texte: string): AnalyseConfigJson {
+  let contenu: unknown;
+  try {
+    contenu = JSON.parse(texte.replace(/^﻿/, ''));
+  } catch {
+    return { ok: false, message: 'JSON invalide.' };
+  }
+  if (typeof contenu !== 'object' || contenu === null || Array.isArray(contenu)) {
+    return { ok: false, message: 'un objet JSON de clés à plat est attendu.' };
+  }
+  return { ok: true, valeurs: contenu as Record<string, unknown> };
+}
+
+/** Clé du .env (dev) qui fournit chaque secret technique. */
+const CLES_ENV_SECRETS: Record<SecretTechnique, string> = {
+  'iga-ftp-mot-de-passe': 'IGA_FTP_PASSWORD',
+  'msp-sftp-mot-de-passe': 'MSP_SFTP_PASSWORD',
+  'msp-sftp-cle-privee': 'MSP_SFTP_CLE_PRIVEE_CHEMIN',
+};
 
 export interface SourceConfiguration {
   contexte: ContexteConfiguration;
@@ -36,7 +63,13 @@ export interface ErreurConfiguration {
 }
 
 export type ResultatConfiguration =
-  | { ok: true; configuration: Configuration; origines: OriginesConfiguration }
+  | {
+      ok: true;
+      configuration: Configuration;
+      origines: OriginesConfiguration;
+      /** Présence seulement, jamais la valeur. Toujours faux pour l'application installée. */
+      secretsEnv: Record<SecretTechnique, boolean>;
+    }
   | { ok: false; erreurs: ErreurConfiguration[] };
 
 /** Racine de travail par défaut du mode prod (dossiers IN, OUT et Journal dérivés). */
@@ -152,6 +185,17 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
   // Le mode est toujours lu dans le fichier (sans valeur par défaut) ; la racine peut venir du défaut
   const origineFichier = enDev ? 'env' : 'config';
 
+  // Présence des secrets du .env (dev) : booléens, la valeur ne sort jamais de cette fonction
+  const presence = (cle: string): boolean => {
+    const valeur = valeursFichier[cle];
+    return enDev && typeof valeur === 'string' && valeur !== '';
+  };
+  const secretsEnv: Record<SecretTechnique, boolean> = {
+    'iga-ftp-mot-de-passe': presence(CLES_ENV_SECRETS['iga-ftp-mot-de-passe']),
+    'msp-sftp-mot-de-passe': presence(CLES_ENV_SECRETS['msp-sftp-mot-de-passe']),
+    'msp-sftp-cle-privee': presence(CLES_ENV_SECRETS['msp-sftp-cle-privee']),
+  };
+
   return {
     ok: true,
     configuration: {
@@ -168,5 +212,6 @@ export function resoudreConfiguration(source: SourceConfiguration): ResultatConf
       mode: origineFichier,
       travail: racineLue ? origineFichier : 'defaut',
     },
+    secretsEnv,
   };
 }

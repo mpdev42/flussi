@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cva } from 'class-variance-authority';
 import {
   CalendarCheck,
@@ -81,6 +82,29 @@ export function StatusBadge({ status, label, solid }: StatusBadgeProps) {
     <span className={statusBadge({ tone, solid })}>
       <Icon className="shrink-0" size={14} strokeWidth={1.75} aria-hidden="true" />
       {label ?? defaultLabel}
+    </span>
+  );
+}
+
+export type ToneBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
+
+export interface ToneBadgeProps {
+  tone: ToneBadgeTone;
+  icon: LucideIcon;
+  children: ReactNode;
+  /** Infobulle posée sur le badge. */
+  title?: string;
+}
+
+/**
+ * Badge de ton et d'icône libres, pour les statuts que StatusBadge (statuts de fichier) ne couvre
+ * pas. Toujours icône + mot : le sens ne dépend jamais de la couleur seule.
+ */
+export function ToneBadge({ tone, icon: Icon, children, title }: ToneBadgeProps) {
+  return (
+    <span className={statusBadge({ tone })} title={title}>
+      <Icon className="shrink-0" size={14} strokeWidth={1.75} aria-hidden="true" />
+      {children}
     </span>
   );
 }

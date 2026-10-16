@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { CircleAlert, FolderOpen } from 'lucide-react';
+import { DESIGNATIONS_DOSSIER } from '@shared/schemas/parametres';
 import type { ConfigurationPublique, DossierTravail, OrigineValeur } from '@shared/types';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 import { EnvironmentBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
 
@@ -15,20 +17,14 @@ export interface ParametresVueProps {
   /** Cause du dernier échec d'ouverture, ou `null`. */
   erreur: string | null;
   onOuvrir: (dossier: DossierTravail) => void;
+  /** Section « Secrets techniques », rendue sous la carte « Configuration ». */
+  secrets: ReactNode;
 }
 
 const LEGENDE_SOUS_DOSSIER = 'Sous-dossier du dossier de travail';
 
 /** « Source : » avec espace insécable avant les deux-points (typographie française). */
 const PREFIXE_SOURCE = 'Source :';
-
-/** Texte du lien au dossier dans l'aria-label du bouton (« le dossier … »). */
-const DESIGNATION_DOSSIER: Record<DossierTravail, string> = {
-  travail: 'de travail',
-  in: 'IN',
-  out: 'OUT',
-  journal: 'Journal',
-};
 
 function Chemin({ children }: { children: ReactNode }) {
   return <span className="font-mono text-data">{children}</span>;
@@ -129,11 +125,16 @@ function EntreeDossier({
           type="button"
           variant="outline"
           size="sm"
-          aria-label={`Ouvrir le dossier ${DESIGNATION_DOSSIER[dossier]} dans l'Explorateur`}
+          // Le nom accessible commence par le texte visible (WCAG 2.5.3)
+          aria-label={`Ouvrir dans l'Explorateur le dossier ${DESIGNATIONS_DOSSIER[dossier]}`}
           disabled={enCours !== null}
           onClick={() => onOuvrir(dossier)}
         >
-          <FolderOpen aria-hidden="true" />
+          {enCours === dossier ? (
+            <Spinner size={16} label={null} />
+          ) : (
+            <FolderOpen aria-hidden="true" />
+          )}
           Ouvrir dans l&apos;Explorateur
         </Button>
       }
@@ -143,7 +144,13 @@ function EntreeDossier({
 }
 
 /** Écran Paramètres en lecture seule : mode, dossiers de travail et version, avec leur origine. */
-export function ParametresVue({ configuration, enCours, erreur, onOuvrir }: ParametresVueProps) {
+export function ParametresVue({
+  configuration,
+  enCours,
+  erreur,
+  onOuvrir,
+  secrets,
+}: ParametresVueProps) {
   const { mode, dossiers, version, origines } = configuration;
   const sousDossier = <Legende>{LEGENDE_SOUS_DOSSIER}</Legende>;
   const actions = { enCours, onOuvrir };
@@ -153,10 +160,7 @@ export function ParametresVue({ configuration, enCours, erreur, onOuvrir }: Para
       <h1 className="text-2xl font-semibold text-navy-700">Paramètres</h1>
 
       {erreur && (
-        <Alert
-          variant="destructive"
-          className="border-error-border bg-error-bg text-error-text [&>svg]:text-error-text"
-        >
+        <Alert variant="error">
           <CircleAlert className="size-4" aria-hidden="true" />
           <AlertTitle>Le dossier n&apos;a pas pu être ouvert</AlertTitle>
           <AlertDescription>{erreur}</AlertDescription>
@@ -206,6 +210,8 @@ export function ParametresVue({ configuration, enCours, erreur, onOuvrir }: Para
           </dl>
         </CardContent>
       </Card>
+
+      {secrets}
     </div>
   );
 }

@@ -7,6 +7,12 @@ files:
   - out/**
   - resources/**
   - package.json
+# Pas de recompilation des modules natifs : @electron/rebuild ne reconnaît pas les binaires
+# précompilés de @primno/dpapi (prebuilds/win32-x64/@primno+dpapi.node) ni de koffi (binaires dans
+# @koromix/koffi-win32-x64) et lancerait une compilation node-gyp. Sans risque pour des modules
+# N-API (stables d'une version d'Electron à l'autre).
+# À revoir avant toute nouvelle dépendance native (ssh2 en v0.5.0).
+npmRebuild: false
 win:
   target:
     - nsis
