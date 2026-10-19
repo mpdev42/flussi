@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LigneJournal, SessionJournal } from '@shared/types';
 import {
-  LIBELLES_NIVEAU,
   MOIS_JOURNAL,
   contientFinDeSession,
   mettreMajuscule,
@@ -104,17 +103,6 @@ describe('titreSession', () => {
       copieConflitProbable: false,
     };
     expect(titreSession(session)).toBe('Session du 14/10/2026 à 09:15:00');
-  });
-});
-
-describe('LIBELLES_NIVEAU', () => {
-  it('donne un libellé français à chaque niveau', () => {
-    expect(LIBELLES_NIVEAU).toEqual({
-      TITRE: 'Titre',
-      INFO: 'Info',
-      SUCCES: 'Succès',
-      ERREUR: 'Erreur',
-    });
   });
 });
 

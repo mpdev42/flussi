@@ -1,12 +1,12 @@
-import { ArrowLeft, CircleAlert, CircleCheck, Heading, Info, TriangleAlert } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowLeft, TriangleAlert } from 'lucide-react';
 import type { LigneJournal, SessionJournal } from '@shared/types';
 import type { NiveauJournal } from '@shared/schemas/journal';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ToneBadge, type ToneBadgeTone } from '@/components/ui/status-badge';
+import { ToneBadge } from '@/components/ui/status-badge';
+import { LIBELLES_NIVEAU, PRESENTATION_NIVEAU } from '@/lib/niveaux-journal';
 
 import {
   CLASSE_TD,
@@ -15,7 +15,7 @@ import {
   TableauChargement,
   type ColonneJournal,
 } from './elements-tableau';
-import { LIBELLES_NIVEAU, contientFinDeSession, titreSession } from './format-journal';
+import { contientFinDeSession, titreSession } from './format-journal';
 import { MiseEnPageJournal } from './mise-en-page-journal';
 
 const COLONNES: ColonneJournal[] = [
@@ -23,13 +23,6 @@ const COLONNES: ColonneJournal[] = [
   { libelle: 'Niveau', largeur: 'w-1/6' },
   { libelle: 'Message' },
 ];
-
-const PRESENTATION_NIVEAU: Record<NiveauJournal, { tone: ToneBadgeTone; Icone: LucideIcon }> = {
-  TITRE: { tone: 'neutral', Icone: Heading },
-  INFO: { tone: 'info', Icone: Info },
-  SUCCES: { tone: 'success', Icone: CircleCheck },
-  ERREUR: { tone: 'error', Icone: CircleAlert },
-};
 
 export interface BadgeNiveauProps {
   niveau: NiveauJournal;
@@ -125,7 +118,7 @@ export function DetailSessionVue({
       {sansFin && (
         <Alert variant="warning">
           <TriangleAlert className="size-4" aria-hidden="true" />
-          <AlertTitle>Pas de ligne « Fin de session »</AlertTitle>
+          <AlertTitle as="h2">Pas de ligne « Fin de session »</AlertTitle>
           <AlertDescription>
             Flussi a été fermé anormalement (plantage, arrêt du poste), ou la session est encore
             ouverte sur un autre poste.

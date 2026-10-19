@@ -32,9 +32,20 @@ const Alert = React.forwardRef<
 ));
 Alert.displayName = 'Alert';
 
-const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h5
+/** Balise du titre d'alerte : un niveau de titre, ou `p` hors de la hiérarchie des titres. */
+export type BaliseTitreAlerte = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p';
+
+export interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  /**
+   * Balise rendue, à choisir d'après la hiérarchie des titres de l'écran (pas de saut de niveau) ;
+   * `p` pour une alerte hors de la zone principale (bandeau global). `h5` par défaut.
+   */
+  as?: BaliseTitreAlerte;
+}
+
+const AlertTitle = React.forwardRef<HTMLHeadingElement, AlertTitleProps>(
+  ({ as: Balise = 'h5', className, ...props }, ref) => (
+    <Balise
       ref={ref}
       className={cn('mb-1 font-medium leading-none tracking-tight', className)}
       {...props}

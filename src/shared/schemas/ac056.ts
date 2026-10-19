@@ -1,0 +1,38 @@
+import { z } from 'zod';
+
+// Schémas du module Ac056. Pur TypeScript : aucun import Node (partagé avec le renderer).
+
+/** Dossiers de travail dans lesquels l'écran choisit un fichier AC056. */
+export const EMPLACEMENTS_AC056 = ['in', 'out'] as const;
+export type EmplacementAc056 = (typeof EMPLACEMENTS_AC056)[number];
+
+export const emplacementAc056Schema = z.enum(EMPLACEMENTS_AC056);
+
+/** Longueur maximale d'un nom de fichier (limite d'un composant de chemin Windows). */
+const LONGUEUR_MAX_NOM = 255;
+
+// Barres, deux-points et caractères interdits dans un nom Windows
+const CARACTERES_INTERDITS = /[\\/:*?"<>|]/;
+const CARACTERE_DE_CONTROLE = /[\u0000-\u001f\u007f]/;
+
+/**
+ * Nom d'un fichier AC056 : un nom seul (jamais un chemin), extension `.txt` (casse indifférente,
+ * comme le filtre `*.txt` de Lazarus). Le main revalide ensuite par l'adapter `stockage`.
+ *
+ * Aucune règle sur « .. » : sans séparateur (`\` ou `/`), un nom ne peut pas être un segment `..`
+ * (l'extension `.txt` finale l'en empêche), et `a..txt` est un nom NTFS valide.
+ */
+export const nomFichierAc056Schema = z
+  .string()
+  .min(1)
+  .max(LONGUEUR_MAX_NOM)
+  .refine((nom) => !CARACTERES_INTERDITS.test(nom), 'Nom de fichier : caractère interdit')
+  .refine((nom) => !CARACTERE_DE_CONTROLE.test(nom), 'Nom de fichier : caractère de contrôle')
+  .refine((nom) => /\.txt$/i.test(nom), 'Nom de fichier : extension .txt attendue');
+
+/** Argument de `ac056:ouvrir` : emplacement logique et nom de fichier, jamais un chemin. */
+export const fichierAc056Schema = z.strictObject({
+  emplacement: emplacementAc056Schema,
+  nom: nomFichierAc056Schema,
+});
+export type CibleFichierAc056 = z.infer<typeof fichierAc056Schema>;

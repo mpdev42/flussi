@@ -1,6 +1,8 @@
 // Textes de la section « Secrets techniques » (séparés de la vue : la règle react-refresh refuse
 // qu'un fichier de composant exporte autre chose que des composants).
 
+import type { MotDePasseTechnique } from '@shared/types';
+
 export const TITRE_SECRETS = 'Secrets techniques';
 
 /** Espace insécable (U+00A0) avant les deux-points : typographie française. */
@@ -16,10 +18,15 @@ export const LIBELLE_FORMULAIRE = 'Modifier les secrets techniques';
 
 export const LIBELLE_NOUVEAU_MOT_DE_PASSE = 'Nouveau mot de passe';
 export const AIDE_MOT_DE_PASSE = 'Laisser vide pour ne pas changer.';
+/** Nom accessible de chaque champ : reprend le libellé visible, puis cite son secret. */
+export const NOM_CHAMP_MOT_DE_PASSE: Record<MotDePasseTechnique, string> = {
+  'iga-ftp-mot-de-passe': `${LIBELLE_NOUVEAU_MOT_DE_PASSE} FTP IGA`,
+  'msp-sftp-mot-de-passe': `${LIBELLE_NOUVEAU_MOT_DE_PASSE} SFTP MSP`,
+};
 
 export const LIBELLE_CHOISIR_CLE = 'Choisir la clé…';
 export const LIBELLE_CONTROLE_CLE = 'Contrôle de la clé…';
-export const AIDE_CLE = 'PPK version 2 ou OpenSSH, sans phrase secrète.';
+export const AIDE_CLE = 'PPK version 2 (RSA ou DSA), OpenSSH ou PEM, sans phrase secrète.';
 export const prefixeClePrete = (format: string): string => `Clé prête (${format})`;
 
 export const LIBELLE_ENREGISTRER = 'Enregistrer';

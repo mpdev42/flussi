@@ -106,7 +106,7 @@ export function Field({
         <p
           id={hintId}
           className={cn(
-            'm-0 text-xs tracking-[0.01em] text-muted-foreground',
+            'm-0 text-xs tracking-caption text-muted-foreground',
             monoHint && 'font-mono tabular-nums',
           )}
         >

@@ -4,11 +4,12 @@ import type { HistoriqueJournal, SessionEcriture } from '../../services/journal'
 
 interface DependancesJournal {
   historique: HistoriqueJournal;
-  session: Pick<SessionEcriture, 'etat'>;
+  session: Pick<SessionEcriture, 'etat' | 'lignes'>;
 }
 
 /**
- * Canaux `journal:annees`, `journal:sessions`, `journal:lire` et `journal:etat`. Les entrées sont
+ * Canaux `journal:annees`, `journal:sessions`, `journal:lire`, `journal:etat` et
+ * `journal:lignes-session` (lignes de la session en cours, sans entrée). Les entrées sont
  * validées par zod : une entrée invalide rejette l'appel (erreur de programmation). Les erreurs de
  * stockage sont renvoyées typées dans le résultat.
  */
@@ -25,4 +26,6 @@ export function enregistrerHandlersJournal({ historique, session }: DependancesJ
   );
 
   ipcMain.handle('journal:etat', () => session.etat());
+
+  ipcMain.handle('journal:lignes-session', () => session.lignes());
 }

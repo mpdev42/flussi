@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ResultatStockage } from '@shared/types';
 
 export interface EtatChargement<T> {
   /** `true` tant que la réponse à la demande courante n'est pas arrivée. */
   chargement: boolean;
-  /** Cause lisible (`ErreurStockage.message`), ou texte de l'exception si l'IPC échoue. */
+  /** Cause lisible (`erreur.message`), ou texte de l'exception si l'IPC échoue. */
   erreur: string | null;
   valeur: T | null;
   recharger: () => void;
 }
 
+/**
+ * Résultat attendu de `charger` : `ResultatStockage<T>` en fait partie, de même que tout résultat
+ * dont l'erreur porte une cause lisible (`ErreurAc056`, sans chemin).
+ */
+export type ResultatChargement<T> =
+  { ok: true; valeur: T } | { ok: false; erreur: { message: string } };
+
 type Reponse<T> = { ok: true; valeur: T } | { ok: false; message: string };
 
-async function resoudre<T>(charger: () => Promise<ResultatStockage<T>>): Promise<Reponse<T>> {
+async function resoudre<T>(charger: () => Promise<ResultatChargement<T>>): Promise<Reponse<T>> {
   try {
     const resultat = await charger();
     return resultat.ok
@@ -29,7 +35,7 @@ async function resoudre<T>(charger: () => Promise<ResultatStockage<T>>): Promise
  */
 export function useChargementStockage<T>(
   cle: string,
-  charger: () => Promise<ResultatStockage<T>>,
+  charger: () => Promise<ResultatChargement<T>>,
 ): EtatChargement<T> {
   const [version, setVersion] = useState(0);
   const [reponse, setReponse] = useState<{ cle: string; contenu: Reponse<T> } | null>(null);

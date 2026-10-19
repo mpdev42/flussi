@@ -86,7 +86,19 @@ interface Beneficiaire {
   readonly uniques: Map<CodeEntite, number>;
 }
 
-function anomalie(code: CodeAnomalie, ligne: number | null, message: string): AnomalieAc056 {
+/** Codes produits par le contrôle de structure : toujours bloquants. */
+export const CODES_STRUCTURE = [
+  'fichier-vide',
+  'longueur-ligne',
+  'entite-inconnue',
+  'entite-mal-placee',
+  'entite-en-double',
+  'entite-absente',
+] as const satisfies readonly CodeAnomalie[];
+
+type CodeStructure = (typeof CODES_STRUCTURE)[number];
+
+function anomalie(code: CodeStructure, ligne: number | null, message: string): AnomalieAc056 {
   return Object.freeze({ code, ligne, message, bloquante: true });
 }
 

@@ -56,7 +56,8 @@ Ces contraintes sont reprises dans les règles `ignore` de `.github/dependabot.y
 
 - `@primno/dpapi` 2.0.1 (DPAPI, secrets techniques), importé seulement par `src/main/adapters/config/dpapi.ts`. À chaque montée, contrôler le contenu installé (binaires `prebuilds/win32-{x64,arm64}/`, aucun dossier `build/`) et l'intégrité dans `package-lock.json` (des paquets malveillants à nom proche existent).
 - `koffi` 3.3.2 (appels à l'API Windows `ShellExecuteExW` pour l'élévation), binaire précompilé dans `@koromix/koffi-win32-x64` (seule plateforme installée), importé seulement par `src/main/adapters/config/api-windows.ts`, à l'appel. Même contrôle à chaque montée.
-- Règle ESLint `no-restricted-imports` : ni l'un ni l'autre dans le renderer ou le preload.
+- Règle ESLint `no-restricted-imports` : ni l'un ni l'autre dans le renderer, le preload ou le domaine AC056 (liste `MODULES_NATIFS_MAIN` de `eslint.config.js`).
+- Garde-fou de pureté du domaine (`src/shared/domain/**`, hors `*.test.ts`) : aucun module Node (`builtinModules` et `node:*`), ni `electron`, `vitest`, `@shared/test/*`, ni import dynamique, ni globales `Buffer` et `process`.
 - `npmRebuild: false` dans `electron-builder.yml` : `@electron/rebuild` ne reconnaît pas les binaires précompilés de `@primno/dpapi` et lancerait une compilation `node-gyp`. À revoir avant toute nouvelle dépendance native (`ssh2` en v0.5.0).
 
 ---
@@ -82,7 +83,7 @@ Domaine AC056 (shared/domain)   pur TypeScript, sans entrées-sorties
 ```
 
 - **Domaine AC056 partagé** : utilisé côté main (lecture et écriture des fichiers) et côté renderer (contrôle en direct à la sortie d'un champ). C'est la zone la plus couverte par les tests.
-- **Adapter `stockage`** : les services ne manipulent que des emplacements logiques (`in`, `out`, `journal`), jamais des chemins Windows. En v1.0, l'implémentation pointe vers des dossiers configurables (`P:`). Une implémentation Graph/SharePoint la remplacera plus tard.
+- **Adapter `stockage`** : les services ne manipulent que des emplacements logiques (`in`, `out`, `journal`), jamais des chemins Windows. En v1.0, l'implémentation pointe vers des dossiers configurables (`P:`). Une implémentation Graph/SharePoint la remplacera plus tard. `lister(emplacement, sousDossier?, { avecInfos })` : taille et date seulement avec l'option (un `stat` par fichier sur `P:`), utilisée par le seul module Ac056.
 - **Adapter `veos`** : VEOS n'expose pas d'API de lancement de workflow. Le pilotage de la page web est isolé ici, pour pouvoir être remplacé si IGA ouvre un accès par l'API.
 - **Secrets** : ils ne transitent jamais vers le renderer.
 - **Alias d'import** : `@` pointe vers `src/renderer/src` (renderer uniquement), `@shared` pointe vers `src/shared` (main, preload, renderer, tests). Déclarés dans `electron.vite.config.ts`, `tsconfig.json` et `vitest.config.ts`.
@@ -170,39 +171,45 @@ src/
     index.html
     src/
       components/ui/            composants shadcn (installés à la demande) et stubs de la charte
-      components/cadre-application.tsx   cadre de tous les écrans : bandeau Recette, en-tête, navigation, version
+      components/cadre-application.tsx   cadre de tous les écrans : bandeau Recette, en-tête, navigation, version, colonne du journal à droite, focus sur le h1 au changement d'écran
+      components/journal-session.tsx     panneau « Journal de la session » (lignes en direct), dans la colonne du cadre sur tous les écrans
+      components/verrou-navigation.ts    useVerrouNavigation(actif) : désactive la navigation pendant une opération à ne pas quitter
       hooks/                    état d'écran, appels asynchrones
       pages/                    écrans
-        accueil.tsx             écran provisoire, en attendant les fonctions des versions suivantes
+        accueil.tsx             écran d'accueil (fonctions disponibles et à venir)
+        ac056/                  écran « Fichier AC056 » : choix du fichier IN/OUT, barre de fichier, alertes (monté à la première visite, puis gardé monté sous `hidden`)
         journal/                historique des sessions, détail d'une session, bandeau « Journal non enregistré »
         parametres/             vue des paramètres, section Secrets techniques
       services/                 façade typée sur window.api, un fichier par module (veos.ts, iga.ts…)
       lib/utils.ts              helper cn (shadcn)
       lib/dates.ts              formaterDate (AAAA-MM-JJ → JJ/MM/AAAA)
       lib/pluralize.ts          pluriel français d'un libellé (0 et 1 au singulier)
+      lib/niveaux-journal.ts    libellés et présentation des niveaux du journal (écran Journal et panneau)
       test/dom.ts               aides des tests jsdom (montage, saisie, clic), jamais importées hors tests
+      test/ac056.ts             fabriques de données de l'écran AC056 pour les tests
       styles/index.css          Tailwind + variables shadcn
       App.tsx
       main.tsx
       env.d.ts                  types Vite côté client (vite/client)
   shared/
-    domain/ac056/               domaine pur AC056 (22 entités 000 à 999, lecteur, écrivain, structure et hiérarchie, contrôles, modification, rejets, ERRxxx)
+    domain/ac056/               domaine pur AC056 (22 entités 000 à 999, lecteur, écrivain, structure et hiérarchie, contrôles, modification, rejets, ERRxxx, provenance d'après le nom, analyse complète `analyserAc056`)
     schemas/                    schémas zod (configuration, échanges IPC)
     test/                       helpers de test, jamais importés hors tests
       corpus.ts                 accès au corpus AC056 de référence (P:), écarts sans valeur
-      comparaison-ac056.ts      comparaisons de parité par SHA-256 sur le corpus
+      comparaison-ac056.ts      comparaisons de parité par SHA-256 sur le corpus (`sansCtrlZFinal`)
       releve-lazarus.ts         lecture du relevé Lazarus NOM.erreurs.txt (PIEGES\)
       ac056-synthetique.ts      fabrique de fichiers AC056 fictifs, indépendante du lecteur
       controle-ac056.ts         aides des tests de contrôle (rattachements-, codes-anomalies-ac056.ts)
     types/
-      index.ts                  types métier partagés (réexporte stockage.ts, journal.ts et parametres.ts)
+      index.ts                  types métier partagés (réexporte stockage.ts, journal.ts, parametres.ts et ac056.ts)
+      ac056.ts                  fichiers listés, résultat d'ouverture, erreur sans chemin du module Ac056
       stockage.ts               résultats et erreurs de l'adapter stockage qui traversent l'IPC
       journal.ts                sessions, lignes et état du journal
       parametres.ts             origines de la configuration, dossiers de travail, résultat d'ouverture
       window.d.ts               augmentation globale Window.api
 e2e/
-  specs/                        specs Playwright versionnés (smoke, demarrage, journal, parametres, secrets)
-  fixtures/electron.ts          lancement hermétique de l'app buildée (racine du projet, répertoire courant, profil et dossier de travail temporaires)
+  specs/                        specs Playwright versionnés (smoke, demarrage, journal, parametres, secrets, ac056)
+  fixtures/electron.ts          lancement hermétique de l'app buildée (racine du projet, répertoire courant, profil et dossier de travail temporaires ; `preparerTravail` dépose des fichiers avant le lancement)
   tsconfig.json
 scripts/
   dev.mjs                       wrapper npm run dev (neutralise ELECTRON_RUN_AS_NODE)
@@ -266,8 +273,8 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - `Veos` : lancement du workflow d'export vers MSP dans VEOS (saisie des identifiants personnels, pilotage de la page cachée, détection des échecs de connexion). S'appuie sur l'adapter `veos`.
 - `Iga` : liste des fichiers AC056 sur le FTP IGA, avertissement si le fichier n'est pas du jour, téléchargement vers le dossier IN. S'appuie sur les adapters `ftp-iga` et `stockage`.
 - `Msp` : dépôt de l'AC056 dans le dossier de dépôt avec listing de vérification, liste et téléchargement des fichiers de rejet vers le dossier OUT. S'appuie sur les adapters `sftp-msp` et `stockage`.
-- `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, structure et hiérarchie, règles de contrôle, modification de champ).
-- `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, `Journal\AAAA\MM\AAAAMMJJ-HHMMSS-{compte Windows}.txt`, sans index commun), consultation de l'historique. Fichier créé au démarrage (test d'écriture du dossier, « Réessayer » / « Quitter »), écrit au fil de l'eau en ajout seul : UTF-8 sans BOM, CRLF, une ligne par évènement `HH:MM:SS<TAB>NIVEAU<TAB>message` (`TITRE`, `INFO`, `SUCCES`, `ERREUR`), en-tête (début, compte, poste, mode, version) et ligne « Fin de session » écrite à la fermeture de la fenêtre. Échec d'écriture : lignes gardées en mémoire, bandeau « Journal non enregistré », jamais de perte silencieuse. Jamais de secret, d'identifiant VEOS ni de valeur AC056 dans le journal. Historique : seuls les noms au format Flussi sont lus (journaux Lazarus ignorés), contenu lu à la sélection. Canaux `journal:annees`, `journal:sessions`, `journal:lire`, `journal:etat` et `journal:etat-change` (main vers écran). Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé (v0.5.0).
+- `Ac056` : chargement d'un fichier, issu de VEOS (UTF-8) ou de rejet (ANSI). Navigation par évènement, bénéficiaire, garantie et entité, avec contrôle, marquage des erreurs, modification et enregistrement si le fichier ne contient plus d'erreur. Rejets rattachés : message par ligne et explication `ERRxxx`. S'appuie sur le domaine pur `shared/domain/ac056` (entités 000 à 999, lecteur, écrivain, structure et hiérarchie, règles de contrôle, modification de champ). Depuis v0.3.0 (item 1) : écran « Fichier AC056 », liste intégrée des fichiers `.txt` de `IN` et `OUT` (pas de boîte « Ouvrir »), rejet reconnu au préfixe `AC056COUR_REJ_` (`provenanceDepuisNom`), lecture et contrôle dans le main (`analyserAc056`), aucune écriture au chargement. Canaux `ac056:lister` (sans entrée) et `ac056:ouvrir` (`{ emplacement: 'in' | 'out', nom }`, validé par zod, même règle de nom que la liste) ; erreurs `{ code, message }` sans chemin. Journal (non attendu par le service) : `Charger`, `Fichier NOM chargé : …`, `… mal formé : relancez l'export VEOS`, `… illisible : fichier vide`, `… non chargé : {cause}`. Un 0x1A final est retiré à la lecture (anomalie non bloquante `ctrl-z-final`, parité `CtrlZMarksEOF` de FPC).
+- `Journal` : écriture du journal de session dans le stockage partagé (un fichier par session, `Journal\AAAA\MM\AAAAMMJJ-HHMMSS-{compte Windows}.txt`, sans index commun), consultation de l'historique. Fichier créé au démarrage (test d'écriture du dossier, « Réessayer » / « Quitter »), écrit au fil de l'eau en ajout seul : UTF-8 sans BOM, CRLF, une ligne par évènement `HH:MM:SS<TAB>NIVEAU<TAB>message` (`TITRE`, `INFO`, `SUCCES`, `ERREUR`), en-tête (début, compte, poste, mode, version) et ligne « Fin de session » écrite à la fermeture de la fenêtre. Échec d'écriture : lignes gardées en mémoire, bandeau « Journal non enregistré », jamais de perte silencieuse. Jamais de secret, d'identifiant VEOS ni de valeur AC056 dans le journal. Historique : seuls les noms au format Flussi sont lus (journaux Lazarus ignorés), contenu lu à la sélection. Canaux `journal:annees`, `journal:sessions`, `journal:lire`, `journal:etat`, `journal:lignes-session`, `journal:etat-change` et `journal:ligne-ajoutee` (ces deux derniers du main vers l'écran). Journal de la session en direct (panneau `rmJournal` de Lazarus) : colonne à droite du cadre, sur tous les écrans ; la session garde ses lignes (`LigneJournalSession`, avec un rang), `ajouter` les enregistre au moment de l'appel (rang, heure, ordre), avant toute écriture ; hook `useJournalSession` (fusion par rang). Trace chaque dépôt MSP avec l'empreinte SHA-256 du fichier déposé (v0.5.0).
 - `Parametres` : écran en lecture seule. Il affiche le mode actif, la racine de travail, `IN`, `OUT`, `Journal` et la version, issus de la configuration (aucune surcharge locale : `%ProgramData%\Flussi\config.json` fait seul référence). Le mode et la racine indiquent leur origine (`config` pour `config.json`, `env` pour le `.env`, `defaut` pour la valeur par défaut du code), avec le chemin du fichier lu. Les trois sous-dossiers sont toujours dérivés de la racine. Chaque dossier a un bouton « Ouvrir dans l'Explorateur ». Canaux : `config:lire` (configuration et origines) et `config:ouvrir-dossier`. Pour ce dernier, l'écran envoie un nom de dossier (`travail`, `in`, `out`, `journal`), validé par zod, jamais un chemin ; le main appelle `shell.openPath`. Section « Secrets techniques » (item 7 de la v0.2.0) : statut des trois secrets (« Renseigné le JJ/MM/AAAA », « Renseigné dans le .env », « Non renseigné »), un seul bouton « Modifier les secrets » qui déverrouille tous les champs (mots de passe, choix de la clé par un sélecteur ouvert par le main, qui lit et contrôle le fichier lui-même), puis un seul « Enregistrer » (une seule invite UAC) ; lecture seule en dev. Canaux `secrets:etat`, `secrets:preparer-cle` (sans entrée : la clé contrôlée reste en mémoire dans le main, l'écran ne reçoit que son format), `secrets:abandonner-cle` et `secrets:enregistrer` (écriture seule `{ motsDePasse, cle }`, validée par zod, erreur générique sans le détail) ; aucun canal de relecture. Chaque enregistrement ou refus est tracé au journal : « Secret renseigné : … » et « Secret remplacé : … » (SUCCES), « Secret refusé : … » (clé privée refusée à l'analyse), « Secrets non enregistrés : … » (ERREUR : écriture, lecture ou DPAPI en échec) et « Fichier des secrets illisible sur ce poste : il est recréé… » (INFO). Jamais la valeur, le contenu ni le chemin de la clé. S'appuie sur l'adapter `config` (`secrets.ts`, `dpapi.ts`, `cle-privee.ts`, `secrets-format.ts`).
 
 ---
@@ -277,6 +284,7 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - **État** : produit. Tokens matérialisés via `/design-system-adapt`, références dans `DESIGN.md`, `design/handoff/` et `design/patterns/`.
 - **Charte** : mode clair uniquement, ton sobre et corporate. Bleu clair de la marque (C100 M30 J0 N5, `blue-500` `#0077BD`) pour les actions, bleu foncé (C100 M80 J0 N45, `navy-700` `#13295B`) pour l'identité. Violet réservé à l'environnement Recette. Polices IBM Plex Sans et IBM Plex Mono (paquets `@fontsource`, importés dans `index.css`).
 - **Plan restant** : au cas par cas, écrans sur-mesure `design/handoff/{ecran}.tsx` via `/design-screen-prompt` pour les items marqués `Pattern: custom` dans `version-{X}.md`.
+- **Écran AC056** : pattern `custom` (maquette `design/handoff/ac056.tsx`), et non `list+form` : navigation sur quatre niveaux, liste des erreurs et journal sur le même écran ; `list+form` reste la référence des éléments de base. Écart avec la maquette : le journal de la session est une colonne du cadre (sur tous les écrans), pas une barre repliable en bas de l'écran.
 
 **Sources de référence** :
 
@@ -289,8 +297,10 @@ npm run format:check  # Vérification du formatage, sans écriture — prettier 
 - Installés par la CLI shadcn : `button`, `input`, `textarea`, `checkbox`, `radio-group`, `switch`, `card`, `dialog`, `alert-dialog`, `alert`, `badge`, `tooltip`, `skeleton`.
 - Stubs maison de la charte : `field` (render prop câblant id, aide et erreur vers le contrôle), `select` (`<select>` natif), `spinner`, `operation-progress`, `status-badge` (`StatusBadge`, `EnvironmentBadge`, `CountBadge`, `ToneBadge` à ton et icône libres), `environment-banner`, `data-list`, `confirm-dialog`.
 - Les composants shadcn gardent leurs valeurs par défaut (par exemple hauteur de bouton `h-9` au lieu de `h-control-md`, pas de style d'erreur sur `aria-invalid`). Écart accepté et validé. Ne pas les corriger sans demande.
-- `alert` : variantes ajoutées `info`, `success`, `warning`, `error` (jetons de la charte), à utiliser plutôt que des surcharges de couleur ; `role="alert"` par défaut, remplaçable (`status`, `note`). `AlertTitle` rend encore un `h5` (backlog).
-- `src/renderer/src/lib/utils.ts` : `cn` s'appuie sur `extendTailwindMerge`. Tout nouveau token Tailwind de tailles de police, d'ombres, de hauteurs, de largeurs, de z-index, de durées ou de courbes doit y être déclaré, sinon `tailwind-merge` supprime la classe sans prévenir.
+- `alert` : variantes ajoutées `info`, `success`, `warning`, `error` (jetons de la charte), à utiliser plutôt que des surcharges de couleur ; `role="alert"` par défaut, remplaçable (`status`, `note`). `AlertTitle` : prop `as` (`h1` à `h6` ou `p`, `h5` par défaut), à régler à chaque usage selon la hiérarchie des titres de l'écran.
+- `CardTitle` rend un `div` (backlog) : écrire un vrai titre (`h2`…) dans la carte en attendant.
+- Tokens ajoutés hors `/design-system-adapt` (v0.3.0, item 1) : `bg-header`, `text-on-brand`, `max-w-content` (1600 px), `tracking-heading` (-0.01em, `h1`), `tracking-caption` (0.01em, légendes), `w-panel-log` (288 px, colonne du journal). `DESIGN.md` inchangé.
+- `src/renderer/src/lib/utils.ts` : `cn` s'appuie sur `extendTailwindMerge`. Tout nouveau token Tailwind de tailles de police, d'ombres, de hauteurs, de largeurs, d'espacement des lettres, de z-index, de durées ou de courbes doit y être déclaré, sinon `tailwind-merge` supprime la classe sans prévenir.
 
 ---
 

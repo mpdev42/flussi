@@ -1,9 +1,9 @@
 // Parité sur le corpus réel (P:, dossier IN) : lecture sans anomalie, hiérarchie complète,
-// réécriture identique à l'octet près et performance de la lecture suivie du contrôle complet. Aucune valeur du corpus n'est affichée : seuls fichier,
+// réécriture identique à l'octet près (aux 0x1A finaux près, retirés à la lecture) et performance de la lecture suivie du contrôle complet. Aucune valeur du corpus n'est affichée : seuls fichier,
 // ligne, octet, entité et champ sont rapportés. Les comparaisons se font par SHA-256.
 // Aucune E/S pendant la collecte : tout est lu dans les `it`.
 import { describe, expect, it } from 'vitest';
-import { decrireEcartAc056, empreinteSha256 } from '@shared/test/comparaison-ac056';
+import { decrireEcartAc056, empreinteSha256, sansCtrlZFinal } from '@shared/test/comparaison-ac056';
 import { decrireCorpus, listerCorpus, lireCorpus, localiserEcart } from '@shared/test/corpus';
 import { compterRattachements } from '@shared/test/rattachements-ac056';
 import { controlerAc056 } from './controle';
@@ -36,11 +36,15 @@ decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
   });
 
   describe('lecture', () => {
-    it('ne produit aucune anomalie', () => {
+    // Seule exception : le Ctrl-Z final, non bloquant et retiré à l'enregistrement (compté par
+    // `ctrl-z.corpus.test.ts`).
+    it('ne produit aucune anomalie, hors Ctrl-Z final', () => {
       const ecarts = lireTousLesFichiers().flatMap(({ nom, lecture }) =>
-        lecture.anomalies.map((a) =>
-          a.ligne === null ? `${nom} : ${a.code}` : `${nom} : ${a.code} ligne ${a.ligne}`,
-        ),
+        lecture.anomalies
+          .filter((a) => a.code !== 'ctrl-z-final')
+          .map((a) =>
+            a.ligne === null ? `${nom} : ${a.code}` : `${nom} : ${a.code} ligne ${a.ligne}`,
+          ),
       );
       expect(ecarts).toEqual([]);
     });
@@ -85,13 +89,14 @@ decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
   });
 
   describe('écriture', () => {
-    it('réécrit chaque fichier à l identique, octet pour octet (SHA-256)', () => {
+    it('réécrit chaque fichier à l identique, octet pour octet, sans les 0x1A finaux (SHA-256)', () => {
       const ecarts: string[] = [];
       for (const { nom, octets, lecture } of lireTousLesFichiers()) {
         const sortie = ecrireAc056(lecture.fichier);
-        if (empreinteSha256(sortie) === empreinteSha256(octets)) continue;
+        const attendu = sansCtrlZFinal(octets);
+        if (empreinteSha256(sortie) === empreinteSha256(attendu)) continue;
 
-        const ecart = localiserEcart(octets, sortie);
+        const ecart = localiserEcart(attendu, sortie);
         ecarts.push(
           ecart === null
             ? `${nom} : empreintes différentes`

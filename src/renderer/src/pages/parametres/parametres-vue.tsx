@@ -156,13 +156,13 @@ export function ParametresVue({
   const actions = { enCours, onOuvrir };
 
   return (
-    <div className="flex w-full flex-col gap-6 px-10 py-8">
-      <h1 className="text-2xl font-semibold text-navy-700">Paramètres</h1>
+    <div className="mx-auto flex w-full max-w-content flex-col gap-6 px-10 py-8">
+      <h1 className="text-2xl font-semibold tracking-heading text-navy-700">Paramètres</h1>
 
       {erreur && (
         <Alert variant="error">
           <CircleAlert className="size-4" aria-hidden="true" />
-          <AlertTitle>Le dossier n&apos;a pas pu être ouvert</AlertTitle>
+          <AlertTitle as="h2">Le dossier n&apos;a pas pu être ouvert</AlertTitle>
           <AlertDescription>{erreur}</AlertDescription>
         </Alert>
       )}

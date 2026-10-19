@@ -3,9 +3,13 @@ import type {
   ConfigurationPublique,
   DossierTravail,
   DemandeEnregistrementSecrets,
+  EmplacementAc056,
   EtatJournal,
   EtatSecrets,
   LigneJournal,
+  LigneJournalSession,
+  ListeAc056,
+  OuvertureAc056,
   ResultatOuvertureDossier,
   ResultatPreparationCle,
   ResultatSecret,
@@ -30,6 +34,13 @@ const api = {
     enregistrer: (demande: DemandeEnregistrementSecrets): Promise<ResultatSecret> =>
       ipcRenderer.invoke('secrets:enregistrer', demande),
   },
+  ac056: {
+    /** Fichiers `.txt` de IN et OUT, du plus récent au plus ancien. */
+    lister: (): Promise<ListeAc056> => ipcRenderer.invoke('ac056:lister'),
+    /** Un emplacement logique et un nom de fichier : jamais un chemin. */
+    ouvrir: (fichier: { emplacement: EmplacementAc056; nom: string }): Promise<OuvertureAc056> =>
+      ipcRenderer.invoke('ac056:ouvrir', fichier),
+  },
   journal: {
     annees: (): Promise<ResultatStockage<string[]>> => ipcRenderer.invoke('journal:annees'),
     sessions: (annee: string, mois: string): Promise<ResultatStockage<SessionJournal[]>> =>
@@ -43,6 +54,18 @@ const api = {
       ipcRenderer.on('journal:etat-change', ecouteur);
       return () => {
         ipcRenderer.removeListener('journal:etat-change', ecouteur);
+      };
+    },
+    /** Lignes de la session en cours depuis le début. */
+    lignesSession: (): Promise<LigneJournalSession[]> =>
+      ipcRenderer.invoke('journal:lignes-session'),
+    /** Abonnement à `journal:ligne-ajoutee` ; renvoie la fonction de désabonnement. */
+    surLigne: (rappel: (ligne: LigneJournalSession) => void): (() => void) => {
+      const ecouteur = (_event: IpcRendererEvent, ligne: LigneJournalSession): void =>
+        rappel(ligne);
+      ipcRenderer.on('journal:ligne-ajoutee', ecouteur);
+      return () => {
+        ipcRenderer.removeListener('journal:ligne-ajoutee', ecouteur);
       };
     },
   },

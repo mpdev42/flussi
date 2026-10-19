@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { LigneJournalSession } from '@shared/types/journal';
 import type { HistoriqueJournal } from '../../services/journal';
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>();
@@ -19,6 +20,7 @@ let historique: {
   [K in keyof HistoriqueJournal]: ReturnType<typeof vi.fn<HistoriqueJournal[K]>>;
 };
 let etat: ReturnType<typeof vi.fn<() => { enregistre: boolean; lignesEnAttente: number }>>;
+let lignes: ReturnType<typeof vi.fn<() => readonly LigneJournalSession[]>>;
 
 function appeler(canal: string, ...args: unknown[]): unknown {
   const handler = handlers.get(canal);
@@ -34,14 +36,16 @@ beforeEach(() => {
     lire: vi.fn<HistoriqueJournal['lire']>(async () => ({ ok: true, valeur: [] })),
   };
   etat = vi.fn(() => ({ enregistre: true, lignesEnAttente: 0 }));
-  enregistrerHandlersJournal({ historique, session: { etat } });
+  lignes = vi.fn(() => []);
+  enregistrerHandlersJournal({ historique, session: { etat, lignes } });
 });
 
 describe('enregistrerHandlersJournal — enregistrement', () => {
-  it('enregistre les quatre canaux journal:*', () => {
+  it('enregistre les cinq canaux journal:*', () => {
     expect([...handlers.keys()].sort()).toEqual([
       'journal:annees',
       'journal:etat',
+      'journal:lignes-session',
       'journal:lire',
       'journal:sessions',
     ]);
@@ -110,6 +114,22 @@ describe('journal:lire', () => {
     const resultat = await appeler('journal:lire', '2026/10/20261014-091500-a.txt');
 
     expect(resultat).toEqual({ ok: false, erreur });
+  });
+});
+
+describe('journal:lignes-session', () => {
+  it('renvoie les lignes de la session en cours', () => {
+    const attendues: LigneJournalSession[] = [
+      { rang: 1, heure: '09:15:00', niveau: 'INFO', message: 'premier' },
+      { rang: 2, heure: '09:15:02', niveau: 'SUCCES', message: 'second' },
+    ];
+    lignes.mockReturnValue(attendues);
+
+    expect(appeler('journal:lignes-session')).toEqual(attendues);
+  });
+
+  it('renvoie une liste vide au démarrage', () => {
+    expect(appeler('journal:lignes-session')).toEqual([]);
   });
 });
 

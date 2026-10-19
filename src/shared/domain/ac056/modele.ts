@@ -111,6 +111,7 @@ export type CodeAnomalie =
   | 'fin-de-ligne-lf'
   | 'fin-de-ligne-cr'
   | 'ligne-vide'
+  | 'ctrl-z-final'
   | 'encodage-incoherent'
   | 'fichier-vide'
   | 'longueur-ligne'

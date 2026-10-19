@@ -19,6 +19,11 @@ _(aucun pour l'instant)_
 - Renseigner `author` dans `package.json` ? Sans lui, l'éditeur est vide dans « Applications installées » et dans les propriétés de `Flussi.exe` — `package.json` (v0.2.0, item 5)
 - Signer `Flussi.exe` ? L'invite UAC de l'enregistrement des secrets affiche « éditeur inconnu », et le principe actuel est « aucun achat » — `electron-builder.yml` (v0.2.0, revue release)
 - Durée de conservation du journal nominatif (compte Windows, poste) à inscrire au registre des traitements : la décision actuelle est « nettoyage manuel » — `docs/backlog.md` (Décisions) (v0.2.0, revue release)
+- Un fichier VEOS avec erreurs, ou mal formé, est tracé en `SUCCES` « Fichier NOM chargé : N erreurs » (Lazarus : « Le fichier … a été correctement chargé. ») : niveau et texte validés ? — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
+- Un rejet renommé en minuscules (`ac056cour_rej_…`) est lu comme un fichier VEOS (parité stricte avec `StartsWith` de Lazarus) : on garde ? — `src/shared/domain/ac056/provenance.ts` (v0.3.0, item 1)
+- Rejet : un 0x1A au milieu d'une ligne d'au moins 718 octets ne produit aucune anomalie (rejet non contrôlé), là où Lazarus couperait le fichier : accepter et l'écrire dans la décision Ctrl-Z ? — `src/shared/domain/ac056/lecteur.ts` (v0.3.0, item 1)
+- Tracer au journal un échec de la liste `IN`/`OUT` (dossier devenu inaccessible en cours de session) ? Aujourd'hui rien n'est écrit — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
+- Panneau du journal : libellés « Titre, Info, Succès, Erreur » et une icône par niveau, au lieu des majuscules et des deux icônes de la maquette : à confirmer — `src/renderer/src/components/journal-session.tsx` (v0.3.0, item 1)
 
 ## Points reportés
 
@@ -32,6 +37,8 @@ _(aucun pour l'instant)_
 - Refuser le dépôt d'un fichier en anomalie de structure — `src/shared/domain/ac056/structure.ts` (v0.1.0, item 4)
 - Refuser le dépôt d'un fichier qui contient encore une erreur : contrôle complet avant le dépôt (divergence avec Lazarus validée le 2026-10-16 : Lazarus ne contrôle qu'au chargement et avant l'enregistrement ; l'enregistrement d'un fichier en erreur est permis depuis v0.3.0, item 3) — `src/shared/domain/ac056/controle.ts` (v0.1.0, item 5)
 - Avant les premiers dépôts : une mise à jour Intune coupe Flussi ouvert (constaté au pilote), donc un dépôt en cours. Macro NSIS `customCheckAppRunning` qui sort avec le code 1618 (Intune retente plus tard) si Flussi est ouvert — `build/installer.nsh` (v0.2.0, item 5)
+- Copies de conflit OneDrive listées comme des fichiers ordinaires dans l'écran AC056 (`copieConflitProbable` écarté par le service) : transmettre l'information et la signaler avant tout dépôt — `src/main/services/ac056/index.ts`, `src/shared/types/ac056.ts` (v0.3.0, item 1)
+
 ### v0.6.0 — Parcours complet et recette
 
 - Confirmer le déploiement Intune sur le poste d'un collègue (le poste pilote est celui du développeur, aux réglages possiblement plus souples), dans le groupe pilote — `docs/deploiement-intune.md` (v0.2.0, item 5)
@@ -53,6 +60,16 @@ _(aucun pour l'instant)_
 - Procédure de retour à la version N-1 par Intune (garder le `.intunewin` précédent, remettre sa valeur de détection) et renvoi vers le repli Lazarus `flussi_old` : mode d'échec n° 10 du pre-mortem — `docs/deploiement-intune.md` § 5-6 (v0.2.0, revue release)
 - Durcissement de la fenêtre et du paquet : `will-navigate` et `window.open` refusés, CSP `default-src 'self'`, `sandbox: true`, menu et DevTools désactivés en production, fuses Electron, `asarUnpack: ['**/*.node']` explicite avec `koffi.node` dans le contrôle de la procédure — `src/main/index.ts`, `electron-builder.yml`, `docs/deploiement-intune.md` (v0.2.0, revue release)
 - Réinitialiser le propriétaire de `%ProgramData%\Flussi` avant `/reset` (`icacls /setowner *S-1-5-32-544 /T`, nouveau code de sortie) : un compte standard qui crée le dossier en reste propriétaire — `build/installer.nsh` (v0.2.0, revue release)
+
+### Module Ac056
+
+- Liste `IN`/`OUT` : un dossier inaccessible masque l'autre et l'erreur ne dit pas lequel ; ajouter `emplacement` (nom logique) à `ErreurAc056` ou un résultat par dossier — `src/main/services/ac056/index.ts`, `src/shared/types/ac056.ts` (v0.3.0, item 1)
+- Taille maximale au chargement (un gros `.txt` déposé par erreur saturerait le main), d'après la `taille` connue par la liste — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
+- Réponse IPC qui ne vient jamais (`P:` bloqué) : l'écran reste en chargement sans moyen d'annuler ; autoriser « Changer de fichier » en ignorant la réponse tardive — `src/renderer/src/hooks/use-fichier-ac056.ts` (v0.3.0, item 1)
+- Choix du fichier : focus perdu après « Réessayer » et « Actualiser », squelettes à chaque retour (garder la liste avec `aria-busy`), trois boutons « Actualiser » à deux noms, « Aucun fichier » en double dans une carte vide, « IN »/« OUT » sans libellé accessible — `src/renderer/src/pages/ac056/` (v0.3.0, item 1)
+- Erreurs : code système perdu pour `erreur-systeme` (journal compris), exception d'analyse sans trace console, exception IPC de `ac056:lister` affichée brute, lecture initiale du journal en direct en échec silencieuse — `src/main/services/ac056/index.ts`, `src/renderer/src/hooks/{use-chargement-stockage,use-journal-session}.ts` (v0.3.0, item 1)
+- Stockage : fichier disparu entre la lecture du dossier et le `stat` gardé dans la liste (l'écarter sur `ENOENT`) ; date hors limites qui lève une `RangeError` (faux système de fichiers seulement) — `src/main/adapters/stockage/disque.ts` (v0.3.0, item 1)
+- Noms réservés Windows (`CON.txt`) listés puis refusés par l'adapter à l'ouverture : les écarter de la liste — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
 
 ### Dette technique (sans échéance)
 
@@ -77,10 +94,19 @@ _(aucun pour l'instant)_
 - Journal : attendre la file d'enregistrement des secrets avant `session.terminer()`, sinon la ligne « Secret renseigné » est perdue si la fenêtre se ferme pendant l'attente — `src/main/services/journal/session.ts`, `src/main/index.ts` (v0.2.0, revue release)
 - Messages techniques bruts (« Error invoking remote method… ») affichés à l'écran, détail de l'erreur de configuration ni affiché ni tracé : message générique et `console.error` — `src/renderer/src/hooks/{use-secrets,use-ouverture-dossier,use-chargement-stockage}.ts`, `src/renderer/src/App.tsx` (v0.2.0, revue release)
 - Tests : e2e du chemin `journal:etat-change` vers le bandeau « Journal non enregistré » ; tests de démontage de `use-secrets` et `use-ouverture-dossier` qui ne testent plus rien sous React 19 — `e2e/specs/`, `src/renderer/src/hooks/*.test.tsx` (v0.2.0, revue release)
-- ESLint : étendre `no-restricted-imports` de `@primno/dpapi` et `koffi` à `src/shared/**` et aux sous-chemins — `eslint.config.js` (v0.2.0, revue release)
+- ESLint : étendre `no-restricted-imports` de `@primno/dpapi` et `koffi` au reste de `src/shared/**` (`schemas`, `types` ; le domaine est couvert depuis v0.3.0, item 1) et aux sous-chemins ; couvrir aussi l'import relatif `../../test/…` dans le domaine — `eslint.config.js` (v0.2.0, revue release ; v0.3.0, item 1)
 - Passer en `devDependencies` les paquets du renderer déjà regroupés par Vite (`app.asar` de 48 Mo) — préférence — `package.json` (v0.2.0, revue release)
 - Documentation : commentaire de `installer.nsh` (« lancé en administrateur »), contrôles des modules natifs dans la procédure Dependabot, retrait définitif d'un poste (supprimer `%ProgramData%\Flussi`), `README.md` (configuration et guides Intune) — `build/installer.nsh`, `CLAUDE.md`, `docs/deploiement-intune.md`, `README.md` (v0.2.0, revue release)
 - Second lancement pendant une boîte de démarrage : rien de visible ; afficher « Flussi est déjà ouvert » — `src/main/index.ts` (v0.2.0, revue release)
+- Corpus : aucun fichier ne se termine par 0x1A, le test corpus du Ctrl-Z ne vérifie rien sur des données réelles (règle couverte par des fichiers synthétiques). Ajouter un fichier `PIEGES\` si le cas apparaît — `src/shared/domain/ac056/ctrl-z.corpus.test.ts` (v0.3.0, item 1)
+- Fenêtre sans `minWidth` : l'en-tête (environ 920 px, sans retour à la ligne) défile horizontalement si la fenêtre est réduite — `src/main/index.ts`, `src/renderer/src/components/cadre-application.tsx` (v0.3.0, item 1)
+- `CardTitle` rend un `div` : composant partagé à patcher (prop de niveau), contourné par des `h2` écrits à la main dans l'écran AC056 — `src/renderer/src/components/ui/card.tsx` (v0.3.0, item 1)
+- DRY renderer : focus du `h1` écrit deux fois (cadre et écran AC056), enveloppe d'écran et classes du `h1` copiées sur quatre écrans, alerte « … + Réessayer » en double (AC056 et Journal), `libelleOuvrir` qui reconstruit `titreSession` — `src/renderer/src/components/cadre-application.tsx`, `src/renderer/src/pages/` (v0.3.0, item 1)
+- Rangement et typage renderer : `verrou-navigation.ts` (hooks hors de `hooks/`), `lib/niveaux-journal.ts` qui importe `components/ui`, refs `monte` et `courant` inutiles, ref d'`AlertTitle` typée titre avec `as="p"`, `aria-live` redondant avec `role="log"` — `src/renderer/src/` (v0.3.0, item 1)
+- DRY main et domaine : `compter` du service Ac056 et `pluralize` du renderer, comparateur d'anomalies écrit deux fois, type écrit sur place dans le preload au lieu de `CibleFichierAc056`, `ListeAc056` hors de la forme `{ ok, valeur }`, `PREFIXE_FICHIER_REJET` réexporté sans usage, `provenanceDepuisNom` sur un nom avec chemin (JSDoc et test) — `src/main/services/ac056/index.ts`, `src/shared/domain/ac056/`, `src/preload/index.ts` (v0.3.0, item 1)
+- Tests de l'item 1 de la v0.3.0 : tests sans preuve (« ne contrôle pas un rejet », « et lui seul », démontage sous React 19, hook de verrou sans fournisseur), `pousser` hors de `act`, assertions sur des classes Tailwind, seuil fixe de 2 s ; cas manquants (`ctrlZFinal` avec BOM, rejet fait seulement de 0x1A, `CON.txt`, `ENOENT`, focus au retour sur l'écran AC056, 1280 px sans défilement sur Journal et Paramètres) — `src/shared/domain/ac056/*.test.ts`, `src/renderer/src/`, `e2e/specs/ac056.spec.ts` (v0.3.0, item 1)
+- Canaux `journal:*` : ils renvoient encore `ErreurStockage` complet à l'écran (chemin absolu, lecteur ou partage dans le message), contraire au principe « aucun chemin vers l'écran » de l'écran AC056 — `src/main/ipc/journal/index.ts` (v0.3.0, item 1)
+- E2E : `EPERM` transitoire au nettoyage d'un dossier temporaire de la fixture (une fois, juste après un build ; antivirus probable) — `e2e/fixtures/electron.ts` (v0.3.0, item 1)
 
 ## Décisions
 

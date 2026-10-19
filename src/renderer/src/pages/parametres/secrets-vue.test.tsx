@@ -303,6 +303,11 @@ describe('SecretsVue — formulaire déverrouillé', () => {
     expect(compter(html, '>Nouveau mot de passe</label>')).toBe(2);
   });
 
+  it('donne à chaque champ un nom accessible distinct, qui cite son secret', () => {
+    const noms = champs(html).map((champ) => attribut(champ, 'aria-label'));
+    expect(noms).toEqual(['Nouveau mot de passe FTP IGA', 'Nouveau mot de passe SFTP MSP']);
+  });
+
   it('ne pré-remplit aucun champ', () => {
     for (const champ of champs(html)) expect(attribut(champ, 'value') ?? '').toBe('');
   });
@@ -324,7 +329,9 @@ describe('SecretsVue — formulaire déverrouillé', () => {
     const aideId = attribut(choisir[0].attributs, 'aria-describedby');
     expect(aideId).toBeTruthy();
     expect(html).toMatch(
-      new RegExp(`<p[^>]*id="${aideId}"[^>]*>PPK version 2 ou OpenSSH, sans phrase secrète\\.</p>`),
+      new RegExp(
+        `<p[^>]*id="${aideId}"[^>]*>PPK version 2 \\(RSA ou DSA\\), OpenSSH ou PEM, sans phrase secrète\\.</p>`,
+      ),
     );
   });
 

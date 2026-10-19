@@ -3,7 +3,14 @@
 import type { Configuration } from '../schemas/config';
 import type { OriginesConfiguration } from './parametres';
 
-export type { EtatJournal, LigneJournal, SessionJournal } from './journal';
+export type {
+  EmplacementAc056,
+  ErreurAc056,
+  FichierListeAc056,
+  ListeAc056,
+  OuvertureAc056,
+} from './ac056';
+export type { EtatJournal, LigneJournal, LigneJournalSession, SessionJournal } from './journal';
 export type {
   DemandeEnregistrementSecrets,
   DossierTravail,

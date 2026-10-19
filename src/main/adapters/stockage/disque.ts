@@ -16,6 +16,7 @@ import type {
   ElementStockage,
   Emplacement,
   ErreurStockage,
+  InfosFichier,
   OptionsStockageDisque,
   ResultatStockage,
   Stockage,
@@ -157,19 +158,42 @@ export function creerStockageDisque(
     return { ok: true, valeur: { emplacement, racine, chemin, segments: decoupe.segments } };
   }
 
-  /** Classe une entrée que `readdir` ne présente ni comme fichier ni comme dossier. */
-  async function classerParStat(chemin: string): Promise<ElementStockage['type'] | null> {
+  /**
+   * `stat` d'une entrée que `readdir` ne présente ni comme fichier ni comme dossier. `null` pour
+   * un lien cassé.
+   */
+  async function statEntreeInconnue(chemin: string): Promise<InfosFichier | null> {
     try {
-      const infos = await fs.stat(chemin);
-      if (infos.isFile()) return 'fichier';
-      if (infos.isDirectory()) return 'dossier';
+      return await fs.stat(chemin);
     } catch (erreur) {
       // Seul un lien cassé (ENOENT) est ignoré. Toute autre erreur remonte : un verrou passe par
       // les nouvelles tentatives, le reste devient l'erreur typée de `lister`, pour qu'une entrée
       // illisible ne disparaisse jamais de la liste sans erreur.
       if (codeSysteme(erreur) !== 'ENOENT') throw erreur;
+      return null;
     }
-    return null;
+  }
+
+  /**
+   * Taille et date d'un fichier. Un `stat` en échec (verrou, droits, fichier disparu entre le
+   * `readdir` et le `stat`) donne `null` et `null` : le fichier reste dans la liste, seule
+   * l'information manque. Pas de nouvelle tentative pour ces deux champs secondaires.
+   */
+  async function taillesEtDate(
+    chemin: string,
+  ): Promise<Pick<ElementStockage, 'taille' | 'modification'>> {
+    try {
+      return infosVersElement(await fs.stat(chemin));
+    } catch {
+      return { taille: null, modification: null };
+    }
+  }
+
+  function infosVersElement(infos: InfosFichier): Pick<ElementStockage, 'taille' | 'modification'> {
+    return {
+      taille: infos.size,
+      modification: Number.isFinite(infos.mtimeMs) ? new Date(infos.mtimeMs).toISOString() : null,
+    };
   }
 
   return {
@@ -198,26 +222,50 @@ export function creerStockageDisque(
       return erreurs.length === 0 ? { ok: true } : { ok: false, erreurs };
     },
 
-    async lister(emplacement, sousDossier = '') {
+    async lister(emplacement, sousDossier = '', options = {}) {
+      const avecInfos = options.avecInfos ?? false;
       const cible = resoudre(emplacement, sousDossier, true);
       if (!cible.ok) return cible;
       const contexte = cible.valeur;
+      const sansInfos = { taille: null, modification: null };
 
       return executer(contexte, async () => {
         const entrees = await fs.readdir(contexte.chemin);
-        const elements: ElementStockage[] = [];
 
-        for (const entree of entrees) {
-          // Ni fichier ni dossier pour le Dirent : fichier OneDrive « à la demande » (point
-          // d'analyse présenté comme un lien symbolique), classé par stat ; sinon ignoré
-          const type = entree.isFile()
-            ? 'fichier'
-            : entree.isDirectory()
-              ? 'dossier'
-              : await classerParStat(win32.join(contexte.chemin, entree.name));
-
-          if (type) elements.push({ nom: entree.name, type, copieConflitProbable: false });
-        }
+        // Avec `avecInfos` : un stat par fichier, en parallèle (l'ordre de `readdir` est conservé).
+        // Sans : aucun stat pour un fichier ordinaire (le journal peut en compter des milliers).
+        const classes = await Promise.all(
+          entrees.map(async (entree): Promise<ElementStockage | null> => {
+            const base = { nom: entree.name, copieConflitProbable: false };
+            const chemin = win32.join(contexte.chemin, entree.name);
+            if (entree.isFile()) {
+              return {
+                ...base,
+                type: 'fichier',
+                ...(avecInfos ? await taillesEtDate(chemin) : sansInfos),
+              };
+            }
+            if (entree.isDirectory()) {
+              return { ...base, type: 'dossier', taille: null, modification: null };
+            }
+            // Ni fichier ni dossier pour le Dirent : fichier OneDrive « à la demande » (point
+            // d'analyse présenté comme un lien symbolique), classé par stat (dont on garde la taille
+            // et la date) ; sinon ignoré
+            const infos = await statEntreeInconnue(chemin);
+            if (infos?.isFile()) {
+              return {
+                ...base,
+                type: 'fichier',
+                ...(avecInfos ? infosVersElement(infos) : sansInfos),
+              };
+            }
+            if (infos?.isDirectory()) {
+              return { ...base, type: 'dossier', taille: null, modification: null };
+            }
+            return null;
+          }),
+        );
+        const elements = classes.filter((e): e is ElementStockage => e !== null);
 
         const copies = trouverCopiesConflit(
           elements.filter((e) => e.type === 'fichier').map((e) => e.nom),

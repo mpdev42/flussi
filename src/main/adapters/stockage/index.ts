@@ -9,6 +9,7 @@ export type {
   EntreeDossier,
   ErreurStockage,
   InfosFichier,
+  OptionsListage,
   OptionsStockageDisque,
   ResultatStockage,
   ResultatVerification,

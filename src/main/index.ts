@@ -15,6 +15,7 @@ import {
 // Import direct : l'API Windows réelle n'est créée qu'ici (jamais chargée par les tests)
 import { creerApiElevationWindows } from './adapters/config/api-windows';
 import { creerStockageDisque, formaterErreursStockage } from './adapters/stockage';
+import { enregistrerHandlersAc056 } from './ipc/ac056';
 import { enregistrerHandlersJournal } from './ipc/journal';
 import { enregistrerHandlersParametres } from './ipc/parametres';
 import {
@@ -24,6 +25,7 @@ import {
   lirePoste,
   type SessionEcriture,
 } from './services/journal';
+import { creerServiceAc056 } from './services/ac056';
 import { creerServiceParametres, creerServiceSecrets } from './services/parametres';
 import type { Mode } from '@shared/schemas/config';
 
@@ -187,6 +189,7 @@ async function demarrer(): Promise<void> {
     historique: creerHistoriqueJournal(stockage, session.chemin),
     session,
   });
+  enregistrerHandlersAc056({ service: creerServiceAc056({ stockage, journal: session }) });
 
   const fenetre = creerFenetrePrincipale(configuration.mode);
   fenetrePrincipale = fenetre;
@@ -196,6 +199,9 @@ async function demarrer(): Promise<void> {
   brancherFermeture(fenetre, session);
   session.surChangement((etat) => {
     if (!fenetre.isDestroyed()) fenetre.webContents.send('journal:etat-change', etat);
+  });
+  session.surLigne((ligne) => {
+    if (!fenetre.isDestroyed()) fenetre.webContents.send('journal:ligne-ajoutee', ligne);
   });
 }
 

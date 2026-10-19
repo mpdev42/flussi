@@ -120,6 +120,13 @@ export default {
           text: '#5E1C8A',
         },
       },
+      // §2.6 Jetons de rôle (clés étroites : ni border-header ni bg-on-brand)
+      backgroundColor: {
+        header: '#13295B',
+      },
+      textColor: {
+        'on-brand': '#FFFFFF',
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
@@ -133,6 +140,11 @@ export default {
       fontSize: {
         'body-sm': ['0.8125rem', '1.125rem'],
         data: ['0.8125rem', '1.25rem'],
+      },
+      // §3.2 Interlettrage : ls-tight des titres h1, légendes. Noms distincts de `tight` (shadcn).
+      letterSpacing: {
+        heading: '-0.01em',
+        caption: '0.01em',
       },
       // §6 Ombres et anneaux de focus
       boxShadow: {
@@ -150,7 +162,12 @@ export default {
         'control-md': '32px',
         'control-lg': '40px',
       },
+      // §4 Mise en page : colonne du journal de la session, contenu centré
+      width: {
+        'panel-log': '288px',
+      },
       maxWidth: {
+        content: '1600px',
         'dialog-sm': '440px',
         'dialog-md': '560px',
         tooltip: '280px',

@@ -227,6 +227,47 @@ describe('creerSessionJournal — ajouter', () => {
     expect(session.etat()).toEqual({ enregistre: true, lignesEnAttente: 0 });
   });
 
+  it('enregistre la ligne à l’appel, avant toute écriture, sans attendre la promesse', async () => {
+    // Stockage lent : l'écriture ne se termine que lorsque le test libère la promesse
+    let liberer: () => void = () => undefined;
+    const attente = new Promise<void>((resolve) => {
+      liberer = resolve;
+    });
+    const stockage: Stockage = {
+      ...faux.stockage,
+      async ajouter(emplacement, chemin, octets) {
+        await attente;
+        return faux.stockage.ajouter(emplacement, chemin, octets);
+      },
+    };
+    const session = creerSessionJournal({
+      stockage,
+      maintenant: () => horloge,
+      compte: 'c.mathevon',
+      poste: 'PC042',
+      mode: 'recette',
+      version: '0.2.0',
+    });
+    const recues: number[] = [];
+    session.surLigne((l) => recues.push(l.rang));
+
+    const a = session.ajouter('INFO', 'A');
+    const b = session.ajouter('INFO', 'B');
+
+    // Rien n'est encore écrit, mais les lignes sont déjà là, dans l'ordre
+    expect(faux.nombreAppels()).toBe(0);
+    expect(session.lignes().map((l) => [l.rang, l.message])).toEqual([
+      [1, 'A'],
+      [2, 'B'],
+    ]);
+    expect(recues).toEqual([1, 2]);
+
+    liberer();
+    await Promise.all([a, b]);
+
+    expect(faux.lignes()).toEqual([ligne('INFO', 'A'), ligne('INFO', 'B')]);
+  });
+
   it('remplace \\r, \\n et \\t du message par une espace', async () => {
     const session = creerSession();
     await session.ajouter('INFO', 'a\r\nb\tc');
@@ -495,5 +536,151 @@ describe('creerSessionJournal — terminer', () => {
     expect(faux.contenu()).toBe(avant);
     expect(faux.nombreAppels()).toBe(appels);
     expect(faux.contenu()).not.toContain('trop tard');
+  });
+});
+
+describe('creerSessionJournal — lignes et surLigne', () => {
+  it('ne contient aucune ligne avant tout ajout, en-tête exclu', async () => {
+    const session = creerSession();
+    expect(session.lignes()).toEqual([]);
+
+    await session.ouvrir();
+
+    expect(session.lignes()).toEqual([]);
+  });
+
+  it('mémorise chaque ajout avec son rang (à partir de 1) et l’heure écrite', async () => {
+    const session = creerSession();
+    await session.ouvrir();
+    await session.ajouter('INFO', 'premier');
+    horloge = new Date(2026, 9, 4, 9, 6, 30);
+    await session.ajouter('SUCCES', 'second');
+
+    expect(session.lignes()).toEqual([
+      { rang: 1, heure: '09:05:07', niveau: 'INFO', message: 'premier' },
+      { rang: 2, heure: '09:06:30', niveau: 'SUCCES', message: 'second' },
+    ]);
+    expect(faux.lignes().slice(-1)).toEqual(['09:06:30\tSUCCES\tsecond']);
+  });
+
+  it('affiche le même message nettoyé que celui écrit dans le fichier', async () => {
+    const session = creerSession();
+    await session.ajouter('INFO', 'a\r\nb\tc');
+
+    expect(session.lignes()[0]?.message).toBe('a  b c');
+    expect(faux.lignes().at(-1)).toBe(ligne('INFO', 'a  b c'));
+  });
+
+  it('renvoie une copie : modifier le résultat ne change pas la session', async () => {
+    const session = creerSession();
+    await session.ajouter('INFO', 'x');
+    (session.lignes() as unknown[]).pop();
+
+    expect(session.lignes()).toHaveLength(1);
+  });
+
+  it('appelle le rappel à chaque nouvelle ligne, dans l’ordre', async () => {
+    const session = creerSession();
+    const recues: number[] = [];
+    session.surLigne((l) => recues.push(l.rang));
+
+    await session.ajouter('INFO', 'a');
+    await session.ajouter('INFO', 'b');
+
+    expect(recues).toEqual([1, 2]);
+  });
+
+  it('n’appelle plus le rappel après le désabonnement', async () => {
+    const session = creerSession();
+    const rappel = vi.fn();
+    const desabonner = session.surLigne(rappel);
+    await session.ajouter('INFO', 'a');
+    desabonner();
+    await session.ajouter('INFO', 'b');
+
+    expect(rappel).toHaveBeenCalledTimes(1);
+  });
+
+  it('laisse passer un écouteur qui lève une exception', async () => {
+    const erreur = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const session = creerSession();
+    const autre = vi.fn();
+    session.surLigne(() => {
+      throw new Error('écouteur défaillant');
+    });
+    session.surLigne(autre);
+
+    await session.ajouter('INFO', 'a');
+
+    expect(autre).toHaveBeenCalledTimes(1);
+    expect(faux.lignes().at(-1)).toBe(ligne('INFO', 'a'));
+    erreur.mockRestore();
+  });
+
+  it('garde les lignes en mémoire même quand l’écriture échoue, sans doublon au rétablissement', async () => {
+    const session = creerSession();
+    const rappel = vi.fn();
+    session.surLigne(rappel);
+    faux.controle.panne = 'resultat';
+    await session.ajouter('ERREUR', 'non écrite');
+    expect(session.etat().enregistre).toBe(false);
+    expect(session.lignes().map((l) => l.rang)).toEqual([1]);
+
+    faux.controle.panne = null;
+    await session.ajouter('INFO', 'suivante');
+
+    expect(session.lignes().map((l) => l.rang)).toEqual([1, 2]);
+    expect(rappel).toHaveBeenCalledTimes(2);
+  });
+
+  it('garde les lignes quand le stockage lève une exception', async () => {
+    const session = creerSession();
+    faux.controle.panne = 'exception';
+    await session.ajouter('INFO', 'a');
+
+    expect(session.lignes()).toEqual([
+      { rang: 1, heure: '09:05:07', niveau: 'INFO', message: 'a' },
+    ]);
+  });
+
+  it('inclut « Fin de session » avec l’heure de la fin', async () => {
+    const session = creerSession();
+    await session.ouvrir();
+    await session.ajouter('INFO', 'a');
+    horloge = new Date(2026, 9, 4, 18, 0, 0);
+    const rappel = vi.fn();
+    session.surLigne(rappel);
+
+    await session.terminer();
+
+    expect(session.lignes().at(-1)).toEqual({
+      rang: 2,
+      heure: '18:00:00',
+      niveau: 'TITRE',
+      message: 'Fin de session',
+    });
+    expect(rappel).toHaveBeenCalledTimes(1);
+  });
+
+  it('ne mémorise « Fin de session » qu’une fois après un échec puis une nouvelle tentative', async () => {
+    const session = creerSession();
+    faux.controle.panne = 'resultat';
+    await session.terminer();
+    faux.controle.panne = null;
+    await session.terminer();
+
+    expect(session.lignes().filter((l) => l.message === 'Fin de session')).toHaveLength(1);
+  });
+
+  it('ne mémorise rien après une fin de session réussie', async () => {
+    const session = creerSession();
+    await session.terminer();
+    const rappel = vi.fn();
+    session.surLigne(rappel);
+
+    await session.ajouter('INFO', 'trop tard');
+
+    expect(session.lignes().map((l) => l.message)).toEqual(['Fin de session']);
+    expect(rappel).not.toHaveBeenCalled();
   });
 });

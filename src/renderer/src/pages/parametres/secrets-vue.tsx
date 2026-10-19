@@ -20,6 +20,7 @@ import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { ToneBadge } from '@/components/ui/status-badge';
+import { useVerrouNavigation } from '@/components/verrou-navigation';
 import type { RetourSecrets, Secrets } from '@/hooks/use-secrets';
 import { formaterDate } from '@/lib/dates';
 
@@ -37,6 +38,7 @@ import {
   LIBELLE_MODIFIER,
   LIBELLE_NOUVEAU_MOT_DE_PASSE,
   MESSAGE_CHARGEMENT,
+  NOM_CHAMP_MOT_DE_PASSE,
   PREFIXE_ERREUR_CHARGEMENT,
   STATUT_ENV,
   STATUT_NON_RENSEIGNE,
@@ -154,6 +156,8 @@ function FormulaireSecrets({
   const [saisies, setSaisies] = useState<MotsDePasseSaisis>(MOTS_DE_PASSE_VIDES);
   const enregistrement = enCours === 'enregistrement';
   const controleCle = enCours === 'cle';
+  // L'enregistrement ne doit pas être quitté : la navigation principale reste inactive.
+  useVerrouNavigation(enregistrement);
   const auMoinsUnChangement = MOTS_DE_PASSE.some((cle) => saisies[cle] !== '') || clePrete !== null;
 
   async function soumettre(evenement: FormEvent<HTMLFormElement>) {
@@ -189,7 +193,7 @@ function FormulaireSecrets({
                 {controleCle ? <Spinner size={16} label={null} /> : <KeyRound aria-hidden="true" />}
                 {controleCle ? LIBELLE_CONTROLE_CLE : LIBELLE_CHOISIR_CLE}
               </Button>
-              <p id={aideCleId} className="m-0 text-xs tracking-[0.01em] text-muted-foreground">
+              <p id={aideCleId} className="m-0 text-xs tracking-caption text-muted-foreground">
                 {AIDE_CLE}
               </p>
               {clePrete !== null && (
@@ -214,6 +218,7 @@ function FormulaireSecrets({
               {(controle) => (
                 <Input
                   {...controle}
+                  aria-label={NOM_CHAMP_MOT_DE_PASSE[secret]}
                   type="password"
                   autoComplete="new-password"
                   maxLength={LONGUEUR_MAX_MOT_DE_PASSE}
