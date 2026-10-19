@@ -1,9 +1,15 @@
 import type { Stockage } from '../../adapters/stockage';
 import type { Mode } from '@shared/schemas/config';
 import type { NiveauJournal } from '@shared/schemas/journal';
-import type { EtatJournal } from '@shared/types/journal';
+import type { EtatJournal, LigneJournalSession } from '@shared/types/journal';
 import type { ErreurStockage, ResultatStockage } from '@shared/types/stockage';
-import { cheminFichierSession, encoderLignes, formaterEntete, formaterLigne } from './format';
+import {
+  cheminFichierSession,
+  creerLigneSession,
+  encoderLignes,
+  formaterEntete,
+  formaterLigne,
+} from './format';
 
 export interface ParametresSessionJournal {
   stockage: Stockage;
@@ -31,6 +37,9 @@ export interface SessionEcriture {
    * Ajoute un évènement. Ne rejette jamais : en cas d'échec d'écriture, la ligne reste en mémoire
    * et sera réécrite à l'ajout suivant. Les écritures sont sérialisées pour garder l'ordre.
    *
+   * La ligne est enregistrée (rang, heure, ordre) et transmise aux écouteurs au moment de l'appel,
+   * avant toute écriture : l'appelant peut ne pas attendre la promesse.
+   *
    * Contenu interdit : aucun secret, aucun identifiant VEOS, aucune valeur lue dans un fichier
    * AC056 (données personnelles). Noms de fichiers, comptages et messages seulement.
    */
@@ -43,6 +52,13 @@ export interface SessionEcriture {
   etat(): EtatJournal;
   /** Notifié seulement quand l'état change. Renvoie la fonction de désabonnement. */
   surChangement(rappel: (etat: EtatJournal) => void): () => void;
+  /**
+   * Lignes de la session depuis le début (« Fin de session » comprise, en-tête exclu), écrites ou
+   * non, rang croissant à partir de 1.
+   */
+  lignes(): readonly LigneJournalSession[];
+  /** Notifié à chaque nouvelle ligne. Renvoie la fonction de désabonnement. */
+  surLigne(rappel: (ligne: LigneJournalSession) => void): () => void;
 }
 
 /** Une exception inattendue du stockage (contrat : il renvoie des résultats) devient une erreur typée. */
@@ -73,6 +89,9 @@ export function creerSessionJournal(parametres: ParametresSessionJournal): Sessi
   let enEchec = false;
   let chaine: Promise<unknown> = Promise.resolve();
   const ecouteurs = new Set<(etat: EtatJournal) => void>();
+  /** Lignes affichées dans le panneau : gardées même si leur écriture échoue. */
+  const lignesSession: LigneJournalSession[] = [];
+  const ecouteursLigne = new Set<(ligne: LigneJournalSession) => void>();
   let dernierEtat: EtatJournal = { enregistre: true, lignesEnAttente: 0 };
 
   function etat(): EtatJournal {
@@ -97,6 +116,24 @@ export function creerSessionJournal(parametres: ParametresSessionJournal): Sessi
         console.error('[main] Écouteur du journal en erreur :', erreur);
       }
     }
+  }
+
+  /**
+   * Formate une ligne pour le fichier (retournée) et la mémorise pour le panneau, avec la même
+   * date : l'heure affichée est celle du fichier.
+   */
+  function enregistrerLigne(niveau: NiveauJournal, message: string): string {
+    const date = maintenant();
+    const ligne = creerLigneSession(lignesSession.length + 1, date, niveau, message);
+    lignesSession.push(ligne);
+    for (const rappel of ecouteursLigne) {
+      try {
+        rappel(ligne);
+      } catch (erreur) {
+        console.error('[main] Écouteur de ligne du journal en erreur :', erreur);
+      }
+    }
+    return formaterLigne(date, niveau, message);
   }
 
   /** Écrit tout le tampon en un seul ajout ; file de promesses pour garder l'ordre. */
@@ -146,7 +183,7 @@ export function creerSessionJournal(parametres: ParametresSessionJournal): Sessi
     async ajouter(niveau, message) {
       if (terminee) return;
       try {
-        tampon.push(formaterLigne(maintenant(), niveau, message));
+        tampon.push(enregistrerLigne(niveau, message));
         await vider();
       } catch (erreur) {
         console.error("[main] Erreur d'écriture du journal :", erreur);
@@ -156,7 +193,7 @@ export function creerSessionJournal(parametres: ParametresSessionJournal): Sessi
     async terminer() {
       if (!finAjoutee) {
         finAjoutee = true;
-        tampon.push(formaterLigne(maintenant(), 'TITRE', 'Fin de session'));
+        tampon.push(enregistrerLigne('TITRE', 'Fin de session'));
       }
       const resultat = await vider();
       if (resultat.ok) {
@@ -172,6 +209,15 @@ export function creerSessionJournal(parametres: ParametresSessionJournal): Sessi
       ecouteurs.add(rappel);
       return () => {
         ecouteurs.delete(rappel);
+      };
+    },
+
+    lignes: () => [...lignesSession],
+
+    surLigne(rappel) {
+      ecouteursLigne.add(rappel);
+      return () => {
+        ecouteursLigne.delete(rappel);
       };
     },
   };

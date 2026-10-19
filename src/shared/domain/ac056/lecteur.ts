@@ -85,7 +85,7 @@ function anomalieEncodage(
 
 export function lireAc056(octets: Uint8Array, provenance: Provenance = 'veos'): LectureAc056 {
   const rejet = provenance === 'rejet';
-  const { bom, lignes: decoupees } = decouperLignes(octets);
+  const { bom, ctrlZFinal, lignes: decoupees } = decouperLignes(octets);
   const lignes: LigneAc056[] = [];
   const anomalies: AnomalieAc056[] = [];
   const numerosLf: number[] = [];
@@ -143,6 +143,17 @@ export function lireAc056(octets: Uint8Array, provenance: Provenance = 'veos'): 
         code: 'bom' as const,
         ligne: null,
         message: "Le fichier commence par un BOM UTF-8, conservé à l'enregistrement.",
+        bloquante: false,
+      }),
+    );
+  }
+  // Ctrl-Z final : retiré par le découpage (parité `CtrlZMarksEOF` de FPC), ignoré dans un rejet.
+  if (ctrlZFinal && !rejet) {
+    anomalies.push(
+      Object.freeze({
+        code: 'ctrl-z-final' as const,
+        ligne: null,
+        message: "Caractère de fin de fichier (Ctrl-Z) : il sera supprimé à l'enregistrement.",
         bloquante: false,
       }),
     );

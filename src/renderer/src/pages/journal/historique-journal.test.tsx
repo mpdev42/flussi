@@ -40,7 +40,7 @@ function rendre(props: Partial<HistoriqueJournalVueProps> = {}): string {
 }
 
 function lignesDonnees(html: string): string[] {
-  return html.match(/<tr tabindex="0"[^>]*>.*?<\/tr>/g) ?? [];
+  return (html.match(/<tr[^>]*>.*?<\/tr>/g) ?? []).filter((ligne) => ligne.includes('<button'));
 }
 
 describe('HistoriqueJournalVue — avec données', () => {
@@ -56,7 +56,7 @@ describe('HistoriqueJournalVue — avec données', () => {
 
   it('affiche la date JJ/MM/AAAA, l’heure et le compte', () => {
     const html = rendre();
-    expect(html).toMatch(/<td[^>]*>14\/10\/2026<\/td>/);
+    expect(html).toMatch(/<td[^>]*><button[^>]*>14\/10\/2026<\/button><\/td>/);
     expect(html).toMatch(/<td[^>]*>09:15:00<\/td>/);
     expect(html).toMatch(/<td[^>]*>dupont<\/td>/);
   });
@@ -128,10 +128,14 @@ describe('HistoriqueJournalVue — avec données', () => {
     expect(comptes).toEqual(['zoe', 'alice', 'marc']);
   });
 
-  it('rend les lignes accessibles au clavier avec une infobulle « Ouvrir session… »', () => {
+  it('ouvre une session par un vrai bouton nommé, la ligne n’étant pas focalisable', () => {
     const lignes = lignesDonnees(rendre());
     expect(lignes).toHaveLength(1);
-    expect(lignes[0]).toContain('title="Ouvrir session du 14/10/2026 à 09:15:00"');
+    expect(lignes[0]).toMatch(/^<tr(?![^>]*tabindex)/);
+    expect(lignes[0]).toContain(
+      '<button type="button" aria-label="Ouvrir la session du 14/10/2026 à 09:15:00"',
+    );
+    expect(lignes[0].match(/<button/g)).toHaveLength(1);
   });
 
   it('écrit « 1 session en octobre 2026 » au singulier', () => {

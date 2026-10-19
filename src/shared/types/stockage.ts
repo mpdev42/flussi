@@ -14,6 +14,14 @@ export interface ElementStockage {
    * puis l'écran décident.
    */
   copieConflitProbable: boolean;
+  /**
+   * Taille en octets. `null` pour un dossier, pour un fichier dont le `stat` a échoué (une
+   * information manquante ne fait pas échouer toute la liste), et quand `lister` n'a pas reçu
+   * l'option `avecInfos`.
+   */
+  taille: number | null;
+  /** Dernière modification, ISO 8601 (UTC). `null` dans les mêmes cas que `taille`. */
+  modification: string | null;
 }
 
 export type CodeErreurStockage =

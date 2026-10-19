@@ -13,7 +13,7 @@ export function BandeauJournal({ lignesEnAttente }: BandeauJournalProps) {
   return (
     <Alert variant="error" className="rounded-none border-x-0 px-10 [&>svg]:left-10">
       <CircleAlert aria-hidden="true" />
-      <AlertTitle>Journal non enregistré</AlertTitle>
+      <AlertTitle as="p">Journal non enregistré</AlertTitle>
       <AlertDescription>
         {lignesEnAttente} {pluralize(lignesEnAttente, 'ligne', 'lignes')} en attente : Flussi
         réessaie à chaque nouvel évènement. Vérifiez que le lecteur P: est connecté.

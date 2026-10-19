@@ -7,6 +7,17 @@ import { decrireEcart } from './corpus';
 
 const LONGUEUR_BOM = 3;
 
+/**
+ * Contenu sans ses octets 0x1A (Ctrl-Z) de la toute fin : ce que l'écrivain doit reproduire d'un
+ * fichier VEOS terminé par Ctrl-Z (retirés à la lecture, parité `CtrlZMarksEOF` de FPC). Vue sur le
+ * même tampon, sans copie.
+ */
+export function sansCtrlZFinal(octets: Uint8Array): Uint8Array {
+  let longueur = octets.length;
+  while (longueur > 0 && octets[longueur - 1] === 0x1a) longueur -= 1;
+  return octets.subarray(0, longueur);
+}
+
 /** Empreinte SHA-256 (hexadécimale) d'un contenu. */
 export function empreinteSha256(octets: Uint8Array): string {
   return createHash('sha256').update(octets).digest('hex');

@@ -88,7 +88,7 @@ export function ErreurChargement({ titre, cause, onReessayer }: ErreurChargement
     <div className="p-6">
       <Alert variant="error">
         <CircleAlert className="size-4" aria-hidden="true" />
-        <AlertTitle>{titre}</AlertTitle>
+        <AlertTitle as="h2">{titre}</AlertTitle>
         <AlertDescription>{cause}</AlertDescription>
         <div className="mt-3 pl-7">
           <Button type="button" variant="outline" size="sm" onClick={onReessayer}>

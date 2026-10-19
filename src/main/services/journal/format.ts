@@ -1,5 +1,5 @@
 import { NIVEAUX_JOURNAL, type NiveauJournal } from '@shared/schemas/journal';
-import type { LigneJournal } from '@shared/types/journal';
+import type { LigneJournal, LigneJournalSession } from '@shared/types/journal';
 
 // Format du fichier de session du journal. Pur : aucun accès au système de fichiers.
 // UTF-8 sans BOM, fins de ligne CRLF, une ligne par évènement : `HH:MM:SS<TAB>NIVEAU<TAB>message`.
@@ -62,6 +62,16 @@ function nettoyerMessage(message: string): string {
 /** Une ligne du fichier, fin de ligne CRLF comprise. */
 export function formaterLigne(date: Date, niveau: NiveauJournal, message: string): string {
   return `${formaterHeure(date)}\t${niveau}\t${nettoyerMessage(message)}${SEPARATEUR_LIGNE}`;
+}
+
+/** La même ligne telle qu'affichée dans le panneau : mêmes heure et message que dans le fichier. */
+export function creerLigneSession(
+  rang: number,
+  date: Date,
+  niveau: NiveauJournal,
+  message: string,
+): LigneJournalSession {
+  return { rang, heure: formaterHeure(date), niveau, message: nettoyerMessage(message) };
 }
 
 export interface ParametresEntete {

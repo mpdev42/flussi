@@ -86,6 +86,7 @@ test('journal — historique, copie de conflit, détail et navigation', async ()
     await lignes
       .filter({ hasText: 'autre.compte' })
       .filter({ hasNotText: 'Copie de conflit' })
+      .getByRole('button', { name: /^Ouvrir la session du / })
       .click();
     await expect(
       page.getByRole('heading', { level: 1, name: `Session du 01/${mois}/${annee} à 00:00:01` }),
@@ -104,7 +105,10 @@ test('journal — historique, copie de conflit, détail et navigation', async ()
     ).toHaveAttribute('aria-pressed', 'true');
 
     // Détail de la session en cours : en-tête du journal, pas d'avertissement de fin
-    await lignes.first().click();
+    await lignes
+      .first()
+      .getByRole('button', { name: /^Ouvrir la session du / })
+      .click();
     await expect(page.getByText('Mode : recette', { exact: true })).toBeVisible();
     await expect(page.getByText(`Version de Flussi : ${version}`, { exact: true })).toBeVisible();
     await expect(page.getByText('Pas de ligne « Fin de session »')).toHaveCount(0);

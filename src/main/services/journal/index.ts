@@ -1,6 +1,7 @@
 export {
   analyserContenu,
   cheminFichierSession,
+  creerLigneSession,
   encoderLignes,
   formaterEntete,
   formaterHeure,

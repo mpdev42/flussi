@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EtatSecrets } from '@shared/types';
+import { ContexteVerrouNavigation } from '@/components/verrou-navigation';
 import { cliquer, differe, monter, saisir, soumettre, type Monture } from '@/test/dom';
 import { SecretsVue, type SecretsVueProps } from './secrets-vue';
 
@@ -259,6 +260,49 @@ describe('SecretsVue (DOM) — soumission', () => {
     expect(ftp.disabled).toBe(true);
     expect(sftp.disabled).toBe(true);
     for (const b of conteneur.querySelectorAll('button')) expect(b.disabled).toBe(true);
+  });
+});
+
+describe('SecretsVue (DOM) — verrou de la navigation', () => {
+  // Le contexte est stable d'un rendu à l'autre, comme celui du cadre (sinon l'effet se relance).
+  function preparer() {
+    const retirer = vi.fn();
+    const verrouiller = vi.fn(() => retirer);
+    const contexte = { verrouiller };
+    const avecVerrou = (props: Partial<SecretsVueProps> = {}) => (
+      <ContexteVerrouNavigation.Provider value={contexte}>
+        {vue(props)}
+      </ContexteVerrouNavigation.Provider>
+    );
+    return { retirer, verrouiller, avecVerrou };
+  }
+
+  it('pose le verrou pendant « Enregistrement… » et le retire ensuite', async () => {
+    const { retirer, verrouiller, avecVerrou } = preparer();
+    monture = await monter(avecVerrou());
+    expect(verrouiller).not.toHaveBeenCalled();
+
+    await monture.rerendre(avecVerrou({ enCours: 'enregistrement' }));
+    expect(verrouiller).toHaveBeenCalledTimes(1);
+    expect(retirer).not.toHaveBeenCalled();
+
+    await monture.rerendre(avecVerrou({ enCours: null }));
+    expect(retirer).toHaveBeenCalledTimes(1);
+  });
+
+  it('ne pose aucun verrou pendant le contrôle de la clé', async () => {
+    const { verrouiller, avecVerrou } = preparer();
+    monture = await monter(avecVerrou({ enCours: 'cle' }));
+    expect(verrouiller).not.toHaveBeenCalled();
+  });
+
+  it('retire le verrou si le formulaire disparaît pendant l’enregistrement', async () => {
+    const { retirer, avecVerrou } = preparer();
+    monture = await monter(avecVerrou({ enCours: 'enregistrement' }));
+
+    await monture.rerendre(avecVerrou({ deverrouille: false, enCours: null }));
+
+    expect(retirer).toHaveBeenCalledTimes(1);
   });
 });
 

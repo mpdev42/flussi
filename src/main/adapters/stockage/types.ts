@@ -16,6 +16,10 @@ export type { CodeErreurStockage, ElementStockage, Emplacement, ErreurStockage, 
 
 export type ResultatVerification = { ok: true } | { ok: false; erreurs: ErreurStockage[] };
 
+export interface OptionsListage {
+  avecInfos?: boolean;
+}
+
 export interface Stockage {
   /**
    * Pour `in`, `out` puis `journal` : la racine existe, est un dossier et s'ouvre en lecture.
@@ -24,10 +28,16 @@ export interface Stockage {
    */
   verifierAcces(): Promise<ResultatVerification>;
 
-  /** Contenu d'un dossier. `sousDossier` absent ou vide : racine de l'emplacement. */
+  /**
+   * Contenu d'un dossier. `sousDossier` absent ou vide : racine de l'emplacement.
+   * `options.avecInfos` (défaut `false`) : renseigne `taille` et `modification` des fichiers, au
+   * prix d'un `stat` par fichier. Sans l'option, aucun `stat` n'est fait pour un fichier ordinaire
+   * et les deux champs valent `null`.
+   */
   lister(
     emplacement: Emplacement,
     sousDossier?: string,
+    options?: OptionsListage,
   ): Promise<ResultatStockage<ElementStockage[]>>;
 
   /** Octets bruts, jamais décodés (le décodage reste au domaine). */
@@ -44,14 +54,22 @@ export interface Stockage {
   ): Promise<ResultatStockage<void>>;
 }
 
-/** Résultat de `stat`, réduit à ce que l'adapter utilise. */
-export interface InfosFichier {
+/** Type d'une entrée de dossier (compatible `fs.Dirent` et `fs.Stats`). */
+export interface TypeEntree {
   isFile(): boolean;
   isDirectory(): boolean;
 }
 
+/** Résultat de `stat`, réduit à ce que l'adapter utilise (compatible `fs.Stats`). */
+export interface InfosFichier extends TypeEntree {
+  /** Taille en octets. */
+  size: number;
+  /** Date de dernière modification, en millisecondes depuis l'epoch. */
+  mtimeMs: number;
+}
+
 /** Entrée de `readdir` avec types (compatible `fs.Dirent`). */
-export interface EntreeDossier extends InfosFichier {
+export interface EntreeDossier extends TypeEntree {
   name: string;
 }
 

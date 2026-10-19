@@ -26,6 +26,11 @@ export interface OptionsLancement {
    * `STOCKAGE_DOSSIER_TRAVAIL`.
    */
   lignesEnv?: string[];
+  /**
+   * Prépare la racine de travail (fichiers dans `IN` et `OUT`…). Appelée après la création de `IN`,
+   * `OUT` et `Journal`, avant le lancement de l'application.
+   */
+  preparerTravail?: (racine: string) => void | Promise<void>;
 }
 
 /** Version déclarée dans `package.json`, celle que doit renvoyer `app.getVersion()`. */
@@ -103,6 +108,7 @@ export async function launchApp(options: OptionsLancement = {}): Promise<AppLanc
   };
 
   try {
+    await options.preparerTravail?.(racineTravail);
     app = await _electron.launch({ args: [RACINE_PROJET], cwd, env, timeout: 30_000 });
     const page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');

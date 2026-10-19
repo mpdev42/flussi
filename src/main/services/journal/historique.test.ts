@@ -9,11 +9,15 @@ const fichier = (nom: string): ElementStockage => ({
   nom,
   type: 'fichier',
   copieConflitProbable: false,
+  taille: 100,
+  modification: '2026-10-14T09:15:00.000Z',
 });
 const dossier = (nom: string): ElementStockage => ({
   nom,
   type: 'dossier',
   copieConflitProbable: false,
+  taille: null,
+  modification: null,
 });
 
 const erreur = (code: ErreurStockage['code']): ErreurStockage => ({

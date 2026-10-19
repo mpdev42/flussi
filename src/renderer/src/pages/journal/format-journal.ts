@@ -1,5 +1,4 @@
 import type { LigneJournal, SessionJournal } from '@shared/types';
-import type { NiveauJournal } from '@shared/schemas/journal';
 
 import { formaterDate } from '@/lib/dates';
 
@@ -46,13 +45,6 @@ export function mettreMajuscule(texte: string): string {
 export function titreSession(session: SessionJournal): string {
   return `Session du ${formaterDate(session.date)} à ${session.heure}`;
 }
-
-export const LIBELLES_NIVEAU: Record<NiveauJournal, string> = {
-  TITRE: 'Titre',
-  INFO: 'Info',
-  SUCCES: 'Succès',
-  ERREUR: 'Erreur',
-};
 
 export const MESSAGE_FIN_DE_SESSION = 'Fin de session';
 

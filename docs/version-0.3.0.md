@@ -17,7 +17,7 @@
 
 ### 1. Chargement d'un fichier AC056, VEOS ou rejet
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : custom
 
 **Description** — Écran AC056 : liste des fichiers des dossiers `IN` et `OUT`, ouverture d'un fichier issu de VEOS (UTF-8) ou d'un fichier de rejet MSP (ANSI), lecture et contrôle par le domaine AC056, trace au journal et panneau du journal en direct dans la fenêtre principale.
@@ -43,6 +43,16 @@
 - **Taille** : fichiers courants autour de 600 Ko ; un fichier de 4 Mo a été constaté il y a plusieurs années (environ 5 500 lignes). L'écran reste fluide jusqu'à 4 Mo : listes affichées par morceaux, jamais 5 500 lignes rendues d'un coup. La lecture d'un fichier synthétique de 3,8 Mo prend environ 0,5 s (mesure de la v0.1.0).
 - **Journal** : chargement tracé (nom du fichier, résultat, nombre d'erreurs), jamais de valeur AC056. Panneau du journal en direct dans la fenêtre principale (« important que l'utilisateur voie ce qui se passe »).
 
+**Décisions du démarrage de l'item** (2026-10-19, `/item-start`) :
+
+- **Journal de la session : 4e panneau**, colonne à droite du cadre de l'application, visible sur tous les écrans, comme le panneau `rmJournal` de Lazarus quelle que soit l'opération qui l'alimente (VEOS, IGA, MSP, AC056). Composant commun (`component-agent`), largeur 288 px. Divergence avec la maquette `ac056.tsx` (barre repliable en bas de l'écran AC056).
+- **Lecture, contrôle et trace dans le main** : l'écran reçoit le fichier analysé (fichier et anomalies, sans chemin Windows) et le garde pour le contrôle à la sortie d'un champ de l'item 2. Pas de canal par lequel l'écran écrirait lui-même au journal.
+- **Ctrl-Z (0x1A)** : vérifié dans FPC, `CtrlZMarksEOF = true` sous Windows (`rtl/win/syswinh.inc`) ; `ReadLn` s'arrête au premier 0x1A et `EOF` devient vrai. Un ou plusieurs 0x1A en fin de fichier : ignorés, anomalie non bloquante « Caractère de fin de fichier (Ctrl-Z) : il sera supprimé à l'enregistrement » pour un fichier VEOS, ignorés en silence dans un rejet. Un 0x1A suivi d'autres octets reste une anomalie bloquante (divergence : Lazarus tronque le fichier en silence au premier 0x1A).
+- **Titre de la fenêtre inchangé** (« Flussi — Recette » / « Flussi ») : le nom du fichier n'apparaît que dans la barre de fichier (divergence : Lazarus ajoute le chemin au titre).
+- **Confirmation « Abandonner les modifications ? » reportée à l'item 3** : aucune modification n'est possible avant.
+- **Tokens de design ajoutés de façon ciblée** par `component-agent` (`tailwind.config.js`, `utils.ts`), sans `/design-system-adapt` (pas de mode ciblé, n'écrit ni `utils.ts` ni `DESIGN.md`) ; `DESIGN.md` inchangé.
+- **Après ouverture**, l'item 1 affiche la barre de fichier et les alertes ; les trois colonnes de la maquette arrivent aux items 2 et 5.
+
 **Repris du backlog** :
 
 - Au démarrage de la version, avant de coder : créer `ac056-agent` (format AC056 et parité Lazarus, prévu au cadrage, jamais créé) — `.claude/agents/`, `docs/project-description.md` (v0.1.0, audit de finalisation)
@@ -56,6 +66,32 @@
 - Textes : `accueil.tsx` cite encore le journal parmi les fonctions à venir (à mettre à jour aussi pour l'arrivée de l'écran AC056) ; `AIDE_CLE` ne mentionne ni PEM ni la limite RSA/DSA — `src/renderer/src/pages/accueil.tsx`, `src/renderer/src/pages/parametres/textes-secrets.ts` (v0.2.0, revue release)
 
 **Fichiers impactés** : `src/main/ipc/ac056/`, `src/main/services/ac056/`, `src/main/services/journal/`, `src/preload/index.ts`, `src/shared/schemas/`, `src/shared/types/`, `src/shared/domain/ac056/decoupage.ts`, `src/renderer/src/pages/ac056/` (nouveau), `src/renderer/src/hooks/`, `src/renderer/src/services/ac056.ts` (nouveau), `src/renderer/src/components/cadre-application.tsx`, `src/renderer/src/components/ui/alert.tsx`, `src/renderer/src/pages/accueil.tsx`, `src/renderer/src/pages/parametres/textes-secrets.ts`, `tailwind.config.js`, `src/renderer/src/lib/utils.ts`, `eslint.config.js`, `.claude/agents/ac056-agent.md` (nouveau), `e2e/specs/`.
+
+**Décisions de l'implémentation** (2026-10-19) :
+
+- **Domaine** : `provenanceDepuisNom` et `PREFIXE_FICHIER_REJET` (`provenance.ts`, préfixe sensible à la casse comme `StartsWith`) ; `analyserAc056` (`analyse.ts`) = lecture et contrôle, anomalies triées, comptes `erreurs`, `nonBloquantes`, `structure`, `lignesRejetees`, résultat clonable pour l'IPC ; anomalie non bloquante `ctrl-z-final` ; `CODES_STRUCTURE` dans `structure.ts`. Corpus : aucun fichier ne contient 0x1A (IN 9, OUT 3, PIEGES 1, MODIFIES 3) : la règle n'est couverte que par des fichiers synthétiques.
+- **Garde-fou ESLint du domaine** : tous les modules Node (`builtinModules` et `node:*`), `electron`, `vitest`, `@shared/test/*`, `koffi` et `@primno/dpapi` (liste `MODULES_NATIFS_MAIN` partagée avec le bloc renderer/preload), import dynamique, globales `Buffer` et `process`. Les `*.test.ts` du domaine en sont exclus.
+- **Stockage** : `lister(emplacement, sousDossier?, { avecInfos })` ; taille et date (ISO) seulement avec l'option, utilisée par le seul service Ac056 (sinon un `stat` par journal Lazarus à la racine de `Journal` sur `P:`). Un `stat` en échec donne taille et date `null` sans faire échouer la liste.
+- **Service Ac056** (`ac056:lister`, `ac056:ouvrir`) : liste filtrée par le schéma du nom (tout fichier listé peut être ouvert ; règle `..` retirée du schéma, inutile sans séparateur), triée du plus récent au plus ancien ; erreurs renvoyées `{ code, message }` sans chemin (message fabriqué d'après le code). Journal non attendu (`void`) : la réponse à l'écran ne dépend pas de l'écriture sur `P:` ; l'ordre est garanti par la session. Messages : `TITRE` « Charger » ; `SUCCES` « Fichier NOM chargé : aucune erreur / N erreurs[, M anomalies non bloquantes] » ou « … N lignes rejetées » ; `ERREUR` « Fichier NOM mal formé : relancez l'export VEOS » ; `ERREUR` « Fichier NOM illisible : fichier vide » (seule ligne pour un fichier vide) ; `ERREUR` « Fichier NOM non chargé : {cause} ».
+- **Journal en direct** : la session garde ses lignes (`LigneJournalSession`, avec un rang) ; canaux `journal:lignes-session` et `journal:ligne-ajoutee` (main vers écran) ; hook `useJournalSession` (fusion par rang) ; panneau `JournalSession` dans la colonne `journal` du cadre. Libellés des niveaux « Titre, Info, Succès, Erreur » (module commun avec l'écran Journal, `lib/niveaux-journal.ts`) et une icône par niveau, contrairement à la maquette (majuscules, icônes sur Succès et Erreur seulement).
+- **Cadre** : colonne du journal, verrou de navigation `useVerrouNavigation` (utilisé pendant « Enregistrement… » des secrets), défilement remis en haut et focus sur le `h1` visible au changement d'écran.
+- **Écran AC056** : monté à la première visite puis gardé monté sous `hidden` (fichier conservé, aucune lecture de `P:` au lancement) ; liste relue à chaque retour sur le choix du fichier ; par tranches de 100 fichiers.
+- **`AlertTitle`** : prop `as` (`h1` à `h6`, `p`), `h5` par défaut, chaque usage au bon niveau.
+- **Tokens** : `bg-header`, `text-on-brand`, `max-w-content`, `tracking-heading`, `tracking-caption`, `w-panel-log`.
+
+**Point d'attention pour l'item 2** : la colonne du journal (288 px) réduit la place des trois colonnes de l'écran AC056. La colonne centrale (détail de l'évènement) garderait environ 320 px à 1280 px de large, 490 px à 1536 px (1920×1080 à 125 %) et 800 px à 1920 px. Formulaire sur une colonne sous 1440 px ; à vérifier à 1280 px sans défilement horizontal.
+
+**Point d'attention pour l'item 2** (revue de code de l'item 1) :
+
+- `useJournalSession` est appelé dans `App` : chaque ligne du journal re-rend toute l'application, dont l'écran AC056 gardé monté. À isoler (composant qui appelle lui-même le hook, passé en `journal={…}`) avant d'afficher la navigation sur 5 500 lignes — `src/renderer/src/App.tsx`.
+- Marge droite de l'écran AC056 (`pl-10 pr-0`, prévue pour l'écart avec la colonne du journal) : 16 px contre 56 px sur les autres écrans tant qu'il n'y a pas de colonnes. À fixer avec les colonnes — `pages/ac056/choix-fichier.tsx`, `ac056.tsx`, `barre-fichier.tsx`.
+- Analyse synchrone dans le main (0,3 à 0,5 s pour 4 Mo) et sérialisation IPC d'environ 10 Mo : mesurer de bout en bout le chargement d'un fichier de 4 Mo avec l'affichage des évènements — `src/main/services/ac056/index.ts`.
+
+**Point d'attention pour l'item 3** : la confirmation « Abandonner les modifications ? » au changement de fichier, décidée à l'item 1, est à construire ici (reportée : aucune modification possible avant l'item 3).
+
+**Point d'attention pour l'item 3** (revue de code de l'item 1) : la condition de bascule « un fichier VEOS chargé puis enregistré sans modification est identique à l'original, octet par octet » (`CLAUDE.md`) a désormais deux exceptions décidées : les lignes vides (divergence 2 de la v0.1.0) et les 0x1A finaux. Les écrire dans `CLAUDE.md` et dans le tableau des écarts, avec validation de l'utilisateur, au moment de l'enregistrement.
+
+**Point d'attention pour l'item 5** (revue de code de l'item 1) : les anomalies non bloquantes (lignes vides, Ctrl-Z final, BOM, fins de ligne) ne sont pas affichées à l'item 1 : un fichier qui n'a que celles-là montre « Aucune erreur » et « Le fichier ne contient aucune erreur. » sans dire qu'elles seront supprimées à l'enregistrement. La liste de l'item 5 doit les montrer, et le message « aucune erreur » doit les mentionner.
 
 ---
 

@@ -1,4 +1,10 @@
-import type { EtatJournal, LigneJournal, ResultatStockage, SessionJournal } from '@shared/types';
+import type {
+  EtatJournal,
+  LigneJournal,
+  LigneJournalSession,
+  ResultatStockage,
+  SessionJournal,
+} from '@shared/types';
 
 /** Années pour lesquelles le journal contient un dossier `AAAA`. */
 export function lireAnnees(): Promise<ResultatStockage<string[]>> {
@@ -26,4 +32,14 @@ export function lireEtatJournal(): Promise<EtatJournal> {
 /** Abonnement aux changements d'état du journal ; renvoie la fonction de désabonnement. */
 export function surEtatJournal(rappel: (etat: EtatJournal) => void): () => void {
   return window.api.journal.surEtat(rappel);
+}
+
+/** Lignes de la session en cours, depuis son début. */
+export function lireLignesSession(): Promise<LigneJournalSession[]> {
+  return window.api.journal.lignesSession();
+}
+
+/** Abonnement aux nouvelles lignes de la session ; renvoie la fonction de désabonnement. */
+export function surLigneJournal(rappel: (ligne: LigneJournalSession) => void): () => void {
+  return window.api.journal.surLigne(rappel);
 }

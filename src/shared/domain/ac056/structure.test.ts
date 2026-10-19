@@ -4,6 +4,8 @@
 // `dansBenef(...)` en ligne 5 (une 400 en ligne 4).
 import { describe, expect, it } from 'vitest';
 import {
+  enChaineBinaire,
+  enOctetsBruts,
   fichierSynthetique,
   ligneSynthetique,
   lignesCompletes,
@@ -704,17 +706,19 @@ describe('controlerStructure via lireAc056', () => {
     });
 
     it('marque bloquantes les anomalies de structure et non bloquantes celles de format', () => {
-      // BOM, fin LF, ligne vide, fin CR, plus une 110 hors évènement et une 999 absente.
+      // BOM, fin LF, ligne vide, fin CR, Ctrl-Z final, plus une 110 hors évènement et une 999
+      // absente.
       const lignes = [
         ...lignesDepuisCodes(['000', '001', '110']),
         '',
         ...lignesDepuisCodes(['100', '990', '995']),
       ];
-      const lecture = lireLignes(lignes, {
+      const octets = fichierSynthetique(lignes, {
         bom: true,
         fin: ['\r\n', '\n', '\r\n', '\r\n', '\r', '\r\n', '\r\n'],
         sautFinal: true,
       });
+      const lecture = lireAc056(enOctetsBruts(enChaineBinaire(octets) + '\x1A'));
       const codes = new Set(lecture.anomalies.map((a) => a.code));
       for (const code of CODES_FORMAT) expect(codes.has(code)).toBe(true);
       expect(codes.has('entite-mal-placee')).toBe(true);

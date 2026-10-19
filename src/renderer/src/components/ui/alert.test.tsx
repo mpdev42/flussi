@@ -1,7 +1,7 @@
-import type { ReactElement } from 'react';
+import { createRef, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { Alert, AlertDescription } from './alert';
+import { Alert, AlertDescription, AlertTitle, type BaliseTitreAlerte } from './alert';
 
 // Rendu statique en environnement node : pas de DOM, on lit le HTML produit
 function html(element: ReactElement): string {
@@ -66,5 +66,37 @@ describe('Alert, rôle', () => {
     expect(statut).toMatch(/^<div role="status"/);
     expect(statut).not.toContain('role="alert"');
     expect(html(<Alert role="note">Message</Alert>)).toMatch(/^<div role="note"/);
+  });
+});
+
+describe('AlertTitle, balise', () => {
+  it('rend un h5 par défaut (valeur shadcn inchangée)', () => {
+    expect(html(<AlertTitle>Titre</AlertTitle>)).toBe(
+      '<h5 class="mb-1 font-medium leading-none tracking-tight">Titre</h5>',
+    );
+  });
+
+  it.each<BaliseTitreAlerte>(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'])(
+    'rend la balise %s demandée, avec les mêmes classes',
+    (balise) => {
+      expect(html(<AlertTitle as={balise}>Titre</AlertTitle>)).toBe(
+        `<${balise} class="mb-1 font-medium leading-none tracking-tight">Titre</${balise}>`,
+      );
+    },
+  );
+
+  it('fusionne les classes et transmet les attributs', () => {
+    expect(
+      html(
+        <AlertTitle as="h2" id="titre" className="mb-2">
+          Titre
+        </AlertTitle>,
+      ),
+    ).toBe('<h2 class="font-medium leading-none tracking-tight mb-2" id="titre">Titre</h2>');
+  });
+
+  it('accepte une ref HTMLHeadingElement (contrôle de type à la compilation)', () => {
+    const ref = createRef<HTMLHeadingElement>();
+    expect(html(<AlertTitle ref={ref}>Titre</AlertTitle>)).toContain('<h5');
   });
 });

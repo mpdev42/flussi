@@ -5,6 +5,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
@@ -155,6 +156,15 @@ const memesOctets = (a: Uint8Array, b: Uint8Array): boolean =>
 const parNom = (a: ElementStockage, b: ElementStockage): number => a.nom.localeCompare(b.nom);
 
 const racineLecteur = () => win32.parse(base).root;
+
+/** Élément attendu pour un fichier de `taille` octets (date lue sur le disque : toute chaîne ISO). */
+const fichierAttendu = (nom: string, taille: number): ElementStockage => ({
+  nom,
+  type: 'fichier',
+  copieConflitProbable: false,
+  taille,
+  modification: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) as string,
+});
 
 // --- verifierAcces ---
 
@@ -436,12 +446,128 @@ describe('creerStockageDisque — lister', () => {
     mkdirSync(join(dossiers.in, 'sous'));
     const { stockage } = creerStockage();
 
-    const elements = valeurDe(await stockage.lister('in')).sort(parNom);
+    const elements = valeurDe(await stockage.lister('in', '', { avecInfos: true })).sort(parNom);
 
     expect(elements).toEqual([
-      { nom: 'a.txt', type: 'fichier', copieConflitProbable: false },
-      { nom: 'sous', type: 'dossier', copieConflitProbable: false },
+      fichierAttendu('a.txt', 1),
+      {
+        nom: 'sous',
+        type: 'dossier',
+        copieConflitProbable: false,
+        taille: null,
+        modification: null,
+      },
     ]);
+  });
+
+  it('renvoie la taille en octets et la date de modification ISO d’un fichier', async () => {
+    const chemin = join(dossiers.in, 'a.txt');
+    writeFileSync(chemin, new Uint8Array(1234));
+    const date = new Date('2026-10-14T09:15:30.000Z');
+    utimesSync(chemin, date, date);
+    const { stockage } = creerStockage();
+
+    expect(valeurDe(await stockage.lister('in', '', { avecInfos: true }))).toEqual([
+      {
+        nom: 'a.txt',
+        type: 'fichier',
+        copieConflitProbable: false,
+        taille: 1234,
+        modification: '2026-10-14T09:15:30.000Z',
+      },
+    ]);
+  });
+
+  it('renvoie taille et date null pour un dossier', async () => {
+    mkdirSync(join(dossiers.in, 'sous'));
+    const { stockage } = creerStockage();
+    const [dossier] = valeurDe(await stockage.lister('in', '', { avecInfos: true }));
+    expect(dossier).toMatchObject({ type: 'dossier', taille: null, modification: null });
+  });
+
+  it('fait un stat par fichier, aucun pour un dossier', async () => {
+    writeFileSync(join(dossiers.in, 'a.txt'), 'x');
+    writeFileSync(join(dossiers.in, 'b.txt'), 'x');
+    mkdirSync(join(dossiers.in, 'sous'));
+    const { stockage, faux } = creerStockage();
+
+    valeurDe(await stockage.lister('in', '', { avecInfos: true }));
+
+    expect(faux.cheminsAppeles('stat').sort()).toEqual([
+      join(dossiers.in, 'a.txt'),
+      join(dossiers.in, 'b.txt'),
+    ]);
+  });
+
+  it('ne fait aucun stat sans l’option avecInfos : taille et date null', async () => {
+    writeFileSync(join(dossiers.in, 'a.txt'), 'xyz');
+    writeFileSync(join(dossiers.in, 'b.txt'), 'x');
+    mkdirSync(join(dossiers.in, 'sous'));
+    const { stockage, faux } = creerStockage();
+
+    const elements = valeurDe(await stockage.lister('in')).sort(parNom);
+
+    expect(faux.cheminsAppeles('stat')).toEqual([]);
+    expect(elements.map((e) => [e.nom, e.type, e.taille, e.modification])).toEqual([
+      ['a.txt', 'fichier', null, null],
+      ['b.txt', 'fichier', null, null],
+      ['sous', 'dossier', null, null],
+    ]);
+    const explicite = valeurDe(await stockage.lister('in', '', { avecInfos: false }));
+    expect(explicite.every((e) => e.taille === null && e.modification === null)).toBe(true);
+    expect(faux.cheminsAppeles('stat')).toEqual([]);
+  });
+
+  it('classe une entrée de type inconnu par stat sans l’option, taille et date null', async () => {
+    writeFileSync(join(dossiers.in, 'nuage.txt'), 'x');
+    const { stockage } = creerStockage([], {
+      readdir: async () => [{ name: 'nuage.txt', isFile: () => false, isDirectory: () => false }],
+    });
+
+    const elements = valeurDe(await stockage.lister('in'));
+
+    expect(elements).toEqual([
+      {
+        nom: 'nuage.txt',
+        type: 'fichier',
+        copieConflitProbable: false,
+        taille: null,
+        modification: null,
+      },
+    ]);
+  });
+
+  it('garde un fichier dont le stat échoue, avec taille et date null, sans faire échouer la liste', async () => {
+    writeFileSync(join(dossiers.in, 'a.txt'), 'x');
+    writeFileSync(join(dossiers.in, 'b.txt'), 'xy');
+    const { stockage, delais } = creerStockage([
+      { operation: 'stat', chemin: join(dossiers.in, 'a.txt'), code: 'EACCES' },
+    ]);
+
+    const elements = valeurDe(await stockage.lister('in', '', { avecInfos: true })).sort(parNom);
+
+    expect(elements).toEqual([
+      {
+        nom: 'a.txt',
+        type: 'fichier',
+        copieConflitProbable: false,
+        taille: null,
+        modification: null,
+      },
+      fichierAttendu('b.txt', 2),
+    ]);
+    expect(delais).toEqual([]);
+  });
+
+  it('garde un fichier dont la date est invalide, avec la taille et une date null', async () => {
+    writeFileSync(join(dossiers.in, 'a.txt'), 'xyz');
+    const { stockage } = creerStockage([], {
+      stat: async () => ({ isFile: () => true, isDirectory: () => false, size: 3, mtimeMs: NaN }),
+    });
+
+    const [element] = valeurDe(await stockage.lister('in', '', { avecInfos: true }));
+
+    expect(element).toMatchObject({ nom: 'a.txt', taille: 3, modification: null });
   });
 
   it('traite le sous-dossier vide comme la racine', async () => {
@@ -459,11 +585,9 @@ describe('creerStockageDisque — lister', () => {
     writeFileSync(join(dossiers.journal, 'racine.txt'), 'x');
     const { stockage } = creerStockage();
 
-    const elements = valeurDe(await stockage.lister('journal', '2026'));
+    const elements = valeurDe(await stockage.lister('journal', '2026', { avecInfos: true }));
 
-    expect(elements).toEqual([
-      { nom: 'session.txt', type: 'fichier', copieConflitProbable: false },
-    ]);
+    expect(elements).toEqual([fichierAttendu('session.txt', 1)]);
   });
 
   it('renvoie une liste vide pour un dossier vide', async () => {
@@ -531,13 +655,22 @@ describe('creerStockageDisque — lister', () => {
         readdir: async () => [entreeInconnue('nuage.txt'), entreeInconnue('dossier-nuage')],
       });
 
-      const elements = valeurDe(await stockage.lister('in')).sort(parNom);
+      const elements = valeurDe(await stockage.lister('in', '', { avecInfos: true })).sort(parNom);
 
       expect(elements).toEqual([
-        { nom: 'dossier-nuage', type: 'dossier', copieConflitProbable: false },
-        { nom: 'nuage.txt', type: 'fichier', copieConflitProbable: false },
+        {
+          nom: 'dossier-nuage',
+          type: 'dossier',
+          copieConflitProbable: false,
+          taille: null,
+          modification: null,
+        },
+        fichierAttendu('nuage.txt', 1),
       ]);
-      expect(faux.cheminsAppeles('stat')).toContain(join(dossiers.in, 'nuage.txt'));
+      // Un seul stat par entrée : il sert au type, à la taille et à la date
+      expect(
+        faux.cheminsAppeles('stat').filter((c) => c === join(dossiers.in, 'nuage.txt')),
+      ).toHaveLength(1);
     });
 
     it('ignore l’entrée dont le stat échoue avec ENOENT (lien cassé)', async () => {

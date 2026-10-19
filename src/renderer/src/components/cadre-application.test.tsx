@@ -88,7 +88,7 @@ describe('CadreApplication — alerte globale', () => {
   it('rend l’alerte entre l’en-tête et la zone principale', () => {
     const html = rendre({ alerte: <p role="alert">Journal non enregistré</p> });
     expect(html).toMatch(
-      /<\/header><div class="shrink-0"><p role="alert">Journal non enregistré<\/p><\/div><main/,
+      /<\/header><div class="shrink-0"><p role="alert">Journal non enregistré<\/p><\/div><div[^>]*><main/,
     );
   });
 
@@ -108,5 +108,51 @@ describe('CadreApplication — alerte globale', () => {
 
   it('ne rend aucun conteneur pour une alerte false (motif condition && <Alerte />)', () => {
     expect(rendre({ alerte: false })).not.toContain('<div class="shrink-0">');
+  });
+});
+
+describe('CadreApplication — jetons de la charte', () => {
+  it('pose bg-header sur l’en-tête et text-on-brand sur le nom', () => {
+    const html = rendre();
+    expect(html).toMatch(/<header class="[^"]*\bbg-header\b/);
+    expect(html).toMatch(/<span class="[^"]*\btext-on-brand\b[^"]*">Flussi<\/span>/);
+    expect(html).not.toContain('bg-navy-700');
+    expect(html).not.toContain('text-white');
+  });
+});
+
+describe('CadreApplication — colonne du journal', () => {
+  it('rend le journal dans un <aside> nommé, à droite de <main>', () => {
+    const html = rendre({ journal: <p>Lignes du journal</p> });
+    expect(html).toMatch(
+      /<\/main><aside aria-label="Journal de la session" class="[^"]*"><p>Lignes du journal<\/p><\/aside>/,
+    );
+  });
+
+  it('donne à la colonne la largeur du token et l’aspect d’un panneau', () => {
+    const html = rendre({ journal: <p>Lignes</p> });
+    const classes = /<aside[^>]*class="([^"]*)"/.exec(html)?.[1].split(' ') ?? [];
+    expect(classes).toEqual(
+      expect.arrayContaining(['w-panel-log', 'shrink-0', 'rounded-lg', 'border', 'bg-card']),
+    );
+  });
+
+  it('garde l’écran courant seul dans <main>', () => {
+    const html = rendre({ journal: <p>Lignes du journal</p> });
+    expect(html).toMatch(/<main[^>]*><p>Contenu de l’écran<\/p><\/main>/);
+  });
+
+  it.each([
+    ['absent', undefined],
+    ['null', null],
+    ['false', false],
+  ])('ne rend aucune colonne pour un journal %s', (_cas, journal) => {
+    expect(rendre({ journal })).not.toContain('<aside');
+  });
+});
+
+describe('CadreApplication — navigation sans verrou', () => {
+  it('laisse les boutons de navigation actifs', () => {
+    expect(rendre()).not.toContain('disabled=""');
   });
 });

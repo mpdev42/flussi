@@ -10,8 +10,7 @@ import { compterRattachements } from '@shared/test/rattachements-ac056';
 import { controlerAc056 } from './controle';
 import { lireAc056 } from './lecteur';
 import type { LectureAc056 } from './modele';
-
-const PREFIXE_REJET = 'AC056COUR_REJ_';
+import { provenanceDepuisNom } from './provenance';
 
 /** Caractère de remplacement ou contrôle C1 (U+0080 à U+009F) : un décodage Windows-1252 raté. */
 const CARACTERE_SUSPECT = /[�\u0080-\u009F]/;
@@ -25,7 +24,7 @@ let rejets: RejetLu[] | undefined;
 /** Rejets du corpus lus en provenance `rejet` (appelé depuis les `it`, lus au premier appel). */
 function lireRejets(): RejetLu[] {
   if (rejets === undefined) {
-    const noms = listerCorpus('OUT').filter((nom) => nom.startsWith(PREFIXE_REJET));
+    const noms = listerCorpus('OUT').filter((nom) => provenanceDepuisNom(nom) === 'rejet');
     expect(noms.length).toBeGreaterThan(0);
     rejets = noms.map((nom) => ({ nom, lecture: lireAc056(lireCorpus('OUT', nom), 'rejet') }));
   }

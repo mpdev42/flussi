@@ -1,4 +1,3 @@
-import type { KeyboardEvent } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import type { SessionJournal } from '@shared/types';
 
@@ -15,7 +14,7 @@ import {
   TableauChargement,
   type ColonneJournal,
 } from './elements-tableau';
-import { periodeEnLettres, titreSession } from './format-journal';
+import { periodeEnLettres } from './format-journal';
 import { MiseEnPageJournal } from './mise-en-page-journal';
 import { SelecteursPeriode } from './selecteurs-periode';
 
@@ -70,6 +69,11 @@ function StatutSession({ session }: { session: SessionJournal }) {
   );
 }
 
+/** Nom accessible du bouton : commence par la date visible, puis donne l'heure. */
+function libelleOuvrir(session: SessionJournal): string {
+  return `Ouvrir la session du ${formaterDate(session.date)} à ${session.heure}`;
+}
+
 function LigneSession({
   session,
   onOuvrir,
@@ -77,22 +81,26 @@ function LigneSession({
   session: SessionJournal;
   onOuvrir: (session: SessionJournal) => void;
 }) {
-  const surTouche = (evenement: KeyboardEvent<HTMLTableRowElement>) => {
-    if (evenement.target !== evenement.currentTarget) return;
-    if (evenement.key === 'Enter' || evenement.key === ' ') {
-      evenement.preventDefault();
-      onOuvrir(session);
-    }
-  };
+  // Le bouton de la première cellule porte le focus et l'activation clavier ; le clic sur le
+  // reste de la ligne est un confort à la souris.
   return (
     <tr
-      tabIndex={0}
-      title={`Ouvrir ${titreSession(session).toLowerCase()}`}
       onClick={() => onOuvrir(session)}
-      onKeyDown={surTouche}
-      className="cursor-pointer transition-colors duration-fast hover:bg-blue-50 focus-visible:bg-blue-50 focus-visible:outline-none focus-visible:shadow-focus"
+      className="cursor-pointer transition-colors duration-fast hover:bg-blue-50 focus-within:bg-blue-50"
     >
-      <td className={`${CLASSE_TD} tabular-nums`}>{formaterDate(session.date)}</td>
+      <td className={`${CLASSE_TD} tabular-nums`}>
+        <button
+          type="button"
+          aria-label={libelleOuvrir(session)}
+          onClick={(evenement) => {
+            evenement.stopPropagation();
+            onOuvrir(session);
+          }}
+          className="cursor-pointer rounded-sm tabular-nums focus-visible:outline-none focus-visible:shadow-focus"
+        >
+          {formaterDate(session.date)}
+        </button>
+      </td>
       <td className={`${CLASSE_TD} tabular-nums`}>{session.heure}</td>
       <td className={`${CLASSE_TD} font-medium text-foreground`}>{session.compte}</td>
       <td className={CLASSE_TD}>

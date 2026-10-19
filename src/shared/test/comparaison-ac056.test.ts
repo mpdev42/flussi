@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { LigneBrute, LigneDecrite } from '@shared/domain/ac056/modele';
 import type { Octets } from '@shared/domain/ac056/octets';
-import { ligneSynthetique } from './ac056-synthetique';
-import { decrireEcartAc056, empreinteSha256 } from './comparaison-ac056';
+import { enChaineBinaire, enOctetsBruts, ligneSynthetique } from './ac056-synthetique';
+import { decrireEcartAc056, empreinteSha256, sansCtrlZFinal } from './comparaison-ac056';
 
 const origine405 = ligneSynthetique('405') as Octets;
 
@@ -89,5 +89,22 @@ describe('decrireEcartAc056', () => {
     expect(decrireEcartAc056('F.txt', { ligne: 1, octet: 2 }, avecBom)).toBe(
       'F.txt : ligne 1, octet 2, entité 405',
     );
+  });
+});
+
+describe('sansCtrlZFinal', () => {
+  const retirer = (chaine: string) => enChaineBinaire(sansCtrlZFinal(enOctetsBruts(chaine)));
+
+  it.each([
+    ['sans 0x1A', 'A\r\nB', 'A\r\nB'],
+    ['un 0x1A après le CRLF final', 'A\r\n\x1A', 'A\r\n'],
+    ['un 0x1A collé à la dernière ligne', 'A\x1A', 'A'],
+    ['plusieurs 0x1A finaux', 'A\x1A\x1A\x1A', 'A'],
+    ['un 0x1A au milieu, gardé', 'A\x1AB', 'A\x1AB'],
+    ['un 0x1A au milieu et un final', 'A\x1AB\x1A', 'A\x1AB'],
+    ['seulement des 0x1A', '\x1A\x1A', ''],
+    ['vide', '', ''],
+  ])('%s', (_cas, entree, attendu) => {
+    expect(retirer(entree)).toBe(attendu);
   });
 });
