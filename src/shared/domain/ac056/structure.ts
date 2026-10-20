@@ -3,6 +3,10 @@
 // `construireHierarchie` (qui reste fidèle à Lazarus : le dernier gagne, aucun curseur fermé).
 // Toutes les anomalies sont bloquantes. Les messages ne contiennent que des numéros de ligne,
 // des codes d'entité connus et des longueurs, jamais une valeur lue dans le fichier.
+// Une 990 ou une 995 est en double si elle suit immédiatement la fin de son niveau ou un doublon de
+// cette fin ; plus loin, elle est mal placée, hors du niveau déjà fermé. Lignes ignorées entre les
+// deux : 000, 999, codes inconnus et, dans un rejet seulement, 001 (dans un fichier VEOS, la 001
+// ouvre un nouveau dossier : la 990 ou la 995 qui suit est jugée sur ce nouveau dossier).
 //
 // Fichier de rejet MSP : même automate avec les adaptations de la divergence 7.
 // - Longueur : au moins 718 octets (ligne AC056, identification MSP, message éventuel).
@@ -71,11 +75,22 @@ const LIBELLE_PARENT: Readonly<Record<Parent, string>> = {
   beneficiaire: "hors d'un bénéficiaire (après une 400 et avant la 990)",
 };
 
-/** Dossier ou évènement courant. `numeroFin` : 990/995 qui l'a fermé, null si fermeture implicite. */
+/** Début du détail d'une 990 ou d'une 995 placée après la fin de son niveau, hors doublon. */
+const LIBELLE_HORS: Readonly<Record<Parent, string>> = {
+  dossier: "hors d'un dossier",
+  evenement: "hors d'un évènement",
+  beneficiaire: "hors d'un bénéficiaire",
+};
+
+/**
+ * Dossier ou évènement courant. `numeroFin` : 990/995 qui l'a fermé, null si fermeture implicite.
+ * `numeroDerniereFin` : cette 990/995 ou son dernier doublon (une suite de doublons reste en double).
+ */
 interface Niveau {
   readonly numero: number;
   ferme: boolean;
   numeroFin: number | null;
+  numeroDerniereFin: number | null;
 }
 
 interface Evenement extends Niveau {
@@ -130,6 +145,8 @@ export function controlerStructure(
   let cleDossier: Octets | null = null;
   let numero001: number | null = null;
   const premieres000999 = new Map<CodeEntite, number>();
+  // Numéro de la dernière ligne soumise à `REGLES` (ni 000, ni 001, ni 999, ni code inconnu).
+  let numeroPrecedent: number | null = null;
 
   function fermerEvenement(): void {
     if (evt && !evt.ferme) {
@@ -228,7 +245,7 @@ export function controlerStructure(
       const cle = cleDossierRejet(origine);
       if (dossier === null || cle !== cleDossier) {
         fermerDossier();
-        dossier = { numero, ferme: false, numeroFin: null };
+        dossier = { numero, ferme: false, numeroFin: null, numeroDerniereFin: null };
         cleDossier = cle;
         numero001 = null;
         evt = null;
@@ -250,7 +267,7 @@ export function controlerStructure(
         return;
       case '001':
         fermerDossier();
-        dossier = { numero, ferme: false, numeroFin: null };
+        dossier = { numero, ferme: false, numeroFin: null, numeroDerniereFin: null };
         evt = null;
         benef = null;
         return;
@@ -258,19 +275,31 @@ export function controlerStructure(
 
     const { parent, role } = REGLES[code];
     const detailParent = LIBELLE_PARENT[parent];
+    const precedente = numeroPrecedent;
+    numeroPrecedent = numero;
 
     if (role === 'ferme') {
       const niveau = parent === 'dossier' ? dossier : evt;
       if (niveau === null) {
         malPlacee(detailParent);
       } else if (niveau.ferme && niveau.numeroFin !== null) {
-        enDouble(niveau.numeroFin);
+        // Doublon : juste après la fin du niveau ou un doublon de cette fin (toujours cité par la
+        // ligne de fin). Sinon, des lignes ont été placées hors du niveau fermé entre-temps (une
+        // 990 après la 995, par exemple) : la ligne est mal placée.
+        const fin = niveau.numeroFin;
+        if (precedente === niveau.numeroDerniereFin) {
+          enDouble(fin);
+          niveau.numeroDerniereFin = numero;
+        } else {
+          malPlacee(`${LIBELLE_HORS[parent]} (le précédent est fermé ligne ${fin})`);
+        }
       } else if (niveau.ferme) {
         malPlacee(detailParent);
       } else {
         if (parent === 'dossier') fermerEvenement();
         niveau.ferme = true;
         niveau.numeroFin = numero;
+        niveau.numeroDerniereFin = numero;
         benef = null;
       }
       return;
@@ -281,7 +310,13 @@ export function controlerStructure(
     if (role === 'ouvre') {
       if (parent === 'dossier') {
         fermerEvenement();
-        evt = { numero, ferme: false, numeroFin: null, uniques: new Map() };
+        evt = {
+          numero,
+          ferme: false,
+          numeroFin: null,
+          numeroDerniereFin: null,
+          uniques: new Map(),
+        };
       } else {
         benef = { uniques: new Map() };
       }

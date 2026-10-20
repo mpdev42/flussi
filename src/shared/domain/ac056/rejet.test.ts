@@ -114,7 +114,7 @@ describe('messageRejet', () => {
     it('ne produit pas U+FFFD sur un octet non défini en Windows-1252 (0x81)', () => {
       const lu = messageRejet(avecMessage('A\x81B'));
       expect(lu?.message).toBe('A\u0081B');
-      expect(lu?.message.includes('�')).toBe(false);
+      expect(lu?.message.includes('\uFFFD')).toBe(false);
     });
 
     it('décode du texte UTF-8 comme du Windows-1252 (le rejet n est pas en UTF-8)', () => {

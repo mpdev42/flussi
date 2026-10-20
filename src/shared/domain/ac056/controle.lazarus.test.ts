@@ -6,19 +6,14 @@
 //    issu de `lignesCompletes()` (conforme) qui ne viole que ce contrôle.
 // 3. Réciproquement, les règles de `controle.ts` ne produisent que les 28 messages de Lazarus.
 // Un écart est décrit par entité, champ, message attendu et message obtenu.
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { lignesCompletes } from '@shared/test/ac056-synthetique';
 import { avecChamp, controle } from '@shared/test/controle-ac056';
+import { lireSourceLazarus, nomFlussi, valeurLitteral } from '@shared/test/source-lazarus';
 import { REGLES } from './controle';
 import { ENTITES, type CodeEntite } from './entites';
 import type { AnomalieAc056, CodeAnomalie } from './modele';
 import type { Octets } from './octets';
-
-const CHEMIN_SOURCE = fileURLToPath(
-  new URL('../../../../docs/reference/lazarus/ucontrole.pas', import.meta.url),
-);
 
 // Analyse du source Lazarus
 
@@ -44,20 +39,6 @@ interface ControleLazarus {
   readonly champ: string;
   readonly message: string;
   readonly appels: readonly AppelLazarus[];
-}
-
-/** Littéral Pascal `'...'` (apostrophe doublée) vers sa valeur. */
-const valeurLitteral = (litteral: string): string => litteral.slice(1, -1).replaceAll("''", "'");
-
-/** `s_prenom_1` → `prenom1`, `s_rang_personne_n` → `rangPersonne` : retire `s_` et `_n`/`_d`. */
-function nomFlussi(variable: string): string {
-  const mots = variable
-    .replace(/^s_/, '')
-    .replace(/_[nd]$/, '')
-    .split('_');
-  return mots
-    .map((mot, i) => (i === 0 ? mot : mot.charAt(0).toUpperCase() + mot.slice(1)))
-    .join('');
 }
 
 const TYPES_ASSURE_RANG_ELEVE = "((s_type_assure = 'ASSPRI') or (s_type_assure = 'CONJOI'))";
@@ -110,15 +91,7 @@ function lireCondition(brute: string): { variable: string; condition: Condition 
 const MOTIF_APPEL =
   /if\s+(.+?)\s+then\s+ajouter_controle_erreur\(s_num_dossier_n, s_num_evt_n, ace, frmMain\.(edt\d{3}\w*), ('(?:[^']|'')*')\);/g;
 
-function lireSource(): string {
-  const texte = readFileSync(CHEMIN_SOURCE, 'utf8');
-  if (texte.startsWith('﻿') || texte.includes('�')) {
-    throw new Error('ucontrole.pas : UTF-8 sans BOM attendu');
-  }
-  return texte;
-}
-
-const SOURCE = lireSource();
+const SOURCE = lireSourceLazarus('ucontrole.pas');
 
 const APPELS: readonly AppelLazarus[] = [...SOURCE.matchAll(MOTIF_APPEL)].map((m) => {
   const message = valeurLitteral(m[3]!);

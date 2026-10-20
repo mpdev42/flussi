@@ -17,6 +17,7 @@ import {
   listerCorpus,
   lireCorpus,
   localiserEcart,
+  MINIMUM_FICHIERS_CORPUS,
 } from '@shared/test/corpus';
 import { ecrireAc056 } from './ecrivain';
 import { lireAc056 } from './lecteur';
@@ -71,7 +72,8 @@ function lireNote(
     }
     const cle = ligne.slice(0, egal).trim();
     if (!(CLES as readonly string[]).includes(cle)) {
-      ecarts.push(`${base} : clé ${cle} inconnue`);
+      // Clé tapée à la main : jamais recopiée (texte libre).
+      ecarts.push(`${base} : ligne ${index + 1} de la note, clé inconnue`);
       return;
     }
     if (valeurs.has(cle as Cle)) {
@@ -135,8 +137,10 @@ function concatener(a: Uint8Array, b: Uint8Array): Uint8Array {
 
 decrireSousDossierCorpus('MODIFIES', 'Modification AC056 sur le corpus réel (MODIFIES)', () => {
   describe('inventaire', () => {
-    it('contient au moins une paire fichier et note', () => {
-      expect(inventorier().modifications.length).toBeGreaterThan(0);
+    it(`contient au moins ${MINIMUM_FICHIERS_CORPUS.MODIFIES} paires fichier et note`, () => {
+      expect(inventorier().modifications.length).toBeGreaterThanOrEqual(
+        MINIMUM_FICHIERS_CORPUS.MODIFIES,
+      );
     });
 
     it('associe chaque .txt à une note et chaque note à un .txt', () => {

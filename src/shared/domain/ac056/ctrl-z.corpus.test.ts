@@ -9,6 +9,7 @@ import {
   decrireCorpus,
   listerCorpus,
   lireCorpus,
+  MINIMUM_FICHIERS_CORPUS,
   resoudreSousDossierCorpus,
   type SousDossierCorpus,
 } from '@shared/test/corpus';
@@ -63,9 +64,12 @@ decrireCorpus('Ctrl-Z (0x1A) sur le corpus réel', () => {
     annotate,
   }) => {
     const tous = lireFichiers();
-    expect(tous.length).toBeGreaterThan(0);
     for (const sousDossier of SOUS_DOSSIERS) {
       const du = tous.filter((f) => f.sousDossier === sousDossier);
+      // PIEGES et MODIFIES, facultatifs avec `npm test`, ne sont comptés que s'ils sont présents.
+      if (sousDossier === 'IN' || sousDossier === 'OUT' || du.length > 0) {
+        expect(du.length, sousDossier).toBeGreaterThanOrEqual(MINIMUM_FICHIERS_CORPUS[sousDossier]);
+      }
       const fin = du.filter((f) => aCtrlZFinal(f.octets)).length;
       const milieu = du.filter((f) => aCtrlZAuMilieu(f.octets)).length;
       await annotate(

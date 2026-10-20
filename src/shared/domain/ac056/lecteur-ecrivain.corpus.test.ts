@@ -4,7 +4,13 @@
 // Aucune E/S pendant la collecte : tout est lu dans les `it`.
 import { describe, expect, it } from 'vitest';
 import { decrireEcartAc056, empreinteSha256, sansCtrlZFinal } from '@shared/test/comparaison-ac056';
-import { decrireCorpus, listerCorpus, lireCorpus, localiserEcart } from '@shared/test/corpus';
+import {
+  decrireCorpus,
+  listerCorpus,
+  lireCorpus,
+  localiserEcart,
+  MINIMUM_FICHIERS_CORPUS,
+} from '@shared/test/corpus';
 import { compterRattachements } from '@shared/test/rattachements-ac056';
 import { controlerAc056 } from './controle';
 import type { CodeEntite } from './entites';
@@ -31,8 +37,8 @@ function lireTousLesFichiers(): FichierLu[] {
 }
 
 decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
-  it('contient au moins un fichier .txt', () => {
-    expect(lireTousLesFichiers().length).toBeGreaterThan(0);
+  it(`contient au moins ${MINIMUM_FICHIERS_CORPUS.IN} fichiers .txt`, () => {
+    expect(lireTousLesFichiers().length).toBeGreaterThanOrEqual(MINIMUM_FICHIERS_CORPUS.IN);
   });
 
   describe('lecture', () => {
@@ -112,7 +118,11 @@ decrireCorpus('Lecteur et écrivain AC056 sur le corpus réel (IN)', () => {
       const fichiers = listerCorpus('IN')
         .filter((nom) => nom.endsWith('.txt'))
         .map((nom) => ({ nom, octets: lireCorpus('IN', nom) }));
-      const plusGros = fichiers.reduce((a, b) => (b.octets.length > a.octets.length ? b : a));
+      expect(fichiers.length).toBeGreaterThanOrEqual(MINIMUM_FICHIERS_CORPUS.IN);
+      const plusGros = fichiers.reduce((a, b) => (b.octets.length > a.octets.length ? b : a), {
+        nom: '',
+        octets: new Uint8Array(),
+      });
 
       // Échauffement, puis médiane de 5 mesures de la lecture suivie du contrôle complet.
       const echauffement = lireAc056(plusGros.octets).fichier;

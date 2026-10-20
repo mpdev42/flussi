@@ -9,10 +9,33 @@ import {
   lignesRejet,
 } from '@shared/test/ac056-synthetique';
 import { avecChamp } from '@shared/test/controle-ac056';
-import { analyserAc056, type AnalyseAc056 } from './analyse';
+import { analyserAc056, bilanAnalyse, familleAnomalie, type AnalyseAc056 } from './analyse';
 import { controlerAc056 } from './controle';
 import { lireAc056 } from './lecteur';
+import type { AnomalieAc056, CodeAnomalie } from './modele';
 import { CODES_STRUCTURE } from './structure';
+
+/** Famille attendue de chaque code (liste exhaustive, comme la table de `analyse.ts`). */
+const FAMILLES_ATTENDUES: Record<CodeAnomalie, ReturnType<typeof familleAnomalie>> = {
+  bom: 'lecture',
+  'fin-de-ligne-lf': 'lecture',
+  'fin-de-ligne-cr': 'lecture',
+  'ligne-vide': 'lecture',
+  'ctrl-z-final': 'lecture',
+  'encodage-incoherent': 'lecture',
+  'fichier-vide': 'structure',
+  'longueur-ligne': 'structure',
+  'entite-inconnue': 'structure',
+  'entite-mal-placee': 'structure',
+  'entite-en-double': 'structure',
+  'entite-absente': 'structure',
+  'caractere-non-autorise': 'controle',
+  'caractere-interdit': 'controle',
+  'code-postal-longueur': 'controle',
+  'rang-incoherent': 'controle',
+  'rang-non-numerique': 'controle',
+  'valeur-imposee': 'controle',
+};
 
 /** Indice (base 0) de la première ligne de code `code`. */
 const indiceDe = (lignes: readonly string[], code: string) =>
@@ -184,5 +207,66 @@ describe('analyserAc056', () => {
         expect(nonSimples(analyse)).toEqual([]);
       },
     );
+  });
+});
+
+describe('bilanAnalyse', () => {
+  it('trie par ligne (niveau fichier d abord), de façon stable, et recalcule les compteurs', () => {
+    const { fichier } = lireAc056(fichierSynthetique(lignesCompletes({ dossiers: 1 })));
+    const a = (code: CodeAnomalie, ligne: number | null, bloquante: boolean): AnomalieAc056 => ({
+      code,
+      ligne,
+      message: code,
+      bloquante,
+    });
+    const bilan = bilanAnalyse(fichier, [
+      a('caractere-non-autorise', 5, true),
+      a('fin-de-ligne-lf', 5, false),
+      a('entite-en-double', 3, true),
+      a('bom', null, false),
+      a('rang-incoherent', 5, true),
+    ]);
+    expect(bilan.anomalies.map((x) => [x.ligne, x.code])).toEqual([
+      [null, 'bom'],
+      [3, 'entite-en-double'],
+      [5, 'caractere-non-autorise'],
+      [5, 'fin-de-ligne-lf'],
+      [5, 'rang-incoherent'],
+    ]);
+    expect([bilan.erreurs, bilan.nonBloquantes, bilan.structure, bilan.lignesRejetees]).toEqual([
+      3, 2, 1, 0,
+    ]);
+    expect(Object.isFrozen(bilan)).toBe(true);
+    expect(Object.isFrozen(bilan.anomalies)).toBe(true);
+  });
+
+  it('donne le même résultat qu analyserAc056 sur la lecture puis le contrôle', () => {
+    const { octets } = fichierMelange();
+    const lecture = lireAc056(octets);
+    expect(
+      bilanAnalyse(lecture.fichier, [...lecture.anomalies, ...controlerAc056(lecture.fichier)]),
+    ).toEqual(analyserAc056(octets, 'veos'));
+  });
+});
+
+describe('familleAnomalie', () => {
+  it('range en structure exactement les codes de CODES_STRUCTURE', () => {
+    const codes = Object.keys(FAMILLES_ATTENDUES) as CodeAnomalie[];
+    expect(codes.filter((code) => familleAnomalie(code) === 'structure').sort()).toEqual(
+      [...CODES_STRUCTURE].sort(),
+    );
+  });
+
+  it('range en contrôle tous les codes produits par controlerAc056, et eux seuls', () => {
+    const codes = Object.keys(FAMILLES_ATTENDUES) as CodeAnomalie[];
+    expect(codes.filter((code) => familleAnomalie(code) === 'controle').sort()).toEqual([
+      'caractere-interdit',
+      'caractere-non-autorise',
+      'code-postal-longueur',
+      'rang-incoherent',
+      'rang-non-numerique',
+      'valeur-imposee',
+    ]);
+    for (const code of codes) expect(familleAnomalie(code)).toBe(FAMILLES_ATTENDUES[code]);
   });
 });

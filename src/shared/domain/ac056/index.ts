@@ -1,12 +1,25 @@
 // Domaine pur AC056 : description des entités, lecture (fichier VEOS ou rejet MSP en lecture
-// seule), écriture, modification d'un champ et contrôle.
+// seule), écriture, modification d'un champ et contrôle, index des lignes, compteurs d'erreurs,
+// saisie d'un champ à l'écran et texte affiché.
 export * from './entites';
-export { analyserAc056 } from './analyse';
+export { entreeListe, texteEntree, valeurAffichee } from './affichage';
+export type { EtatValeurAffichee, ValeurAffichee } from './affichage';
+export { analyserAc056, bilanAnalyse } from './analyse';
 export type { AnalyseAc056 } from './analyse';
 export { CODES_REJET, MESSAGE_REJET_INCONNU, REJETS, identifierRejet } from './codes-rejet';
 export type { CodeRejet, DescriptionRejet, ModeRecherche, RechercheRejet } from './codes-rejet';
-export { controlerAc056, controlerChamp } from './controle';
+export { compterAnomalies, compterParLigne } from './compteurs';
+export type {
+  CodeEntiteBeneficiaire,
+  CodeEntiteEvenement,
+  CompteursAc056,
+  ElementsBeneficiaire,
+  ElementsEvenement,
+} from './compteurs';
+export { CONSIGNE_VEOS, controlerAc056, controlerChamp } from './controle';
 export { ecrireAc056 } from './ecrivain';
+export { indexerLignes } from './index-lignes';
+export type { EvenementIndexe, IndexLignesAc056, Rattachement } from './index-lignes';
 export { lireAc056 } from './lecteur';
 export type {
   AnomalieAc056,
@@ -33,3 +46,5 @@ export type {
 export { octetsDepuisTexte, texteDepuisOctets } from './octets';
 export type { Octets } from './octets';
 export { PREFIXE_FICHIER_REJET, provenanceDepuisNom } from './provenance';
+export { saisirChamp } from './saisie';
+export type { ResultatSaisie } from './saisie';

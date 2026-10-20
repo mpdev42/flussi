@@ -108,19 +108,38 @@ describe('texteDepuisOctets', () => {
   });
 
   it('remplace un octet 0xE9 isolé par U+FFFD sans lever', () => {
-    expect(texteDepuisOctets(binaire('CAF\xE9'))).toBe('CAF�');
+    expect(texteDepuisOctets(binaire('CAF\xE9'))).toBe('CAF\uFFFD');
   });
 
   it('remplace un 0xC3 final isolé par U+FFFD sans lever', () => {
-    expect(texteDepuisOctets(binaire('A\xC3'))).toBe('A�');
+    expect(texteDepuisOctets(binaire('A\xC3'))).toBe('A\uFFFD');
   });
 
   it('remplace 0xFF par U+FFFD sans lever', () => {
-    expect(texteDepuisOctets(binaire('\xFF'))).toBe('�');
+    expect(texteDepuisOctets(binaire('\xFF'))).toBe('\uFFFD');
   });
 
   it('renvoie une chaîne vide pour une chaîne vide', () => {
     expect(texteDepuisOctets(binaire(''))).toBe('');
+  });
+
+  it('garde un EF BB BF en tête de valeur (U+FEFF) au lieu de l avaler', () => {
+    expect(texteDepuisOctets(binaire('\xEF\xBB\xBFABC'))).toBe('\uFEFFABC');
+  });
+
+  it('garde un EF BB BF seul', () => {
+    expect(texteDepuisOctets(binaire('\xEF\xBB\xBF'))).toBe('\uFEFF');
+  });
+
+  it('garde un EF BB BF au milieu de la valeur', () => {
+    expect(texteDepuisOctets(binaire('A\xEF\xBB\xBFB'))).toBe('A\uFEFFB');
+  });
+
+  it('ne garde aucun \u00E9tat d un appel \u00E0 l autre (d\u00E9codeur partag\u00E9)', () => {
+    // S\u00E9quence UTF-8 tronqu\u00E9e, puis EF BB BF en t\u00EAte : ni reste du premier appel, ni BOM aval\u00E9.
+    expect(texteDepuisOctets(binaire('A\xE2\x82'))).toBe('A\uFFFD');
+    expect(texteDepuisOctets(binaire('\xEF\xBB\xBFB'))).toBe('\uFEFFB');
+    expect(texteDepuisOctets(binaire('\xAC'))).toBe('\uFFFD');
   });
 });
 
@@ -196,7 +215,7 @@ describe('texteWindows1252', () => {
     const tous = octetsDepuisTableau(Uint8Array.from({ length: 256 }, (_, i) => i));
     const texte = texteWindows1252(tous);
     expect(texte).toHaveLength(256);
-    expect(texte.includes('�')).toBe(false);
+    expect(texte.includes('\uFFFD')).toBe(false);
   });
 
   it('renvoie une chaîne vide pour une chaîne vide', () => {

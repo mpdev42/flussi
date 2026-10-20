@@ -261,7 +261,7 @@ describe('EcranAc056 — fichier ouvert', () => {
     expect(c.querySelector('[role="group"]')).toBeNull();
   });
 
-  it('affiche le nombre d’erreurs d’un fichier VEOS, sans alerte', async () => {
+  it('affiche le nombre d’erreurs d’un fichier VEOS, avec l’alerte du fichier', async () => {
     const c = await afficher();
 
     await ouvrirFichier(c, ouvertureReussie(NOM_VEOS, { erreurs: 3 }));
@@ -270,7 +270,9 @@ describe('EcranAc056 — fichier ouvert', () => {
     expect(c.textContent).toContain('3 erreurs');
     expect(c.textContent).not.toContain('Aucune erreur');
     expect(c.querySelector('[role="alert"]')).toBeNull();
-    expect(c.querySelector('[role="status"]')).toBeNull();
+    const alerte = c.querySelector('[role="status"]');
+    expect(alerte?.textContent).toBe('Le fichier contient 3 erreurs à corriger.');
+    expect(alerte?.querySelector('h1, h2, h3, h4, h5, h6')).toBeNull();
     expect(bouton(c, 'Changer de fichier').disabled).toBe(false);
   });
 
@@ -281,6 +283,9 @@ describe('EcranAc056 — fichier ouvert', () => {
 
     expect(c.textContent).toContain('1 erreur');
     expect(c.textContent).not.toContain('1 erreurs');
+    expect(c.querySelector('[role="status"]')?.textContent).toBe(
+      'Le fichier contient 1 erreur à corriger.',
+    );
   });
 
   it('affiche « Aucune erreur » et l’alerte de succès pour un fichier VEOS sans erreur', async () => {
@@ -330,7 +335,8 @@ describe('EcranAc056 — fichier ouvert', () => {
       "Corriger les champs ne répare pas la structure du fichier. Relancez l'export dans VEOS, puis rechargez le fichier.",
     );
     expect(c.textContent).toContain('4 erreurs');
-    expect(c.querySelector('[role="status"]')).toBeNull();
+    // Fichier mal formé : tout est en lecture seule, rien « à corriger » dans les champs
+    expect(c.querySelector('[role="status"]')?.textContent).toBe('Le fichier contient 4 erreurs.');
   });
 
   it('n’affiche pas l’alerte de structure pour un rejet', async () => {

@@ -7,7 +7,7 @@ export const ENTITE_155: DescriptionEntite = {
   brute: false,
   champs: [
     ...entete(),
-    num('rangPersonne', 26, 2, { affiche: true, maxLength: 2 }),
+    num('rangPersonne', 26, 2, { affiche: true, libelle: 'Rang de la personne', maxLength: 2 }),
     alpha('refExterne', 28, 20),
     alpha('codePart', 48, 3),
     alpha('qualitePayeur', 51, 1),
@@ -17,7 +17,11 @@ export const ENTITE_155: DescriptionEntite = {
     alpha('frequenceAvisEcheance', 59, 2),
     alpha('typeTerme', 61, 2),
     alpha('echancier', 63, 2),
-    date('debutPrelevement', 65, 8, { trim: true, affiche: true }),
+    date('debutPrelevement', 65, 8, {
+      trim: true,
+      affiche: true,
+      libelle: 'Date début prélèvement',
+    }),
     date('finPrelevement', 73, 8),
     alpha('motifFinPrelevement', 81, 2),
     alpha('attentionDe', 83, 30),

@@ -10,6 +10,7 @@ export const ENTITE_125: DescriptionEntite = {
     alpha('codeTypeCoordonnee', 26, 4, {
       trim: true,
       affiche: true,
+      libelle: 'Type',
       valeursAutorisees: [
         { code: 'DOM', libelle: 'Domicile' },
         { code: 'MPCP', libelle: 'Mail' },
@@ -20,6 +21,7 @@ export const ENTITE_125: DescriptionEntite = {
     alpha('codeNatureCommunication', 30, 4, {
       trim: true,
       affiche: true,
+      libelle: 'Nature',
       valeursAutorisees: [
         { code: 'FAX', libelle: 'Fax' },
         { code: 'MAIL', libelle: 'E-mail' },
@@ -29,6 +31,7 @@ export const ENTITE_125: DescriptionEntite = {
     alpha('valeurCoordonneeCommunication', 34, 50, {
       trim: true,
       affiche: true,
+      libelle: 'Valeur',
       modifiable: true,
       maxLength: 50,
     }),

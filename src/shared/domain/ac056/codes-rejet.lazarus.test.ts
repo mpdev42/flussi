@@ -4,18 +4,9 @@
 // - `Rejets - Explications.txt` : l'algorithme de `ajouter_rejet_explication` (la ligne qui suit
 //   `[ERRxxx]` est sautée, les suivantes forment l'explication).
 // Ces fichiers ne contiennent que des textes de référence, aucune donnée personnelle.
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { lireSourceLazarus, valeurLitteral } from '@shared/test/source-lazarus';
 import { REJETS, type ModeRecherche, type RechercheRejet } from './codes-rejet';
-
-const DOSSIER_LAZARUS = '../../../../docs/reference/lazarus/';
-const CHEMIN_DESCRIPTION = fileURLToPath(
-  new URL(`${DOSSIER_LAZARUS}urejetsdescription.pas`, import.meta.url),
-);
-const CHEMIN_EXPLICATIONS = fileURLToPath(
-  new URL(`${DOSSIER_LAZARUS}Rejets - Explications.txt`, import.meta.url),
-);
 
 const MODES: Readonly<Record<string, ModeRecherche | null>> = {
   REJET_START: 'debut',
@@ -28,20 +19,6 @@ const MODES: Readonly<Record<string, ModeRecherche | null>> = {
 interface AppelLazarus {
   readonly code: string;
   readonly recherches: readonly (RechercheRejet | null)[];
-}
-
-/** Lit un fichier de référence UTF-8 sans BOM. */
-function lireUtf8(chemin: string): string {
-  const texte = readFileSync(chemin, 'utf8');
-  if (texte.startsWith('﻿') || texte.includes('�')) {
-    throw new Error(`${chemin} : UTF-8 sans BOM attendu`);
-  }
-  return texte;
-}
-
-/** Littéral Pascal `'...'` (apostrophe doublée) vers sa valeur. */
-function valeurLitteral(litteral: string): string {
-  return litteral.slice(1, -1).replaceAll("''", "'");
 }
 
 /** Les 27 appels de `charger_rejets_description`, dans l'ordre du source. */
@@ -105,10 +82,10 @@ function extraireExplications(contenu: string, codes: readonly string[]): Map<st
   return explications;
 }
 
-const source = lireUtf8(CHEMIN_DESCRIPTION);
+const source = lireSourceLazarus('urejetsdescription.pas');
 const appels = extraireAppels(source);
 const explicationsLazarus = extraireExplications(
-  lireUtf8(CHEMIN_EXPLICATIONS),
+  lireSourceLazarus('Rejets - Explications.txt'),
   appels.map((appel) => appel.code),
 );
 

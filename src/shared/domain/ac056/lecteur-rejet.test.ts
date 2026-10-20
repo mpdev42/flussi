@@ -341,6 +341,16 @@ describe('encodage incohérent avec la provenance', () => {
       expect(encodage(lecture)).toHaveLength(1);
     });
 
+    it('cite la première ligne qui porte un octet non ASCII, et la pose sur l anomalie', () => {
+      const lignes = lignesRejet({ message: (code) => (code === '990' ? '\xC3\xA9' : undefined) });
+      const attendu = lignes.findIndex((ligne) => codeDe(ligne) === '990') + 1;
+      const [anomalie] = encodage(lireRejet(lignes));
+      expect(anomalie?.ligne).toBe(attendu);
+      expect(anomalie?.message).toBe(
+        `Le fichier de rejet semble encodé en UTF-8 au lieu de Windows-1252 (première ligne concernée : ${attendu}) : les accents des messages seront mal affichés.`,
+      );
+    });
+
     it('produit une anomalie non bloquante, sans ligne, qui nomme les deux encodages', () => {
       const [anomalie] = encodage(lireRejet(lignesRejet(), { bom: true }));
       expect(anomalie?.bloquante).toBe(false);
@@ -375,12 +385,30 @@ describe('encodage incohérent avec la provenance', () => {
       expect(encodage(lireVeos(lignes))).toHaveLength(1);
     });
 
-    it('produit une anomalie non bloquante, sans ligne, sans valeur lue', () => {
+    it('produit une anomalie non bloquante, sur la ligne fautive, sans valeur lue', () => {
       const [anomalie] = encodage(lireVeos([ligneSynthetique('405', { nom: 'ZQXW\xE9' })]));
       expect(anomalie?.bloquante).toBe(false);
-      expect(anomalie?.ligne).toBeNull();
-      expect(anomalie?.message).not.toContain('ZQXW');
+      expect(anomalie?.ligne).toBe(1);
+      expect(anomalie?.message).toBe(
+        "Le fichier semble encodé en Windows-1252 au lieu d'UTF-8 (première ligne concernée : 1).",
+      );
       expect(Object.isFrozen(anomalie)).toBe(true);
+    });
+
+    it('cite la première ligne en UTF-8 invalide, lignes vides comptées', () => {
+      const lignes = lignesCompletes();
+      const indices = lignes.flatMap((ligne, i) => (codeDe(ligne) === '405' ? [i] : []));
+      for (const i of indices.slice(1, 3)) lignes[i] = nomWindows1252;
+      const attendu = indices[1]! + 2;
+      const [anomalie] = encodage(lireVeos(['', ...lignes]));
+      expect(anomalie?.ligne).toBe(attendu);
+      expect(anomalie?.message).toContain(`(première ligne concernée : ${attendu})`);
+    });
+
+    it('trouve la ligne d une séquence UTF-8 tronquée en fin de fichier', () => {
+      const lignes = [...lignesCompletes()];
+      lignes[lignes.length - 1] += '\xC3';
+      expect(encodage(lireVeos(lignes))[0]?.ligne).toBe(lignes.length);
     });
 
     it('ne signale pas un accent UTF-8 valide', () => {
@@ -397,10 +425,15 @@ describe('encodage incohérent avec la provenance', () => {
       expect(lecture.anomalies.map((a) => a.code)).toEqual(['bom']);
     });
 
-    it('place l anomalie d encodage au niveau fichier, avant les anomalies de ligne', () => {
+    it('place l anomalie d encodage sur sa ligne, triée avec les anomalies de ligne', () => {
       const lecture = lireVeos(['ABC', nomWindows1252]);
-      expect(lecture.anomalies[0]?.code).toBe('encodage-incoherent');
-      expect(lecture.anomalies[0]?.ligne).toBeNull();
+      expect(lecture.anomalies.map((a) => [a.code, a.ligne])).toEqual([
+        ['entite-absente', null],
+        ['entite-absente', null],
+        ['longueur-ligne', 1],
+        ['encodage-incoherent', 2],
+        ['entite-mal-placee', 2],
+      ]);
     });
   });
 });

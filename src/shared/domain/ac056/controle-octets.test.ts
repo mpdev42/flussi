@@ -43,15 +43,22 @@ describe('controlerAc056 : divergence 5, octets interdits dans tout champ', () =
   const sur405 = (indice: number, caractere: string) =>
     quadruplets(controle(dansBeneficiaire('AUTRE', avecOctet(ligne('405'), indice, caractere))));
 
-  const MESSAGE_PRENOM2 =
-    'Entité 405 : caractère non autorisé dans le champ prenom2 (octets 108 à 127)';
+  const messagePrenom2 = (octet: number) =>
+    `Entité 405 : caractère interdit dans le champ prenom2 (octets 108 à 127), octet ${octet}.`;
 
   it.each([
     ['au début', 107],
     ['au milieu', 117],
     ['à la fin', 126],
   ])('signale un octet 0x7F %s d un champ que Lazarus ne contrôle pas', (_nom, indice) => {
-    expect(sur405(indice, '\x7F')).toEqual([[5, 'prenom2', INTERDIT, MESSAGE_PRENOM2]]);
+    expect(sur405(indice, '\x7F')).toEqual([[5, 'prenom2', INTERDIT, messagePrenom2(indice + 1)]]);
+  });
+
+  it('cite le premier octet interdit du champ, pas les suivants', () => {
+    const texte = avecChamp(ligne('405'), '405', 'prenom2', 'AB\x01C\x02');
+    expect(quadruplets(controle(dansBeneficiaire('AUTRE', texte)))).toEqual([
+      [5, 'prenom2', INTERDIT, messagePrenom2(110)],
+    ]);
   });
 
   it('ne signale pas l octet qui borde le champ voisin', () => {
@@ -65,7 +72,7 @@ describe('controlerAc056 : divergence 5, octets interdits dans tout champ', () =
         5,
         'numEmetteur',
         INTERDIT,
-        'Entité 405 : caractère non autorisé dans le champ numEmetteur (octets 1 à 9)',
+        'Entité 405 : caractère interdit dans le champ numEmetteur (octets 1 à 9), octet 1.',
       ],
     ]);
   });
@@ -76,7 +83,7 @@ describe('controlerAc056 : divergence 5, octets interdits dans tout champ', () =
         5,
         'zoneNonDecrite',
         INTERDIT,
-        'Entité 405 : caractère non autorisé dans le champ zoneNonDecrite (octets 248 à 700)',
+        'Entité 405 : caractère interdit dans le champ zoneNonDecrite (octets 248 à 700), octet 700.',
       ],
     ]);
   });
@@ -140,7 +147,7 @@ describe('controlerAc056 : divergence 5, octets interdits dans tout champ', () =
     // La tabulation est retirée par Trim : Lazarus ne voit rien, la divergence 5 la signale.
     const texte = avecChamp(ligne('405'), '405', 'nom', '\tDUPONT');
     expect(quadruplets(controle(dansBeneficiaire('AUTRE', texte)))).toEqual([
-      [5, 'nom', INTERDIT, 'Entité 405 : caractère non autorisé dans le nom'],
+      [5, 'nom', INTERDIT, 'Entité 405 : caractère interdit dans le champ « Nom », octet 38.'],
     ]);
   });
 
@@ -161,7 +168,7 @@ describe('controlerAc056 : divergence 5, octets interdits dans tout champ', () =
             indice + 1,
             'donnees',
             INTERDIT,
-            `Entité ${code} : caractère non autorisé dans le champ donnees (octets 26 à 700)`,
+            `Entité ${code} : caractère interdit dans le champ donnees (octets 26 à 700), octet 101.`,
           ],
         ]);
       },

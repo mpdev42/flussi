@@ -134,6 +134,12 @@ export interface AnomalieAc056 {
   readonly bloquante: boolean;
   /** Nom Flussi du champ en cause (anomalies de contrôle uniquement). */
   readonly champ?: string;
+  /**
+   * Texte affiché sous le champ (`DESIGN.md` §9.2) : ce qui ne va pas et ce qui est attendu, en
+   * une ou deux phrases, sans valeur lue. Anomalies de contrôle uniquement, toujours présent sur
+   * celles-ci. Le `message` garde le texte de Lazarus (journal, relevé, liste des erreurs).
+   */
+  readonly consigne?: string;
 }
 
 export interface LectureAc056 {

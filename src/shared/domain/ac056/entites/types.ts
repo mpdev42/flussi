@@ -68,6 +68,11 @@ export interface DescriptionChamp {
   readonly trim: boolean;
   /** Contrôle de saisie dans l'onglet Lazarus de l'entité. */
   readonly affiche: boolean;
+  /**
+   * Libellé à l'écran, présent si et seulement si `affiche` : `Caption` du `TLabel` de Lazarus
+   * (`fmain.lfm`) sans le « : » final, coquilles corrigées (`fiches.lazarus.test.ts`).
+   */
+  readonly libelle?: string;
   /** L'un des 23 `TDonneeModifiable`. */
   readonly modifiable: boolean;
   /** `MaxLength` du contrôle Lazarus, conservé même s'il diffère de `longueur`. */

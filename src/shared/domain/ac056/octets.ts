@@ -36,13 +36,18 @@ export function octetsDepuisTexte(texte: string): Octets {
   return octetsDepuisTableau(new TextEncoder().encode(texte));
 }
 
-/** Décode en UTF-8 non fatal (U+FFFD si invalide), pour l'affichage. */
-export function texteDepuisOctets(octets: Octets): string {
-  return new TextDecoder('utf-8').decode(tableauDepuisOctets(octets));
-}
-
+const DECODEUR_UTF8_AFFICHAGE = new TextDecoder('utf-8', { ignoreBOM: true });
 const DECODEUR_WINDOWS_1252 = new TextDecoder('windows-1252');
 const DECODEUR_UTF8_STRICT = new TextDecoder('utf-8', { fatal: true });
+
+/**
+ * Décode en UTF-8 non fatal (U+FFFD si invalide), pour l'affichage. Un EF BB BF en tête de valeur
+ * est gardé (U+FEFF) : `ignoreBOM` empêche le décodeur de l'avaler, l'écran montre la valeur lue.
+ * Décodeur partagé : `decode` sans `stream` ne garde aucun état d'un appel à l'autre.
+ */
+export function texteDepuisOctets(octets: Octets): string {
+  return DECODEUR_UTF8_AFFICHAGE.decode(tableauDepuisOctets(octets));
+}
 
 /**
  * Décode des octets en Windows-1252 (messages des rejets MSP). Ne produit jamais U+FFFD : les

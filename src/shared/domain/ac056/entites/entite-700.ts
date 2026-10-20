@@ -1,19 +1,39 @@
 import { alpha, date, num, zoneNonDecrite } from './champs';
-import { entete, RANG_MODIFIABLE } from './entete';
+import { entete, RANG_BENEFICIAIRE } from './entete';
 import type { DescriptionEntite } from './types';
 
 export const ENTITE_700: DescriptionEntite = {
   code: '700',
   brute: false,
   champs: [
-    ...entete(RANG_MODIFIABLE),
+    ...entete(RANG_BENEFICIAIRE),
     alpha('indicActionGarantie', 26, 1),
-    alpha('codeAssureur', 27, 9, { trim: true, affiche: true, maxLength: 9 }),
-    alpha('codeProduit', 36, 10, { trim: true, affiche: true, maxLength: 10 }),
-    alpha('codeGarantie', 46, 10, { trim: true, affiche: true, maxLength: 10 }),
-    alpha('codeConditionVente', 56, 6, { trim: true, affiche: true, maxLength: 6 }),
+    alpha('codeAssureur', 27, 9, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code assureur',
+      maxLength: 9,
+    }),
+    alpha('codeProduit', 36, 10, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code produit',
+      maxLength: 10,
+    }),
+    alpha('codeGarantie', 46, 10, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code garantie',
+      maxLength: 10,
+    }),
+    alpha('codeConditionVente', 56, 6, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code condition vente',
+      maxLength: 6,
+    }),
     alpha('codeVersionTarifaire', 62, 10),
-    date('ancienneteGarantieSouscr', 72, 8, { affiche: true }),
+    date('ancienneteGarantieSouscr', 72, 8, { affiche: true, libelle: 'Date ancienneté garantie' }),
     date('finEnfantACharge', 80, 8),
     num('reservesMedicale', 88, 1),
     num('reservesAutres', 89, 1),
@@ -27,9 +47,13 @@ export const ENTITE_700: DescriptionEntite = {
     alpha('codeAssureurGarantieRemp', 150, 9),
     alpha('codeGarantieRemp', 159, 10),
     // maxLength 2 pour une longueur de 1 : écart de Lazarus conservé tel quel.
-    num('appliquerStageCv', 169, 1, { affiche: true, maxLength: 2 }),
-    date('dateFinStage1', 170, 8, { affiche: true }),
-    alpha('codeStage1', 178, 6, { affiche: true, maxLength: 6 }),
+    num('appliquerStageCv', 169, 1, {
+      affiche: true,
+      libelle: 'Déroger à la date de stage',
+      maxLength: 2,
+    }),
+    date('dateFinStage1', 170, 8, { affiche: true, libelle: 'Date de fin de stage' }),
+    alpha('codeStage1', 178, 6, { affiche: true, libelle: 'Code stage', maxLength: 6 }),
     date('dateFinStage2', 184, 8),
     alpha('codeStage2', 192, 6),
     date('dateFinStage3', 198, 8),
@@ -39,7 +63,12 @@ export const ENTITE_700: DescriptionEntite = {
     date('dateFinStage5', 226, 8),
     alpha('codeStage5', 234, 6),
     // Trim + bourrage '0' : Lazarus réécrit un type blanc en zéro.
-    num('typeGarantieAssemblee', 240, 1, { trim: true, affiche: true, maxLength: 1 }),
+    num('typeGarantieAssemblee', 240, 1, {
+      trim: true,
+      affiche: true,
+      libelle: 'Type garantie',
+      maxLength: 1,
+    }),
     num('numProduitGroupeAssures', 241, 5),
     num('numGarantieGroupeAssures', 246, 5),
     alpha('zoneBanalisee', 251, 16),

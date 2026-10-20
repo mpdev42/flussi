@@ -97,7 +97,7 @@
 
 ### 2. Navigation dans le fichier, contrôle à la sortie d'un champ et marquage des erreurs
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : custom
 
 **Description** — Navigation par évènement, bénéficiaire, garantie et entité ; affichage des champs de chaque entité ; contrôle à la sortie d'un champ et marquage des erreurs à chaque niveau.
@@ -133,6 +133,119 @@
 - Aides des tests `*.lazarus.test.ts` regroupées dans `src/shared/test/source-lazarus.ts` (`valeurLitteral`, `lireSource`, `nomMecanique`), avant d'ajouter le test contre `fmain.lfm` (v0.1.0, revue release)
 
 **Fichiers impactés** : `src/renderer/src/pages/ac056/`, `src/renderer/src/hooks/`, `src/shared/domain/ac056/` (`entites/`, `octets.ts`, `controle.ts`, `structure.ts`, `lecteur.ts`, tests corpus), `src/shared/test/source-lazarus.ts` (nouveau), `vitest.config.ts`.
+
+**Constat Lazarus corrigé** (exploration de `fmain.lfm` et `fmain.pas`, 2026-10-19) : l'organisation ci-dessus est inexacte, la maquette aussi.
+
+- Onglets de l'évènement (`pcEvenements`) : Évènements (grille) | Bénéficiaires | 001 | 100 | 110 | 115 | 120 | Coordonnées | 130 | 135 | 155 | 180. L'onglet 001 n'est jamais affiché ; les onglets des entités absentes sont masqués ; Coordonnées = grille des 125 puis fiche 125.
+- Onglets du bénéficiaire (`pcBeneficiaires`) : Bénéficiaires (grille) | Garanties (grille des 700 puis fiche 700) | 400 | 405 | 410 | 411 (vide) | Critères (grille des 485 puis fiche) | Variables souscription (grille des 490 puis fiche) | 800. Garanties, Critères, Variables et 800 dépendent du bénéficiaire.
+- Grille des évènements : N° dossier, N° évènement, N° contrat, Evènement (code brut). Les listes et dates sont toujours en lecture seule ; les 23 champs modifiables sont tous des champs texte.
+- Sortie de champ (`OnExit`) : `ControlerEvenement` vide toutes les erreurs de l'évènement et ne rejoue que les règles de la donnée, sans rafraîchir l'écran. Le `Hint` d'erreur n'est jamais visible (`ShowHint` absent).
+
+**Décisions du démarrage de l'item** (2026-10-19, `/item-start`, validées « comme tu conseilles ») :
+
+1. **Onglets selon Lazarus** : évènement = Bénéficiaires, 100, 110, 115, 120, Coordonnées, 130, 135, 155, 180 ; bénéficiaire = Garanties, 400, 405, 410, 411, Critères, Variables souscription, 800. Pas d'onglet 001. Onglet d'entité absente visible mais désactivé (divergence : Lazarus le masque).
+2. **Clic sur un évènement** : s'il est en erreur, ouverture de la première fiche en erreur ; sinon l'onglet courant est gardé s'il existe, ou la fiche 100 (divergence : Lazarus revient à la liste).
+3. **Correction en mémoire dès l'item 2** : champs modifiables en erreur corrigeables, rien n'est écrit sur `P:` ; un champ corrigé reste modifiable pendant la session ; `maxLength` à la frappe ; valeur inchangée = rien (parité `Modified`). Confirmation « Abandonner les modifications ? » avancée de l'item 3 à l'item 2. Enregistrement, copie de l'original et trace au journal restent à l'item 3 ; les corrections en mémoire ne sont pas tracées.
+4. **Erreurs non corrigeables à l'écran** (code et valeur des 485/490, divergence 5 sur un champ non modifiable, fichier en anomalie de structure) : champ rouge, en lecture seule, consigne « À corriger dans VEOS. » (texte raccourci par l'utilisateur à la revue de code, 2026-10-20). Fichier mal formé navigable, entièrement en lecture seule (divergence : Lazarus déverrouille les 485/490 puis jette la saisie).
+5. **Texte sous le champ** : ce qui ne va pas et ce qui est attendu (`DESIGN.md` §9.2), propriété `consigne` des anomalies. Le `message` Lazarus reste inchangé (journal, item 5, comparaison au relevé).
+6. **Listes et dates en lecture seule, affichées comme du texte** : « CODE - Libellé » ; code inconnu = code brut « (absent de la liste) » (Lazarus : vide) ; date JJ/MM/AAAA ; date vide = vide (Lazarus : 30/12/1899) ; date invalide = valeur brute « (date invalide) ».
+7. **Libellés de Lazarus sans « : »**, coquilles corrigées (« Code de l'offre », « Évènement ») ; « Valeur » au lieu de « Code assureur » pour les 485/490 ; titre « Garantie » pour la fiche 700.
+8. **Erreurs hors fiche** : 990 dans un encadré au-dessus des onglets de l'évènement ; 000, 001, 995, 999 et lignes perdues dans les alertes du fichier (« N erreurs hors des évènements ») ; détail à l'item 5.
+9. **Répartition** : onglets (`TabBar`) et champ de saisie de la charte (`TextInput`) en composants partagés (`component-agent`).
+
+**Décisions de l'implémentation** (2026-10-19) :
+
+- **Domaine** :
+  - `indexerLignes` rattache chaque ligne à son évènement, son bénéficiaire et son rang dans une liste ; il est construit une fois par fichier.
+  - `compterAnomalies` et `compterParLigne` comptent les anomalies bloquantes, chaque ancêtre agrégeant ses descendants.
+  - `bilanAnalyse` recompte une analyse ; une table code → famille (`lecture`, `structure`, `controle`) est vérifiée par le compilateur.
+  - `saisirChamp` modifie un champ, recontrôle sa ligne et remplace les seules anomalies de contrôle de cette ligne. Il est égal à l'analyse recalculée en entier sur 582 saisies du corpus.
+  - Mesure sur 3,9 Mo (5 510 lignes) : 61,5 ms (médiane) par sortie de champ, d'où pas de contrôle limité à la ligne. Il pourra être branché dans `saisie.ts` sans changer l'API.
+- **Saisie** (parité `Modified`) : l'écran n'appelle `saisirChamp` qu'après une frappe, même si le texte final est identique. Le raccourci « texte identique » ne vaut que pour un champ sans erreur, ce qui corrige le cas d'une tabulation retirée à la lecture.
+  - `maxLength` est contrôlé en caractères.
+  - Nouveau refus `caractere-illisible` : U+FFFD n'est jamais réécrit.
+- **Affichage des valeurs** : `valeurAffichee`, `entreeListe` (parité `SetComboIndex`, premier doublon), `texteEntree` (« CODE - Libellé »).
+  - Une date n'est reconnue que sur 8 chiffres formant une vraie date. Divergence : le `StrToDate` de Lazarus est plus tolérant ; la valeur s'affiche brute avec « (date invalide) ».
+- **Libellés et fiches** : `DescriptionChamp.libelle` sur les 93 champs affichés ; `FICHES` (titre et ordre de l'écran) et `champsAffiches`. Ils sont vérifiés contre `fmain.lfm` par `entites/fiches.lazarus.test.ts` (93 contrôles, Caption, MaxLength, Items, type, ordre `Top`, titres, `OnExit`).
+  - Corrections en plus de la décision 7 : « Échéance principale », « Code civilité ».
+  - Titre de la 411 : « Attestation ACS de l’assuré » (onglet vide dans Lazarus).
+- **Tables gelées en profondeur** : `ENTITES` (déplacé dans `entites/registre.ts`), `RANG_*`, listes de valeurs et `FICHES`. `texteDepuisOctets` décode avec `ignoreBOM: true`.
+- **Consignes** (`AnomalieAc056.consigne`, sur les seules anomalies de contrôle) : une par jeu de caractères, code postal, rang (seuil propre au type d'assuré), valeur imposée des 485/490 et divergence 5.
+  - Les champs non modifiables finissent par `CONSIGNE_VEOS`.
+  - Dans un fichier mal formé, la consigne d'un champ modifiable est complétée par `CONSIGNE_VEOS`.
+- **Messages propres à Flussi précisés**, messages Lazarus inchangés :
+  - divergence 4 : « rang de bénéficiaire / de personne non numérique » ;
+  - divergence 5 : « caractère interdit dans le champ « Libellé », octet N » ;
+  - 990 ou 995 après un niveau déjà fermé : `entite-mal-placee` au lieu de « en double » ;
+  - `encodage-incoherent` cite et porte la première ligne concernée ;
+  - `modifierChamp` cite les libellés.
+- **Tests** : aides `src/shared/test/source-lazarus.ts` (dont l'analyseur `lireLfm`), `testTimeout` de 120 s en mode corpus, `MINIMUM_FICHIERS_CORPUS` (PIEGES passera à 2), messages d'échec sans texte libre.
+- **Partagé** :
+  - `JournalSessionEnDirect` : le journal ne re-rend plus `App`.
+  - Conteneur caché en `h-full`.
+  - Tokens `w-panel-nav` (328 px, 344 px à partir de 1440 px), `grid-cols-ac056` et `scrollbar-fin`.
+  - `TabBar` : tablist accessible, flèches, onglets désactivés sautés, compteur annoncé.
+  - `TextInput` : champ de la charte ; en erreur, il reste blanc même en lecture seule (§9.2).
+- **Écran** :
+  - Deux colonnes : évènements à gauche, avec la sous-liste des bénéficiaires sous l'évènement choisi quand l'onglet Bénéficiaires est actif ; au centre, fil d'Ariane, onglets, listes 125/700/485/490 et fiche.
+  - Réducteur pur `navigation-ac056.ts`, sélection par position.
+  - En-têtes de la liste des évènements repris de la maquette (« Dossier / N° / Contrat / Code », libellés complets pour les lecteurs d'écran), car ceux de Lazarus ne tiennent pas en 328 px. Nom et prénom des bénéficiaires dans une même colonne.
+  - Suffixes « (absent de la liste) » et « (date invalide) » dans la valeur du champ.
+  - Encadrés de la 990 et « Autres erreurs de la ligne N » en `role="note"`.
+  - Confirmation « Abandonner les modifications ? » sur « Changer de fichier ».
+- **Sortie de champ à la souris** (revue de code) : la saisie n'est appliquée qu'au relâchement du pointeur (`pages/ac056/sortie-champ.ts`, écouteurs `pointerdown`/`pointerup`/`pointercancel`/`keydown` en capture sur `document`), une fois la cible du clic fixée. Au clavier, elle est appliquée tout de suite. Sans cela, l'écran bouge entre l'appui et le relâchement (onglet dont le compteur disparaît, alerte de fichier, barre, liste 125) et le clic de navigation est perdu. Saisie liée à l'index de son fichier : jamais appliquée à un autre fichier. Alerte de fichier toujours présente, de hauteur constante ; noms tronqués sur une ligne dans la sous-liste des bénéficiaires, le fil d'Ariane et la valeur des 125.
+- **Mesures de bout en bout** (e2e, 5 510 lignes, 3,7 Mo, prises dans la page) :
+  - clic sur le fichier → premier évènement affiché : 437 à 452 ms ;
+  - sortie d'un champ corrigé → barre à jour : 25 à 27 ms ;
+  - clic sur un évènement → détail : 2 à 3 ms.
+
+  Le point d'attention de l'item 1 sur la performance est levé.
+- **Reporté dans `CLAUDE.md`** à `/item-finish` (2026-10-20) :
+  - module Ac056 (navigation, saisie en mémoire, confirmation) ;
+  - composants `tab-bar` et `text-input` ;
+  - tokens `w-panel-nav`, `grid-cols-ac056` et `scrollbar-fin` ;
+  - `JournalSessionEnDirect` ;
+  - nouveaux fichiers du domaine et `source-lazarus.ts`.
+
+Décisions techniques : bénéficiaires et éléments de liste sélectionnés par position (Lazarus cherche par contenu : toujours le premier homonyme) ; contrôle limité à une ligne seulement si la mesure le justifie (plus de 100 ms par sortie de champ sur 4 Mo) ; marges `pl-10` gardées ; colonne des erreurs non réservée ; fichier de rejet inchangé jusqu'à l'item 4.
+
+**Second fichier piégé** (`PIEGES\`, à fabriquer par l'utilisateur ; l'item ne l'attend pas). Copie d'un fichier de `IN\`, une erreur par évènement autant que possible :
+
+- **120** : `#` dans le complément géographique, `*` dans le numéro de voie, libellé de voie en minuscules, `_` dans le lieu-dit, code postal `7500`, code postal `75O01` (lettre O), localité `SAINT-ÉTIENNE`.
+- **405** (bénéficiaire `CONJOI`) : `!` dans le nom, `@` dans le prénom, une espace dans le n° INSEE, `,` dans le nom de jeune fille, rang `25`.
+- **800** (sur un `ASSPRI` ou un `CONJOI`) : rang `22` et rang de personne `30`.
+- **ENFANT** : rang `40` sur 400, 405, 410 et 700. Témoins sans erreur attendue : rangs `39` et `25` sur un autre `ENFANT`.
+- **490** : `REDAN` avec la valeur `OUI` ; code `REDAX`. **485** : valeur `SEUL`.
+- **Divergence 5** : tabulation dans le code d'offre de la 100 ; `é` dans la référence externe de la 800 ; `é` dans le nom de la 115.
+- **Témoin** : un `ASCEND` de rang `99` (aucune erreur attendue).
+- **Contraintes** : 700 octets par ligne (pour chaque caractère sur 2 octets, retirer une espace de bourrage du même champ) ; jamais de rang non numérique sur un `ASSPRI`, `CONJOI` ou `ENFANT` (Lazarus plante) ; n° de dossier et n° d'évènement intacts ; UTF-8 sans BOM, CRLF. Puis charger le fichier dans Lazarus et copier son journal dans `NOM.erreurs.txt`.
+
+**Revue de code** (trois passes, 2026-10-20) : deux bloquants à la première passe (clic perdu à la dernière correction, trois 990/995 de suite), un à la deuxième (onglets qui glissent quand leur compteur disparaît), tous corrigés (saisie appliquée au relâchement du pointeur) ; verdict final « OK pour merge ».
+
+**Point d'attention pour l'item 3** (revue de code de l'item 2) :
+
+- **Rang saisi sur un seul chiffre** : « 5 » passe le contrôle à la sortie du champ, mais sera écrit « 50 » (bourrage à droite, parité `AddCharR` reprise du backlog de l'item 3). Relu, le fichier aura une erreur (enfant à partir de 40) ou un rang changé sans signal (ascendant). Décision à reprendre avant l'enregistrement : refuser un seul chiffre, compléter à gauche, ou contrôler la valeur telle qu'elle sera écrite (`addCharR`), avec un test saisie → écriture → relecture — `src/shared/domain/ac056/modification.ts`, `entites/entete.ts`, `ecrivain.ts`.
+- **Corrections perdues sans confirmation** à la fermeture de la fenêtre, par Ctrl+R ou Ctrl+W : le menu par défaut d'Electron reste actif (outils de développement compris, Ctrl+Maj+I) ; aucun `beforeunload` — `src/main/index.ts`.
+- **Badge « Modifié »** de la maquette : rien ne signale les corrections non enregistrées, hormis la confirmation — `pages/ac056/barre-fichier.tsx`.
+- **Garde-fous seulement à l'écran** : `saisirChamp` accepte une saisie sur un fichier mal formé ou sur un champ sans erreur ; refuser aussi dans le domaine ou au main avant l'écriture — `src/shared/domain/ac056/saisie.ts`.
+- **Barrière d'erreur** (ErrorBoundary) autour de `FichierOuvert`, avec un message et « Changer de fichier » ; `try/catch` dans `lancer` de `sortie-champ.ts` (exception au démontage = écran blanc) — `pages/ac056/`.
+- **`encodage-incoherent`** garde sa « première ligne concernée » d'origine après une correction : recalculer l'analyse depuis les octets écrits à l'enregistrement ? — `src/shared/domain/ac056/lecteur.ts`.
+- **Rang de la 400 modifié sans ceux de ses filles** (405, 410, 700…) : parité Lazarus ; une consigne ? — `src/shared/domain/ac056/controle.ts`.
+- **Sortie de champ** :
+  - toute touche vaut relâchement, y compris la répétition de Maj ou Ctrl tenue (Maj+clic) : ignorer `repeat` et les touches de modification ;
+  - `pointer-events-none` sur les icônes et compteurs des boutons (un élément qui disparaît entre `pointerup` et `click` annule le clic) ;
+  - écouteurs installés une fois au lieu d'être retirés à chaque changement de fiche ;
+  - appliquer aussi à la perte de focus de la fenêtre (relâchement perdu) et à Alt+Tab pendant la frappe (aujourd'hui saisie partielle appliquée, ce que l'`OnExit` de Lazarus ne fait pas) ;
+  - `index` obligatoire dans `saisir`, commentaire de la garde `precedent === actuel` à corriger (« garde défensive ») — `pages/ac056/sortie-champ.ts`, `hooks/use-fichier-ac056.ts`.
+- **Navigation** : un clic sur l'évènement déjà sélectionné relance la règle de sélection et peut changer d'onglet ; ne rien faire dans ce cas ? Refus de saisie non annoncé au lecteur d'écran — `pages/ac056/navigation-ac056.ts`, `champ-ac056.tsx`.
+- **Tests de la sortie de champ** : compter les appels de `saisirChamp` dans « une seule fois » et « démontage puis relâchement », précondition du test « touche pressée », commentaire « comme un clic de souris » trompeur, refus après application différée, test unitaire de `sortie-champ.ts`, homonymie `appuyer` (pointeur) et `appuyer` (clavier) — `fichier-ouvert.dom.test.tsx`, `test/dom.ts`.
+
+**Point d'attention pour l'item 5** (revue de code de l'item 2) :
+
+- La tranche affichée de la liste des évènements ne mémorise pas son extension : après un saut vers un évènement lointain, la liste se raccourcit et le défilement saute ; focus sur `body` quand la dernière tranche est affichée — `pages/ac056/colonne-evenements.tsx`.
+- La colonne des erreurs réduira la colonne centrale (environ 304 px à 1280 px) : la barre d'onglets de l'évènement est déjà au seuil du passage à la ligne à 1280 px, et le badge de la barre du fichier peut passer à la ligne sous environ 1 030 px.
+- « Erreur(s) de la ligne N » : pour une divergence 5 sur un champ non affiché, la consigne ne nomme pas le champ (le message, si) ; `CONSIGNE_VEOS` répétée à chaque puce ; « à corriger » affiché aussi quand les erreurs restantes ne se corrigent pas dans Flussi — `pages/ac056/fiche-entite.tsx`, `alertes-fichier.tsx`.
+- Dates « 00000000 » : si le corpus en contient, elles s'affichent « 00000000 (date invalide) » (Lazarus : vide) — `src/shared/domain/ac056/affichage.ts`.
 
 ---
 

@@ -11,6 +11,8 @@ import {
 export interface OptionsChamp {
   readonly trim?: boolean;
   readonly affiche?: boolean;
+  /** Libellé à l'écran, obligatoire pour un champ affiché. */
+  readonly libelle?: string;
   readonly modifiable?: boolean;
   readonly maxLength?: number;
   readonly valeursAutorisees?: readonly ValeurAutorisee[];
@@ -34,6 +36,7 @@ function champ(
     bourrage: options.bourrage ?? bourrageParDefaut,
     trim: options.trim ?? false,
     affiche: options.affiche ?? false,
+    ...(options.libelle !== undefined && { libelle: options.libelle }),
     modifiable: options.modifiable ?? false,
     ...(options.maxLength !== undefined && { maxLength: options.maxLength }),
     ...(options.valeursAutorisees !== undefined && {

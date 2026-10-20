@@ -391,11 +391,32 @@ describe('controlerStructure via lireAc056', () => {
       const codes: Code[] = ['000', '001', '100', '990', '995', '100', '990', '995', '999'];
       expect(structure(...codes)).toEqual([
         ['entite-mal-placee', 6],
-        ['entite-en-double', 8],
+        ['entite-mal-placee', 8],
       ]);
       expect(messages(...codes)).toEqual([
         messageMalPlacee(6, '100', HORS_DOSSIER),
-        messageEnDouble(8, '995', 5),
+        messageMalPlacee(8, '995', "hors d'un dossier (le précédent est fermé ligne 5)"),
+      ]);
+    });
+
+    it('signale en double une 995 qui suit la première, lignes vides et 999 ignorées', () => {
+      const lignes = lignesDepuisCodes(['000', '001', '100', '990', '995', '999', '995']);
+      const lecture = lireLignes([...lignes.slice(0, 5), '', ...lignes.slice(5)]);
+      expect(bloquantes(lecture).map((a) => [a.code, a.ligne, a.message])).toEqual([
+        ['entite-mal-placee', 7, messageMalPlacee(7, '999', 'attendue en dernière ligne')],
+        ['entite-en-double', 8, messageEnDouble(8, '995', 5)],
+      ]);
+    });
+
+    it('signale en double trois 995 de suite, avec la ligne de la première', () => {
+      const codes: Code[] = ['000', '001', '100', '990', '995', '995', '995', '999'];
+      expect(structure(...codes)).toEqual([
+        ['entite-en-double', 6],
+        ['entite-en-double', 7],
+      ]);
+      expect(messages(...codes)).toEqual([
+        messageEnDouble(6, '995', 5),
+        messageEnDouble(7, '995', 5),
       ]);
     });
   });
@@ -439,6 +460,51 @@ describe('controlerStructure via lireAc056', () => {
       const codes: Code[] = ['000', '001', '100', '990', '990', '995', '999'];
       expect(structure(...codes)).toEqual([['entite-en-double', 5]]);
       expect(messages(...codes)).toEqual([messageEnDouble(5, '990', 4)]);
+    });
+
+    it('signale en double trois 990 de suite, avec la ligne de la première', () => {
+      const codes: Code[] = ['000', '001', '100', '990', '990', '990', '995', '999'];
+      expect(structure(...codes)).toEqual([
+        ['entite-en-double', 5],
+        ['entite-en-double', 6],
+      ]);
+      expect(messages(...codes)).toEqual([
+        messageEnDouble(5, '990', 4),
+        messageEnDouble(6, '990', 4),
+      ]);
+    });
+
+    it('signale mal placée une 990 séparée de son doublon par une ligne hors évènement', () => {
+      const codes: Code[] = ['000', '001', '100', '990', '990', '110', '990', '995', '999'];
+      expect(messages(...codes)).toEqual([
+        messageEnDouble(5, '990', 4),
+        messageMalPlacee(6, '110', HORS_EVENEMENT),
+        messageMalPlacee(7, '990', "hors d'un évènement (le précédent est fermé ligne 4)"),
+      ]);
+    });
+
+    it('signale mal placée, et non en double, une 990 après la 995 du dossier', () => {
+      const codes: Code[] = ['000', '001', '100', '990', '995', '990', '999'];
+      expect(structure(...codes)).toEqual([['entite-mal-placee', 6]]);
+      expect(messages(...codes)).toEqual([
+        messageMalPlacee(6, '990', "hors d'un évènement (le précédent est fermé ligne 4)"),
+      ]);
+    });
+
+    it('signale mal placée une 990 séparée de la précédente par une ligne hors évènement', () => {
+      const codes: Code[] = ['000', '001', '100', '990', '110', '990', '995', '999'];
+      expect(messages(...codes)).toEqual([
+        messageMalPlacee(5, '110', HORS_EVENEMENT),
+        messageMalPlacee(6, '990', "hors d'un évènement (le précédent est fermé ligne 4)"),
+      ]);
+    });
+
+    it('signale en double une 990 qui suit la première malgré une ligne de code inconnu', () => {
+      const lecture = lireCodes(['000', '001', '100', '990', null, '990', '995', '999']);
+      expect(couples(lecture)).toEqual([
+        ['entite-inconnue', 5],
+        ['entite-en-double', 6],
+      ]);
     });
 
     it('signale une 990 mal placée après une 995 qui a fermé l évènement sans 990', () => {
