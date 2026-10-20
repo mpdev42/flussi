@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { NiveauJournal } from '@shared/schemas/journal';
 import type { LigneJournalSession } from '@shared/types/journal';
 
+import { useJournalSession } from '@/hooks/use-journal-session';
 import { LIBELLES_NIVEAU, PRESENTATION_NIVEAU } from '@/lib/niveaux-journal';
 import { pluralize } from '@/lib/pluralize';
 import { cn } from '@/lib/utils';
@@ -108,4 +109,14 @@ export function JournalSession({ lignes }: JournalSessionProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * Panneau du journal abonné lui-même aux lignes de la session (`useJournalSession`) : une ligne
+ * ajoutée ne re-rend que ce panneau, jamais l'application ni les écrans gardés montés. À monter une
+ * seule fois, dans la colonne du journal du cadre.
+ */
+export function JournalSessionEnDirect() {
+  const lignes = useJournalSession();
+  return <JournalSession lignes={lignes} />;
 }

@@ -1,5 +1,5 @@
 import { alpha, date, num, zoneNonDecrite } from './champs';
-import { entete, RANG_MODIFIABLE } from './entete';
+import { entete, RANG_BENEFICIAIRE, RANG_MODIFIABLE } from './entete';
 import type { DescriptionEntite, ValeurAutorisee } from './types';
 import { CATEGORIES_SOCIALES } from './valeurs/categories-sociales';
 import { DEPARTEMENTS } from './valeurs/departements';
@@ -35,11 +35,16 @@ export const ENTITE_400: DescriptionEntite = {
   code: '400',
   brute: false,
   champs: [
-    ...entete(RANG_MODIFIABLE),
-    num('rangPersonne', 26, 2, RANG_MODIFIABLE),
+    ...entete(RANG_BENEFICIAIRE),
+    num('rangPersonne', 26, 2, { ...RANG_MODIFIABLE, libelle: 'Rang personne' }),
     alpha('refExterne', 28, 20),
-    date('dateAnciennete', 48, 8, { affiche: true }),
-    alpha('typeAssure', 56, 6, { trim: true, affiche: true, valeursAutorisees: TYPES_ASSURE }),
+    date('dateAnciennete', 48, 8, { affiche: true, libelle: 'Date ancienneté assuré' }),
+    alpha('typeAssure', 56, 6, {
+      trim: true,
+      affiche: true,
+      libelle: 'Type assuré',
+      valeursAutorisees: TYPES_ASSURE,
+    }),
     num('indicCmu', 62, 1),
     num('indicReserveMedicale', 63, 1),
     num('indicReserveAutre', 64, 1),
@@ -50,30 +55,48 @@ export const ENTITE_400: DescriptionEntite = {
     num('indicGestionCetip', 83, 1),
     date('dateDebutCetip', 84, 8),
     date('dateFinCetip', 92, 8),
-    alpha('codePays', 100, 3, { trim: true, affiche: true, valeursAutorisees: PAYS }),
+    alpha('codePays', 100, 3, {
+      trim: true,
+      affiche: true,
+      libelle: 'Pays tarifaire',
+      valeursAutorisees: PAYS,
+    }),
     alpha('codeDepartement', 103, 3, {
       trim: true,
       affiche: true,
+      libelle: 'Département tarifaire',
       valeursAutorisees: DEPARTEMENTS,
     }),
     alpha('classeRisque', 106, 2),
     alpha('situationFamille', 108, 2, {
       trim: true,
       affiche: true,
+      libelle: 'Situation de famille',
       valeursAutorisees: SITUATIONS_FAMILLE,
     }),
-    alpha('codeSexe', 110, 1, { trim: true, affiche: true, valeursAutorisees: SEXES }),
-    date('dateNaissance', 111, 8, { trim: true, affiche: true }),
+    alpha('codeSexe', 110, 1, {
+      trim: true,
+      affiche: true,
+      libelle: 'Sexe',
+      valeursAutorisees: SEXES,
+    }),
+    date('dateNaissance', 111, 8, { trim: true, affiche: true, libelle: 'Date de naissance' }),
     alpha('categorieSocioProf', 119, 4),
     alpha('categorieSociale', 123, 12, {
       trim: true,
       affiche: true,
+      libelle: 'Catégorie sociale',
       valeursAutorisees: CATEGORIES_SOCIALES,
     }),
     alpha('secteurProfessionnel', 135, 5),
     num('salaireReference', 140, 16),
-    alpha('codeInsee', 156, 13, { trim: true, affiche: true, maxLength: 13 }),
-    alpha('cleInsee', 169, 2, { trim: true, affiche: true, maxLength: 2 }),
+    alpha('codeInsee', 156, 13, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code INSEE',
+      maxLength: 13,
+    }),
+    alpha('cleInsee', 169, 2, { trim: true, affiche: true, libelle: 'Clé INSEE', maxLength: 2 }),
     num('numPers', 171, 8),
     num('numRelation', 179, 8),
     num('facettePersPhysMorale', 187, 1),

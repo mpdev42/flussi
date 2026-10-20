@@ -201,16 +201,19 @@ describe('modifierChamp', () => {
   describe('champ non modifiable', () => {
     const fichier = fichierDe([L405]);
 
-    it.each(['prenom2', 'codeCivilite', 'numEntite', 'numDossier', 'zoneNonDecrite'])(
-      'refuse le champ %s',
-      (champ) => {
-        const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ }, 'X'));
-        expect(erreur).toEqual({
-          code: 'champ-non-modifiable',
-          message: `Entité 405 : champ ${champ} non modifiable.`,
-        });
-      },
-    );
+    it.each([
+      ['prenom2', 'prenom2 (octets 108 à 127)'],
+      ['codeCivilite', '« Civilité »'],
+      ['numEntite', 'numEntite (octets 23 à 25)'],
+      ['numDossier', 'numDossier (octets 10 à 17)'],
+      ['zoneNonDecrite', 'zoneNonDecrite (octets 248 à 700)'],
+    ])('refuse le champ %s, désigné par son libellé ou ses octets', (champ, designation) => {
+      const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ }, 'X'));
+      expect(erreur).toEqual({
+        code: 'champ-non-modifiable',
+        message: `Entité 405 : champ ${designation} non modifiable.`,
+      });
+    });
 
     it('contrôle la modifiabilité avant le saut de ligne', () => {
       const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ: 'prenom2' }, 'A\nB'));
@@ -237,7 +240,7 @@ describe('modifierChamp', () => {
       const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, valeur));
       expect(erreur).toEqual({
         code: 'saut-de-ligne',
-        message: 'Entité 405 : saut de ligne interdit dans le champ nom.',
+        message: 'Entité 405 : saut de ligne interdit dans le champ « Nom ».',
       });
     });
 
@@ -249,6 +252,36 @@ describe('modifierChamp', () => {
     });
   });
 
+  describe('caractère illisible (U+FFFD)', () => {
+    const fichier = fichierDe([L405]);
+
+    it.each([
+      ['seul', '\uFFFD'],
+      ['en tête', '\uFFFDDUPONT'],
+      ['au milieu', 'DUP\uFFFDONT'],
+    ])('refuse U+FFFD %s, sans citer la valeur', (_nom, valeur) => {
+      const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, valeur));
+      expect(erreur).toEqual({
+        code: 'caractere-illisible',
+        message:
+          'Entité 405 : caractère illisible dans le champ « Nom », à remplacer par le bon caractère.',
+      });
+    });
+
+    it('contrôle le saut de ligne avant U+FFFD, et U+FFFD avant la longueur', () => {
+      const saut = echouer(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, '\uFFFD\n'));
+      expect(saut.code).toBe('saut-de-ligne');
+      const long = `\uFFFD${'A'.repeat(99)}`;
+      expect(echouer(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, long)).code).toBe(
+        'caractere-illisible',
+      );
+    });
+
+    it('accepte les autres caractères non ASCII', () => {
+      expect(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, 'CAFÉ €').ok).toBe(true);
+    });
+  });
+
   describe('valeur trop longue', () => {
     it('refuse 26 « é » dans 405 nom : 52 octets pour 50', () => {
       const erreur = echouer(
@@ -256,7 +289,7 @@ describe('modifierChamp', () => {
       );
       expect(erreur).toEqual({
         code: 'valeur-trop-longue',
-        message: 'Entité 405 : valeur trop longue pour le champ nom (52 octets pour 50).',
+        message: 'Entité 405 : valeur trop longue pour le champ « Nom » (52 octets pour 50).',
       });
     });
 
@@ -274,16 +307,46 @@ describe('modifierChamp', () => {
         modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, '€'.repeat(17)),
       );
       expect(erreur.message).toBe(
-        'Entité 405 : valeur trop longue pour le champ nom (51 octets pour 50).',
+        'Entité 405 : valeur trop longue pour le champ « Nom » (51 octets pour 50).',
       );
     });
 
-    it('refuse un rang de 3 caractères', () => {
+    it('refuse un rang de 3 caractères (maxLength 2)', () => {
       const erreur = echouer(modifierChamp(fichierDe([L400]), { ligne: 1, champ: 'rang' }, '123'));
       expect(erreur).toEqual({
         code: 'valeur-trop-longue',
-        message: 'Entité 400 : valeur trop longue pour le champ rang (3 octets pour 2).',
+        message:
+          'Entité 400 : valeur trop longue pour le champ « Rang bénéficiaire » (3 caractères pour 2).',
       });
+    });
+
+    it('applique maxLength en caractères : code postal de 6 caractères refusé (maxLength 5, 10 octets)', () => {
+      const fichier = fichierDe([ligneSynthetique('120')]);
+      const erreur = echouer(
+        modifierChamp(fichier, { ligne: 1, champ: 'codePostalLocalite' }, '123456'),
+      );
+      expect(erreur).toEqual({
+        code: 'valeur-trop-longue',
+        message:
+          'Entité 120 : valeur trop longue pour le champ « Code postal » (6 caractères pour 5).',
+      });
+    });
+
+    it('compte maxLength en unités UTF-16, comme <input maxLength> : « 𝄞 » vaut 2', () => {
+      const fichier = fichierDe([L400]);
+      const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ: 'rang' }, '1𝄞'));
+      expect(erreur.message).toBe(
+        'Entité 400 : valeur trop longue pour le champ « Rang bénéficiaire » (3 caractères pour 2).',
+      );
+    });
+
+    it('contrôle maxLength avant la longueur en octets', () => {
+      const erreur = echouer(
+        modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, 'é'.repeat(51)),
+      );
+      expect(erreur.message).toBe(
+        'Entité 405 : valeur trop longue pour le champ « Nom » (51 caractères pour 50).',
+      );
     });
 
     it('accepte un rang de 2 caractères', () => {
@@ -292,20 +355,24 @@ describe('modifierChamp', () => {
     });
 
     it.each(MODIFIABLES)(
-      '%s %s : accepte la longueur exacte et refuse un octet de plus',
+      '%s %s : accepte la longueur maximale et refuse un caractère de plus',
       (code, nom) => {
-        const longueur = ENTITES[code].champs.find((c) => c.nom === nom)!.longueur;
+        const champ = ENTITES[code].champs.find((c) => c.nom === nom)!;
+        // Tous les champs modifiables ont un maxLength, au plus égal à leur longueur en octets.
+        expect(champ.maxLength).toBeDefined();
+        const maximum = champ.maxLength!;
+        expect(maximum).toBeLessThanOrEqual(champ.longueur);
         const fichier = fichierDe([ligneSynthetique(code)]);
 
-        const ok = reussir(modifierChamp(fichier, { ligne: 1, champ: nom }, 'X'.repeat(longueur)));
-        expect(sortieDe(ok)).toBe(ligneSynthetique(code, { [nom]: 'X'.repeat(longueur) }));
+        const ok = reussir(modifierChamp(fichier, { ligne: 1, champ: nom }, 'X'.repeat(maximum)));
+        expect(sortieDe(ok)).toBe(ligneSynthetique(code, { [nom]: 'X'.repeat(maximum) }));
 
         const erreur = echouer(
-          modifierChamp(fichier, { ligne: 1, champ: nom }, 'X'.repeat(longueur + 1)),
+          modifierChamp(fichier, { ligne: 1, champ: nom }, 'X'.repeat(maximum + 1)),
         );
         expect(erreur).toEqual({
           code: 'valeur-trop-longue',
-          message: `Entité ${code} : valeur trop longue pour le champ ${nom} (${longueur + 1} octets pour ${longueur}).`,
+          message: `Entité ${code} : valeur trop longue pour le champ « ${champ.libelle} » (${maximum + 1} caractères pour ${maximum}).`,
         });
       },
     );

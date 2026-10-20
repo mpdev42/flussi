@@ -162,9 +162,14 @@ export default {
         'control-md': '32px',
         'control-lg': '40px',
       },
-      // §4 Mise en page : colonne du journal de la session, contenu centré
+      // §4 Mise en page : colonne du journal de la session, colonne de navigation (largeur selon la
+      // fenêtre, variable --panel-nav-width de index.css), contenu centré
       width: {
         'panel-log': '288px',
+        'panel-nav': 'var(--panel-nav-width)',
+      },
+      gridTemplateColumns: {
+        ac056: 'var(--panel-nav-width) minmax(0, 1fr)',
       },
       maxWidth: {
         content: '1600px',

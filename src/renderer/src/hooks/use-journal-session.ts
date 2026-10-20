@@ -18,8 +18,8 @@ export function fusionnerLignesSession(
 /**
  * Lignes du journal de la session en cours, pour le panneau affiché en direct. Abonnement aux
  * lignes poussées d'abord, puis lecture de ce qui existe déjà : les deux sont fusionnés par rang.
- * Une lecture initiale en échec laisse les lignes poussées. À appeler une seule fois, au niveau de
- * `App`.
+ * Une lecture initiale en échec laisse les lignes poussées. À appeler une seule fois, par
+ * `JournalSessionEnDirect` (et non par `App`, qu'une ligne ajoutée re-rendrait en entier).
  */
 export function useJournalSession(): readonly LigneJournalSession[] {
   const [lignes, setLignes] = useState<readonly LigneJournalSession[]>([]);

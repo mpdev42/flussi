@@ -34,6 +34,24 @@
     --input: 214.3 9.4% 56.3%;
     --ring: 202.2 100% 37.1%;
     --radius: 0.375rem;
+
+    /* Mise en page (maquette design/handoff/ac056.tsx) : colonne de navigation, 328px minimum
+       pour une ligne de liste complète sans troncature, 344px à partir de 1440px de large.
+       Classes w-panel-nav et grid-cols-ac056 (tailwind.config.js). */
+    --panel-nav-width: 328px;
+  }
+
+  @media (min-width: 1440px) {
+    :root {
+      --panel-nav-width: 344px;
+    }
+  }
+}
+
+@layer utilities {
+  /* Barre de défilement fine, pour les colonnes étroites qui défilent */
+  .scrollbar-fin {
+    scrollbar-width: thin;
   }
 }
 

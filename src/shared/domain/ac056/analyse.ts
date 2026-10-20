@@ -6,7 +6,6 @@
 import { controlerAc056 } from './controle';
 import { lireAc056 } from './lecteur';
 import type { AnomalieAc056, CodeAnomalie, FichierAc056, Provenance } from './modele';
-import { CODES_STRUCTURE } from './structure';
 
 export interface AnalyseAc056 {
   readonly fichier: FichierAc056;
@@ -24,21 +23,68 @@ export interface AnalyseAc056 {
   readonly lignesRejetees: number;
 }
 
-const STRUCTURE: ReadonlySet<CodeAnomalie> = new Set(CODES_STRUCTURE);
+/** Famille d'une anomalie : lecture (format, encodage), structure ou contrôle des champs. */
+export type FamilleAnomalie = 'lecture' | 'structure' | 'controle';
+
+/**
+ * Famille de chaque code. Table exhaustive : un code ajouté à `CodeAnomalie` sans y être classé
+ * est refusé par le compilateur. Famille `structure` = `CODES_STRUCTURE` (vérifié par les tests).
+ * Interne au domaine (pas exportée par `index.ts`).
+ */
+const FAMILLES: Readonly<Record<CodeAnomalie, FamilleAnomalie>> = {
+  bom: 'lecture',
+  'fin-de-ligne-lf': 'lecture',
+  'fin-de-ligne-cr': 'lecture',
+  'ligne-vide': 'lecture',
+  'ctrl-z-final': 'lecture',
+  'encodage-incoherent': 'lecture',
+  'fichier-vide': 'structure',
+  'longueur-ligne': 'structure',
+  'entite-inconnue': 'structure',
+  'entite-mal-placee': 'structure',
+  'entite-en-double': 'structure',
+  'entite-absente': 'structure',
+  'caractere-non-autorise': 'controle',
+  'caractere-interdit': 'controle',
+  'code-postal-longueur': 'controle',
+  'rang-incoherent': 'controle',
+  'rang-non-numerique': 'controle',
+  'valeur-imposee': 'controle',
+};
+
+export function familleAnomalie(code: CodeAnomalie): FamilleAnomalie {
+  return FAMILLES[code];
+}
+
+/**
+ * Résultat figé d'une analyse à partir du fichier et de ses anomalies (lecture puis contrôle) :
+ * anomalies triées (niveau fichier d'abord, puis par numéro de ligne, tri stable : à ligne égale,
+ * l'ordre reçu est gardé) et compteurs recalculés. Sert au chargement et après chaque saisie.
+ */
+export function bilanAnalyse(
+  fichier: FichierAc056,
+  anomalies: readonly AnomalieAc056[],
+): AnalyseAc056 {
+  const triees = [...anomalies].sort((a, b) => (a.ligne ?? 0) - (b.ligne ?? 0));
+  let erreurs = 0;
+  let structure = 0;
+  for (const anomalie of triees) {
+    if (anomalie.bloquante) erreurs++;
+    if (FAMILLES[anomalie.code] === 'structure') structure++;
+  }
+  let lignesRejetees = 0;
+  for (const ligne of fichier.lignes) if (ligne.rejet !== undefined) lignesRejetees++;
+  return Object.freeze({
+    fichier,
+    anomalies: Object.freeze(triees),
+    erreurs,
+    nonBloquantes: triees.length - erreurs,
+    structure,
+    lignesRejetees,
+  });
+}
 
 export function analyserAc056(octets: Uint8Array, provenance: Provenance): AnalyseAc056 {
   const { fichier, anomalies: lecture } = lireAc056(octets, provenance);
-  // Tri stable : à ligne égale, l'ordre de la concaténation (lecture puis contrôle) est gardé.
-  const anomalies = [...lecture, ...controlerAc056(fichier)].sort(
-    (a, b) => (a.ligne ?? 0) - (b.ligne ?? 0),
-  );
-  const erreurs = anomalies.filter((a) => a.bloquante).length;
-  return Object.freeze({
-    fichier,
-    anomalies: Object.freeze(anomalies),
-    erreurs,
-    nonBloquantes: anomalies.length - erreurs,
-    structure: anomalies.filter((a) => STRUCTURE.has(a.code)).length,
-    lignesRejetees: fichier.lignes.filter((ligne) => ligne.rejet !== undefined).length,
-  });
+  return bilanAnalyse(fichier, [...lecture, ...controlerAc056(fichier)]);
 }

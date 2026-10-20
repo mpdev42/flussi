@@ -1,5 +1,6 @@
 import { _electron, type ElectronApplication, type Page } from '@playwright/test';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -104,7 +105,7 @@ export async function launchApp(options: OptionsLancement = {}): Promise<AppLanc
     } catch {
       // Application déjà fermée ou plantée : seul le nettoyage compte
     }
-    rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await supprimerDossierTemporaire(base);
   };
 
   try {
@@ -114,7 +115,52 @@ export async function launchApp(options: OptionsLancement = {}): Promise<AppLanc
     await page.waitForLoadState('domcontentloaded');
     return { app, page, env, cwd, racineTravail, fermer };
   } catch (erreur) {
-    await fermer();
+    try {
+      await fermer();
+    } catch {
+      // Le nettoyage ne doit jamais masquer l'erreur d'origine du lancement
+    }
     throw erreur;
   }
+}
+
+/** Codes d'erreur d'un dossier verrouillé par Windows (traités comme un verrou, jamais comme un échec). */
+const CODES_VERROU = new Set(['EPERM', 'EBUSY', 'ENOTEMPTY']);
+
+const TENTATIVES_PATIENTES = 20;
+const DELAI_PATIENT_MS = 500;
+
+function estVerrou(erreur: unknown): boolean {
+  const code = (erreur as NodeJS.ErrnoException | null)?.code;
+  return code !== undefined && CODES_VERROU.has(code);
+}
+
+/**
+ * Supprime le dossier temporaire d'un lancement sans jamais faire échouer un test pour un verrou.
+ *
+ * Incident observé le 2026-10-20 : sous Windows, l'antivirus / EDR verrouille parfois le profil
+ * Electron fraîchement créé plus de 2 s après la fermeture de l'application, et `rmSync` lève
+ * `EPERM, Permission denied` alors que les assertions du test sont passées. Première tentative
+ * rapide (comportement historique), puis une seconde plus patiente (environ 10 s) ; si le dossier
+ * reste verrouillé, un avertissement est écrit et le test continue (le système purgera `%TEMP%`).
+ * Toute autre erreur reste levée.
+ */
+async function supprimerDossierTemporaire(dossier: string): Promise<void> {
+  try {
+    rmSync(dossier, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    return;
+  } catch (erreur) {
+    if (!estVerrou(erreur)) throw erreur;
+  }
+  // Tentatives espacées de 500 ms (délai fixe, sans les retries intégrés de Node dont le délai croît)
+  for (let tentative = 1; tentative <= TENTATIVES_PATIENTES; tentative++) {
+    await new Promise((resolve) => setTimeout(resolve, DELAI_PATIENT_MS));
+    try {
+      await rm(dossier, { recursive: true, force: true });
+      return;
+    } catch (erreur) {
+      if (!estVerrou(erreur)) throw erreur;
+    }
+  }
+  console.warn(`[flussi-e2e] Dossier temporaire verrouillé, non supprimé : ${dossier}`);
 }

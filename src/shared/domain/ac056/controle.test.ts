@@ -247,7 +247,8 @@ describe('controlerAc056 : présence conditionnelle (numDossier vide)', () => {
 describe('controlerAc056 : rangs', () => {
   const BENEFICIAIRE = (code: string) => `Entité ${code} : rang de bénéficiaire incohérent`;
   const PERSONNE = (code: string) => `Entité ${code} : rang de personne incohérent`;
-  const NON_NUMERIQUE = (code: string) => `Entité ${code} : rang non numérique`;
+  const NON_NUMERIQUE = (code: string, nature = 'bénéficiaire') =>
+    `Entité ${code} : rang de ${nature} non numérique`;
 
   /** Anomalies d'une 400 de type et de rangs donnés (ligne 4). */
   const sur400 = (typeAssure: string, rang: string, rangPersonne = '01') =>
@@ -328,7 +329,7 @@ describe('controlerAc056 : rangs', () => {
 
     it('divergence 4 : un rang de personne non numérique est signalé sur son champ', () => {
       expect(sur400('ENFANT', '01', 'XX')).toEqual([
-        [4, 'rangPersonne', 'rang-non-numerique', NON_NUMERIQUE('400')],
+        [4, 'rangPersonne', 'rang-non-numerique', NON_NUMERIQUE('400', 'personne')],
       ]);
     });
 
@@ -435,7 +436,7 @@ describe('controlerAc056 : rangs', () => {
     it('800 : un rang de personne blanc est rogné en vide, donc non numérique si le type est concerné', () => {
       const blanc = ligne('800', { rangPersonne: '  ' });
       expect(quadruplets(controle(dansBeneficiaire('ASSPRI', blanc)))).toEqual([
-        [5, 'rangPersonne', 'rang-non-numerique', NON_NUMERIQUE('800')],
+        [5, 'rangPersonne', 'rang-non-numerique', NON_NUMERIQUE('800', 'personne')],
       ]);
       expect(controle(dansBeneficiaire('AUTRE', blanc))).toEqual([]);
     });
@@ -609,7 +610,7 @@ describe('controlerAc056 : lignes brutes de code connu et non brut', () => {
         4,
         'zoneNonDecrite',
         INTERDIT,
-        'Entité 115 : caractère non autorisé dans le champ zoneNonDecrite (octets 271 à 700)',
+        'Entité 115 : caractère interdit dans le champ zoneNonDecrite (octets 271 à 700), octet 701.',
       ],
     ]);
   });

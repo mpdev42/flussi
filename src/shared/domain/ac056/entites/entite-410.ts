@@ -1,25 +1,45 @@
 import { alpha, date, num, zoneNonDecrite } from './champs';
-import { entete, RANG_MODIFIABLE } from './entete';
+import { entete, RANG_BENEFICIAIRE } from './entete';
 import type { DescriptionEntite } from './types';
 
 export const ENTITE_410: DescriptionEntite = {
   code: '410',
   brute: false,
   champs: [
-    ...entete(RANG_MODIFIABLE),
-    date('dateNaissance', 26, 8, { trim: true, affiche: true }),
+    ...entete(RANG_BENEFICIAIRE),
+    date('dateNaissance', 26, 8, { trim: true, affiche: true, libelle: 'Date de naissance' }),
     alpha('typeDate', 34, 2),
     alpha('typeAssureRo', 36, 1),
     num('ayantDroit', 37, 2),
     date('dateDebutRattachement', 39, 8),
     date('dateFinRattachement', 47, 8),
     // Trim + bourrage '0' : Lazarus réécrit un rang blanc en zéros.
-    num('rangNaissance', 55, 2, { trim: true, affiche: true, maxLength: 2 }),
-    alpha('numeroRo', 57, 13, { trim: true, affiche: true, maxLength: 13 }),
-    alpha('cleRo', 70, 2, { trim: true, affiche: true, maxLength: 2 }),
-    alpha('codeGrandRegime', 72, 2, { trim: true, affiche: true, maxLength: 2 }),
-    alpha('codeCaisseRo', 74, 3, { trim: true, affiche: true, maxLength: 3 }),
-    alpha('codeCentrePaiement', 77, 4, { trim: true, affiche: true, maxLength: 4 }),
+    num('rangNaissance', 55, 2, {
+      trim: true,
+      affiche: true,
+      libelle: 'Rang de naissance',
+      maxLength: 2,
+    }),
+    alpha('numeroRo', 57, 13, { trim: true, affiche: true, libelle: 'Numéro RO', maxLength: 13 }),
+    alpha('cleRo', 70, 2, { trim: true, affiche: true, libelle: 'Clé RO', maxLength: 2 }),
+    alpha('codeGrandRegime', 72, 2, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code grand régime',
+      maxLength: 2,
+    }),
+    alpha('codeCaisseRo', 74, 3, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code caisse',
+      maxLength: 3,
+    }),
+    alpha('codeCentrePaiement', 77, 4, {
+      trim: true,
+      affiche: true,
+      libelle: 'Code centre de paiement',
+      maxLength: 4,
+    }),
     date('dateDebutDroitRo', 81, 8),
     date('dateFinDroitRo', 89, 8),
     alpha('motifFinDroitRo', 97, 2),

@@ -243,6 +243,28 @@ describe('structure et hiérarchie d un rejet MSP', () => {
       expect(couples(lecture)).toEqual([['entite-en-double', 4]]);
       expect(messages(lecture)).toEqual([messageEnDouble(4, '995', 3)]);
     });
+
+    it('signale une 995 en double malgré la 001, la 000 et la 999 placées entre les deux', () => {
+      const lecture = lire('100', '990', '995', '001', '000', '999', '995');
+      expect(couples(lecture)).toEqual([['entite-en-double', 7]]);
+      expect(messages(lecture)).toEqual([messageEnDouble(7, '995', 3)]);
+    });
+
+    it('signale en double trois 990 de suite, avec la ligne de la première', () => {
+      const lecture = lire('100', '990', '990', '990', '995', '001');
+      expect(messages(lecture)).toEqual([
+        messageEnDouble(3, '990', 2),
+        messageEnDouble(4, '990', 2),
+      ]);
+    });
+
+    it('signale en double trois 995 de suite, malgré la 001 placée entre elles', () => {
+      const lecture = lire('100', '990', '995', '001', '995', '995');
+      expect(messages(lecture)).toEqual([
+        messageEnDouble(5, '995', 3),
+        messageEnDouble(6, '995', 3),
+      ]);
+    });
   });
 
   describe('entite-absente', () => {
@@ -294,6 +316,14 @@ describe('structure et hiérarchie d un rejet MSP', () => {
       const lecture = lire('100', '990', '995', '100', '990', '001', '000', '999');
       expect(couples(lecture)).toEqual([['entite-mal-placee', 4]]);
       expect(messages(lecture)).toEqual([messageMalPlacee(4, '100', HORS_DOSSIER)]);
+    });
+
+    it('signale mal placée, et non en double, une 990 après la 995 de son dossier', () => {
+      const lecture = lire('100', '990', '995', '990', '001');
+      expect(couples(lecture)).toEqual([['entite-mal-placee', 4]]);
+      expect(messages(lecture)).toEqual([
+        messageMalPlacee(4, '990', "hors d'un évènement (le précédent est fermé ligne 2)"),
+      ]);
     });
 
     it('ne signale pas une 100 après la 995 d un autre dossier (clé différente)', () => {

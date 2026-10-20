@@ -1,9 +1,10 @@
 // Source : docs/reference/lazarus/fmain.lfm, propriété Items.Strings de cbb120CodeNatureVoie.
 // Recopie mot pour mot (ordre, doublons, coquilles, espaces de fin). Affichage uniquement :
 // Lazarus ne contrôle jamais ces valeurs.
+import { figerProfond } from '../gel';
 import type { ValeurAutorisee } from '../types';
 
-export const NATURES_VOIE: readonly ValeurAutorisee[] = [
+export const NATURES_VOIE: readonly ValeurAutorisee[] = figerProfond([
   { code: 'ABE', libelle: 'Abbaye' },
   { code: 'AER', libelle: 'Aerodrome' },
   { code: 'AGL', libelle: 'Agglomeration' },
@@ -215,4 +216,4 @@ export const NATURES_VOIE: readonly ValeurAutorisee[] = [
   { code: 'ZAC', libelle: "Zone d'amenagement concerte" },
   { code: 'ZAD', libelle: "Zone d'amenagement differe" },
   { code: 'ZI', libelle: 'Zone industrielle' },
-];
+]);

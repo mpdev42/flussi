@@ -2,6 +2,10 @@
 // quel, sans Trim ni bourrage ; le bourrage vient à l'écriture). Les messages ne contiennent jamais
 // la valeur saisie (donnée personnelle). Le fichier d'entrée n'est jamais modifié. Chaque champ
 // réécrit est consigné dans `champsModifies` de la ligne : le contrôle juge alors la valeur saisie.
+// Les messages désignent le champ par son libellé à l'écran (`designationChamp`).
+// La valeur est limitée à `maxLength` caractères (`MaxLength` des `TEdit` de `fmain.lfm`) et à la
+// longueur du champ en octets.
+import { designationChamp } from './designation-champ';
 import { ENTITES } from './entites';
 import type { FichierAc056, LigneDecrite } from './modele';
 import { octetsDepuisTexte } from './octets';
@@ -19,6 +23,7 @@ export type CodeErreurModification =
   | 'champ-inconnu'
   | 'champ-non-modifiable'
   | 'saut-de-ligne'
+  | 'caractere-illisible'
   | 'valeur-trop-longue';
 
 export interface ErreurModification {
@@ -64,20 +69,39 @@ export function modifierChamp(
     return echec('champ-inconnu', `Entité ${code} : champ ${cible.champ} inconnu.`);
   }
   if (!champ.modifiable) {
-    return echec('champ-non-modifiable', `Entité ${code} : champ ${champ.nom} non modifiable.`);
+    return echec(
+      'champ-non-modifiable',
+      `Entité ${code} : champ ${designationChamp(champ)} non modifiable.`,
+    );
   }
 
   const octets = octetsDepuisTexte(valeur);
   if (octets.includes('\r') || octets.includes('\n')) {
     return echec(
       'saut-de-ligne',
-      `Entité ${code} : saut de ligne interdit dans le champ ${champ.nom}.`,
+      `Entité ${code} : saut de ligne interdit dans le champ ${designationChamp(champ)}.`,
+    );
+  }
+  // U+FFFD : octets UTF-8 invalides affichés par `texteDepuisOctets` puis retapés. L'écrire
+  // remplacerait les octets d'origine par EF BF BD sans que personne l'ait voulu.
+  if (valeur.includes('\uFFFD')) {
+    return echec(
+      'caractere-illisible',
+      `Entité ${code} : caractère illisible dans le champ ${designationChamp(champ)}, à remplacer par le bon caractère.`,
+    );
+  }
+  // `MaxLength` du contrôle Lazarus (et `<input maxLength>` de l'écran) : en caractères (unités
+  // UTF-16, comme le contrôle d'édition Windows), en plus de la longueur du champ en octets.
+  if (champ.maxLength !== undefined && valeur.length > champ.maxLength) {
+    return echec(
+      'valeur-trop-longue',
+      `Entité ${code} : valeur trop longue pour le champ ${designationChamp(champ)} (${valeur.length} caractères pour ${champ.maxLength}).`,
     );
   }
   if (octets.length > champ.longueur) {
     return echec(
       'valeur-trop-longue',
-      `Entité ${code} : valeur trop longue pour le champ ${champ.nom} (${octets.length} octets pour ${champ.longueur}).`,
+      `Entité ${code} : valeur trop longue pour le champ ${designationChamp(champ)} (${octets.length} octets pour ${champ.longueur}).`,
     );
   }
 

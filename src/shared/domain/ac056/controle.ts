@@ -1,13 +1,17 @@
 // Contrôle d'un fichier AC056 lu : port de `ControlerEvenement` de `ucontrole.pas` (jeux de
 // caractères, rangs, codes imposés) et deux divergences validées :
 // - divergence 4 : un rang non numérique, là où Lazarus plante sur `StrToInt`, devient une anomalie
-//   `rang-non-numerique` ;
+//   `rang-non-numerique`, dont le message dit quel rang (bénéficiaire ou personne) ;
 // - divergence 5 : tout octet de contrôle, DEL ou >= 0x80 dans un champ de n'importe quelle ligne
-//   de code connu devient une anomalie `caractere-interdit` (un seul message par champ).
+//   de code connu devient une anomalie `caractere-interdit` (un seul message par champ), au
+//   message propre à Flussi : libellé de l'écran (`designationChamp`) et position du premier octet.
 // Passe séparée de `lireAc056` : les rejets ne sont jamais contrôlés et l'écran recontrôle après
 // chaque modification. Les messages ne contiennent que des codes d'entité, des noms de champ et des
 // positions, jamais une valeur lue (donnée personnelle). Toutes les anomalies sont bloquantes :
 // Lazarus refuse l'enregistrement tant qu'il reste une erreur.
+// Chaque anomalie porte une `consigne` (texte sous le champ, `DESIGN.md` §9.2) : ce qui ne va pas
+// et ce qui est attendu. Le `message` des règles de Lazarus reste son texte exact (relevé PIEGES).
+import { designationChamp } from './designation-champ';
 import { ENTITES, type CodeEntite, type DescriptionChamp } from './entites';
 import { trimFpc, strToIntFpc } from './fpc';
 import {
@@ -28,6 +32,8 @@ import type { Octets } from './octets';
 export interface Verdict {
   readonly code: CodeAnomalie;
   readonly message: string;
+  /** Texte sous le champ, sans la mention VEOS d'un champ non modifiable (`creerAnomalie`). */
+  readonly consigne: string;
 }
 
 /** Règle de Lazarus sur un champ ; `verifier` renvoie le verdict d'échec, ou null si conforme. */
@@ -89,6 +95,37 @@ function messageNonAutorise(entite: CodeEntite, champ: DescriptionChamp): string
   return `Entité ${entite} : caractère non autorisé dans ${libelleDe(entite, champ)}`;
 }
 
+/**
+ * Fin de la consigne d'un champ non modifiable à l'écran (code et valeur des 485 et 490, octet
+ * interdit hors des 23 champs modifiables) : décision 4 de l'item 2 de la v0.3.0.
+ */
+export const CONSIGNE_VEOS = 'À corriger dans VEOS.';
+
+// Consignes des jeux de `uconstantes.pas` (détail dans `jeux-caracteres.ts`), caractère par caractère.
+const CONSIGNES_JEU: ReadonlyMap<JeuCaracteres, string> = new Map([
+  [
+    JEU_LISTE_1,
+    'Caractère non autorisé : lettres majuscules sans accent, chiffres, espace, tiret, apostrophe, barre oblique et point seulement.',
+  ],
+  [
+    JEU_LISTE_2,
+    'Caractère non autorisé : lettres sans accent (majuscules ou minuscules), chiffres, espace, tiret, tiret bas, apostrophe, barre oblique, point et arobase seulement.',
+  ],
+  [
+    JEU_LISTE_3,
+    'Caractère non autorisé : lettres majuscules sans accent et chiffres seulement, sans espace.',
+  ],
+  [JEU_NUMERIQUE, 'Caractère non autorisé : chiffres seulement.'],
+]);
+
+/** Divergence 5 : message propre à Flussi, avec le libellé de l'écran et l'octet fautif. */
+function messageOctetInterdit(entite: CodeEntite, champ: DescriptionChamp, octet: number): string {
+  return `Entité ${entite} : caractère interdit dans le champ ${designationChamp(champ)}, octet ${octet}.`;
+}
+
+const CONSIGNE_OCTET_INTERDIT =
+  'Caractère interdit (lettre accentuée, caractère invisible ou spécial) : seuls les caractères sans accent sont acceptés.';
+
 function champDe(entite: CodeEntite, nom: string): DescriptionChamp {
   const champ = ENTITES[entite].champs.find((c) => c.nom === nom);
   if (champ === undefined) throw new Error(`Entité ${entite} : champ ${nom} inconnu.`);
@@ -100,9 +137,13 @@ function champDe(entite: CodeEntite, nom: string): DescriptionChamp {
 /** `is_texte_valide(valeur, jeu)`. */
 function jeuAutorise(entite: CodeEntite, nom: string, jeu: JeuCaracteres): RegleLazarus {
   const champ = champDe(entite, nom);
+  const consigne = CONSIGNES_JEU.get(jeu);
+  if (consigne === undefined)
+    throw new Error(`Entité ${entite} : jeu du champ ${nom} sans consigne.`);
   const refus: Verdict = {
     code: 'caractere-non-autorise',
     message: messageNonAutorise(entite, champ),
+    consigne,
   };
   return { champ, verifier: (valeur) => (estTexteValide(valeur, jeu) ? null : refus) };
 }
@@ -112,6 +153,7 @@ function codePostalDeCinqChiffres(): RegleLazarus {
   const refus: Verdict = {
     code: 'code-postal-longueur',
     message: 'Entité 120 : le code postal doit être composé de 5 chiffres',
+    consigne: 'Longueur incorrecte : le code postal doit compter 5 chiffres.',
   };
   return {
     champ: champDe('120', 'codePostalLocalite'),
@@ -124,16 +166,31 @@ function valeurImposee(
   entite: CodeEntite,
   nom: string,
   message: string,
+  consigne: string,
   conforme: (valeur: Octets) => boolean,
 ): RegleLazarus {
-  const refus: Verdict = { code: 'valeur-imposee', message: `Entité ${entite} : ${message}` };
+  const refus: Verdict = {
+    code: 'valeur-imposee',
+    message: `Entité ${entite} : ${message}`,
+    consigne,
+  };
   return { champ: champDe(entite, nom), verifier: (valeur) => (conforme(valeur) ? null : refus) };
 }
 
-/** Seuil de rang à ne pas atteindre selon le type d'assuré ; null = aucun contrôle de rang. */
-function seuilRang(typeAssure: string): number | null {
-  if (typeAssure === 'ASSPRI' || typeAssure === 'CONJOI') return 21;
-  if (typeAssure === 'ENFANT') return 40;
+/** Seuil de rang à ne pas atteindre (`StrToInt(…) >= seuil`) et assurés concernés. */
+interface SeuilRang {
+  readonly seuil: number;
+  readonly assures: string;
+}
+
+// `ucontrole.pas` : `>= 21` pour ASSPRI et CONJOI, `>= 40` pour ENFANT (lignes 152 à 291).
+const SEUIL_ADULTE: SeuilRang = { seuil: 21, assures: 'un assuré principal ou un conjoint' };
+const SEUIL_ENFANT: SeuilRang = { seuil: 40, assures: 'un enfant' };
+
+/** Seuil selon le type d'assuré ; null = aucun contrôle de rang. */
+function seuilRang(typeAssure: string): SeuilRang | null {
+  if (typeAssure === 'ASSPRI' || typeAssure === 'CONJOI') return SEUIL_ADULTE;
+  if (typeAssure === 'ENFANT') return SEUIL_ENFANT;
   return null;
 }
 
@@ -147,22 +204,32 @@ function rangCoherent(
   nom: 'rang' | 'rangPersonne',
   nature: 'bénéficiaire' | 'personne',
 ): RegleLazarus {
-  const incoherent: Verdict = {
-    code: 'rang-incoherent',
-    message: `Entité ${entite} : rang de ${nature} incohérent`,
-  };
-  const nonNumerique: Verdict = {
-    code: 'rang-non-numerique',
-    message: `Entité ${entite} : rang non numérique`,
-  };
+  // Verdicts figés par seuil : la consigne cite le maximum du type d'assuré.
+  const verdicts = new Map(
+    [SEUIL_ADULTE, SEUIL_ENFANT].map((seuil) => {
+      const maximum = `${seuil.seuil - 1} au plus pour ${seuil.assures}`;
+      const incoherent: Verdict = {
+        code: 'rang-incoherent',
+        message: `Entité ${entite} : rang de ${nature} incohérent`,
+        consigne: `Rang trop élevé : ${maximum}.`,
+      };
+      const nonNumerique: Verdict = {
+        code: 'rang-non-numerique',
+        message: `Entité ${entite} : rang de ${nature} non numérique`,
+        consigne: `Rang non numérique : saisissez 2 chiffres, ${maximum}.`,
+      };
+      return [seuil, { incoherent, nonNumerique }] as const;
+    }),
+  );
   return {
     champ: champDe(entite, nom),
     verifier: (valeur, typeAssure) => {
       const seuil = seuilRang(typeAssure);
       if (seuil === null) return null;
+      const { incoherent, nonNumerique } = verdicts.get(seuil)!;
       const rang = strToIntFpc(valeur);
       if (rang === null) return nonNumerique;
-      return rang >= seuil ? incoherent : null;
+      return rang >= seuil.seuil ? incoherent : null;
     },
   };
 }
@@ -205,12 +272,14 @@ export const REGLES: Readonly<Partial<Record<CodeEntite, readonly RegleLazarus[]
       '485',
       'code',
       'le code doit être égal à COEFCO',
+      'Code non accepté : COEFCO attendu.',
       (valeur) => valeur === 'COEFCO',
     ),
     valeurImposee(
       '485',
       'valeur',
       'la valeur doit être égale à COUPLE',
+      'Valeur non acceptée : COUPLE attendue.',
       (valeur) => valeur === 'COUPLE',
     ),
   ],
@@ -220,9 +289,16 @@ export const REGLES: Readonly<Partial<Record<CodeEntite, readonly RegleLazarus[]
       '490',
       'code',
       'le code doit être égal à COEFCO ou REDAN',
+      'Code non accepté : COEFCO ou REDAN attendu.',
       (valeur) => valeur === 'COEFCO' || trimFpc(valeur) === 'REDAN',
     ),
-    valeurImposee('490', 'valeur', 'la valeur doit être égale à NON', (valeur) => valeur === 'NON'),
+    valeurImposee(
+      '490',
+      'valeur',
+      'la valeur doit être égale à NON',
+      'Valeur non acceptée : NON attendue.',
+      (valeur) => valeur === 'NON',
+    ),
   ],
   '700': [rangBeneficiaire('700')],
   '800': [rangBeneficiaire('800'), rangPersonne('800')],
@@ -245,25 +321,41 @@ function valeursDe(ligne: LigneAc056 | undefined): Readonly<Record<string, Octet
   return lireValeurs(ENTITES[ligne.code], ligne.origine);
 }
 
+/**
+ * Anomalie de contrôle. La consigne d'un champ que l'écran ne permet pas de modifier se termine
+ * par `CONSIGNE_VEOS`.
+ */
 function creerAnomalie(
   ligne: LigneAc056,
   champ: DescriptionChamp,
-  code: CodeAnomalie,
-  message: string,
+  { code, message, consigne }: Verdict,
 ): AnomalieAc056 {
-  return Object.freeze({ code, ligne: ligne.numero, message, bloquante: true, champ: champ.nom });
+  return Object.freeze({
+    code,
+    ligne: ligne.numero,
+    message,
+    bloquante: true,
+    champ: champ.nom,
+    consigne: champ.modifiable ? consigne : `${consigne} ${CONSIGNE_VEOS}`,
+  });
+}
+
+/** Champ qui contient un octet interdit, et position dans la ligne (base 1) du premier. */
+interface OctetInterdit {
+  readonly champ: DescriptionChamp;
+  readonly octet: number;
 }
 
 /**
- * Champs d'une ligne qui contiennent un octet interdit. Les octets examinés sont ceux de
- * `origine` (ce qu'a retiré `trimFpc` en bordure compte), sauf pour un champ modifié : on examine
- * alors la valeur saisie. Au-delà de la fin du dernier champ (ligne trop longue), les octets sont
- * rattachés au dernier champ.
+ * Champs d'une ligne qui contiennent un octet interdit, avec la position du premier. Les octets
+ * examinés sont ceux de `origine` (ce qu'a retiré `trimFpc` en bordure compte), sauf pour un champ
+ * modifié : on examine alors la valeur saisie, dont le premier octet prend la position du champ.
+ * Au-delà de la fin du dernier champ (ligne trop longue), les octets sont rattachés au dernier champ.
  */
-function champsAvecOctetInterdit(ligne: LigneAc056, entite: CodeEntite): DescriptionChamp[] {
+function champsAvecOctetInterdit(ligne: LigneAc056, entite: CodeEntite): OctetInterdit[] {
   const champs = ENTITES[entite].champs;
   const modifies = ligne.nature === 'decrite' ? ligne.champsModifies : undefined;
-  const trouves: DescriptionChamp[] = [];
+  const trouves: OctetInterdit[] = [];
   const { origine } = ligne;
 
   // `k` ne fait qu'avancer : les champs sont triés par position. Un champ trouvé n'est signalé
@@ -276,7 +368,7 @@ function champsAvecOctetInterdit(ligne: LigneAc056, entite: CodeEntite): Descrip
     const dernier = k === champs.length - 1;
     const fin = champ.position - 1 + champ.longueur;
     if (!dernier && i >= fin) continue;
-    if (!modifies?.includes(champ.nom)) trouves.push(champ);
+    if (!modifies?.includes(champ.nom)) trouves.push({ champ, octet: i + 1 });
     i = dernier ? origine.length : fin - 1;
   }
 
@@ -286,7 +378,8 @@ function champsAvecOctetInterdit(ligne: LigneAc056, entite: CodeEntite): Descrip
       if (valeur === undefined) continue;
       for (let i = 0; i < valeur.length; i++) {
         if (!estOctetInterdit(valeur.charCodeAt(i))) continue;
-        trouves.push(champDe(entite, nom));
+        const champ = champDe(entite, nom);
+        trouves.push({ champ, octet: champ.position + i });
         break;
       }
     }
@@ -325,7 +418,7 @@ export function controlerAc056(fichier: FichierAc056): AnomalieAc056[] {
       constats.push({
         position: regle.champ.position,
         ordre,
-        anomalie: creerAnomalie(ligne, regle.champ, verdict.code, verdict.message),
+        anomalie: creerAnomalie(ligne, regle.champ, verdict),
       });
       if (verdict.code === 'caractere-non-autorise') {
         const refuses = refusesParJeu.get(indice) ?? new Set<string>();
@@ -357,17 +450,16 @@ export function controlerAc056(fichier: FichierAc056): AnomalieAc056[] {
   lignes.forEach((ligne, indice) => {
     if (ligne.code === null) return;
     const refuses = refusesParJeu.get(indice);
-    for (const champ of champsAvecOctetInterdit(ligne, ligne.code)) {
+    for (const { champ, octet } of champsAvecOctetInterdit(ligne, ligne.code)) {
       if (refuses?.has(champ.nom)) continue;
       constats.push({
         position: champ.position,
         ordre: ORDRE_OCTET_INTERDIT,
-        anomalie: creerAnomalie(
-          ligne,
-          champ,
-          'caractere-interdit',
-          messageNonAutorise(ligne.code, champ),
-        ),
+        anomalie: creerAnomalie(ligne, champ, {
+          code: 'caractere-interdit',
+          message: messageOctetInterdit(ligne.code, champ, octet),
+          consigne: CONSIGNE_OCTET_INTERDIT,
+        }),
       });
     }
   });

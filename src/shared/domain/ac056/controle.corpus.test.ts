@@ -15,14 +15,19 @@ import {
   decrireSousDossierCorpus,
   listerCorpus,
   lireCorpus,
+  MINIMUM_FICHIERS_CORPUS,
 } from '@shared/test/corpus';
 import { lireReleveLazarus } from '@shared/test/releve-lazarus';
+import { messagesControleLazarus } from '@shared/test/source-lazarus';
 import { controlerAc056 } from './controle';
 import { lireAc056 } from './lecteur';
 import type { AnomalieAc056, CodeAnomalie } from './modele';
 
 const SUFFIXE_RELEVE = '.erreurs.txt';
 const SUFFIXE_NOTE = '.modification.txt';
+
+/** Les 28 messages littéraux de Lazarus (`ucontrole.pas`), qui ne contiennent aucune valeur. */
+const MESSAGES_LAZARUS = messagesControleLazarus();
 
 /** Anomalies que Lazarus ne produit jamais (divergences 4 et 5). */
 const CODES_DIVERGENCE: readonly CodeAnomalie[] = ['caractere-interdit', 'rang-non-numerique'];
@@ -42,7 +47,7 @@ function ecartsDeControle(sousDossier: 'IN' | 'MODIFIES', noms: readonly string[
 decrireCorpus('Contrôle AC056 sur le corpus réel (IN)', () => {
   it('ne produit aucune anomalie de contrôle sur les fichiers VEOS de IN', () => {
     const noms = listerCorpus('IN').filter((nom) => nom.endsWith('.txt'));
-    expect(noms.length).toBeGreaterThan(0);
+    expect(noms.length).toBeGreaterThanOrEqual(MINIMUM_FICHIERS_CORPUS.IN);
     expect(ecartsDeControle('IN', noms)).toEqual([]);
   });
 });
@@ -52,7 +57,7 @@ decrireSousDossierCorpus('MODIFIES', 'Contrôle AC056 sur le corpus réel (MODIF
     const noms = listerCorpus('MODIFIES').filter(
       (nom) => nom.endsWith('.txt') && !nom.endsWith(SUFFIXE_NOTE),
     );
-    expect(noms.length).toBeGreaterThan(0);
+    expect(noms.length).toBeGreaterThanOrEqual(MINIMUM_FICHIERS_CORPUS.MODIFIES);
     expect(ecartsDeControle('MODIFIES', noms)).toEqual([]);
   });
 });
@@ -143,11 +148,19 @@ function comparerPaire(paire: Paire): ResultatParite {
     c.lignes.push(a.ligne as number);
   }
 
+  // Le relevé est collé à la main : un message qui n'est ni un littéral de `ucontrole.pas` ni un
+  // message produit par Flussi (sans valeur) peut contenir du texte libre, jamais recopié.
+  const inconnus: string[] = [];
+  const citer = (c: Compte): string => {
+    if (MESSAGES_LAZARUS.has(c.message) || c.obtenu > 0) return `« ${c.message} »`;
+    if (!inconnus.includes(c.message)) inconnus.push(c.message);
+    return `message inconnu n° ${inconnus.indexOf(c.message) + 1}`;
+  };
   for (const c of comptes.values()) {
     if (c.attendu === c.obtenu) continue;
     const lignes = c.lignes.length === 0 ? 'aucune' : c.lignes.join(', ');
     ecarts.push(
-      `${paire.base} : « ${c.message} » attendu ${c.attendu}, obtenu ${c.obtenu} (lignes Flussi ${lignes})`,
+      `${paire.base} : ${citer(c)} attendu ${c.attendu}, obtenu ${c.obtenu} (lignes Flussi ${lignes})`,
     );
   }
   return { ecarts: ecarts.sort(), dansReleve: releve.length, dansFlussi, divergences };
@@ -155,8 +168,10 @@ function comparerPaire(paire: Paire): ResultatParite {
 
 decrireSousDossierCorpus('PIEGES', 'Parité du contrôle AC056 avec Lazarus (PIEGES)', () => {
   describe('inventaire', () => {
-    it('contient au moins une paire fichier piégé et relevé', () => {
-      expect(inventorierPieges().paires.length).toBeGreaterThan(0);
+    it(`contient au moins ${MINIMUM_FICHIERS_CORPUS.PIEGES} paire(s) fichier piégé et relevé`, () => {
+      expect(inventorierPieges().paires.length).toBeGreaterThanOrEqual(
+        MINIMUM_FICHIERS_CORPUS.PIEGES,
+      );
     });
 
     it('associe chaque NOM.txt à un NOM.erreurs.txt et inversement', () => {

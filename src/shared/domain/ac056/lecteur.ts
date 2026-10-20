@@ -3,7 +3,7 @@
 // contrôle de structure (anomalies bloquantes). Ne lève jamais : les écarts deviennent des anomalies.
 // Un fichier de rejet MSP (`provenance` = `rejet`) est lu de la même façon, avec des lignes d'au
 // moins 718 octets dont le message (octets 719 et suivants) est rattaché à son code `ERRxxx`.
-import { decouperLignes } from './decoupage';
+import { decouperLignes, type LigneDecoupee } from './decoupage';
 import {
   CODES_ENTITE,
   ENTITES,
@@ -16,7 +16,7 @@ import {
 import { trimFpc } from './fpc';
 import { construireHierarchie } from './hierarchie';
 import type { AnomalieAc056, FichierAc056, LectureAc056, LigneAc056, Provenance } from './modele';
-import { estUtf8Valide, sousOctets, type Octets } from './octets';
+import { estUtf8Valide, sousOctets, tableauDepuisOctets, type Octets } from './octets';
 import { LONGUEUR_MINIMALE_REJET, messageRejet } from './rejet';
 import { controlerStructure } from './structure';
 
@@ -57,30 +57,46 @@ function anomalieFinDeLigne(fin: '\n' | '\r', numeros: readonly number[]): Anoma
   });
 }
 
+const OCTET_NON_ASCII = /[\x80-\xff]/;
+
 /**
  * Anomalie d'encodage : un fichier VEOS doit être en UTF-8, un rejet en Windows-1252. L'ASCII pur
  * est valide pour les deux, donc jamais signalé. Non bloquante, sans valeur lue dans le message.
+ * `ligne` : première ligne en cause (UTF-8 invalide pour un fichier VEOS ; premier octet non ASCII
+ * pour un rejet), null si aucune ne l'est (rejet réduit à un BOM et à de l'ASCII). Les fins de
+ * ligne étant de l'ASCII, le fichier est de l'UTF-8 valide si et seulement si chaque ligne l'est.
  */
 function anomalieEncodage(
   octets: Uint8Array,
   provenance: Provenance,
   bom: boolean,
+  lignes: readonly LigneDecoupee[],
 ): AnomalieAc056 | null {
-  const anomalie = (message: string): AnomalieAc056 =>
-    Object.freeze({ code: 'encodage-incoherent' as const, ligne: null, message, bloquante: false });
+  const anomalie = (ligne: number | null, debut: string, fin = ''): AnomalieAc056 =>
+    Object.freeze({
+      code: 'encodage-incoherent' as const,
+      ligne,
+      message: `${debut}${ligne === null ? '' : ` (première ligne concernée : ${ligne})`}${fin}.`,
+      bloquante: false,
+    });
 
   if (provenance === 'veos') {
-    return estUtf8Valide(octets)
-      ? null
-      : anomalie("Le fichier semble encodé en Windows-1252 au lieu d'UTF-8.");
+    if (estUtf8Valide(octets)) return null;
+    const fautive = lignes.find((l) => !estUtf8Valide(tableauDepuisOctets(l.octets)));
+    return anomalie(
+      fautive?.numero ?? null,
+      "Le fichier semble encodé en Windows-1252 au lieu d'UTF-8",
+    );
   }
   // Un BOM est propre à l'UTF-8 ; sinon il faut un octet >= 0x80 (l'ASCII pur ne dit rien).
   const utf8 = bom || (octets.some((octet) => octet >= 0x80) && estUtf8Valide(octets));
-  return utf8
-    ? anomalie(
-        'Le fichier de rejet semble encodé en UTF-8 au lieu de Windows-1252 : les accents des messages seront mal affichés.',
-      )
-    : null;
+  if (!utf8) return null;
+  const fautive = lignes.find((l) => OCTET_NON_ASCII.test(l.octets));
+  return anomalie(
+    fautive?.numero ?? null,
+    'Le fichier de rejet semble encodé en UTF-8 au lieu de Windows-1252',
+    ' : les accents des messages seront mal affichés',
+  );
 }
 
 export function lireAc056(octets: Uint8Array, provenance: Provenance = 'veos'): LectureAc056 {
@@ -161,7 +177,7 @@ export function lireAc056(octets: Uint8Array, provenance: Provenance = 'veos'): 
   for (const anomalie of [
     anomalieFinDeLigne('\n', rejet ? [] : numerosLf),
     anomalieFinDeLigne('\r', rejet ? [] : numerosCr),
-    anomalieEncodage(octets, provenance, bom),
+    anomalieEncodage(octets, provenance, bom, decoupees),
   ]) {
     if (anomalie) anomalies.push(anomalie);
   }

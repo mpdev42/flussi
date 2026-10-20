@@ -9,6 +9,7 @@
 ## Améliorations
 
 _(aucune pour l'instant — les items de l'amorce du 2026-10-02 sont planifiés dans `docs/roadmap.md`)_
+- Mettre l'application en plein écran
 
 ## Bugs probables / cas limites
 
@@ -24,6 +25,7 @@ _(aucun pour l'instant)_
 - Rejet : un 0x1A au milieu d'une ligne d'au moins 718 octets ne produit aucune anomalie (rejet non contrôlé), là où Lazarus couperait le fichier : accepter et l'écrire dans la décision Ctrl-Z ? — `src/shared/domain/ac056/lecteur.ts` (v0.3.0, item 1)
 - Tracer au journal un échec de la liste `IN`/`OUT` (dossier devenu inaccessible en cours de session) ? Aujourd'hui rien n'est écrit — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
 - Panneau du journal : libellés « Titre, Info, Succès, Erreur » et une icône par niveau, au lieu des majuscules et des deux icônes de la maquette : à confirmer — `src/renderer/src/components/journal-session.tsx` (v0.3.0, item 1)
+- Le service administratif a-t-il des postes tactiles ? Au toucher, la correction d'un champ est appliquée avant le relâchement et un clic de navigation peut être perdu (correctif : écouter aussi `mousedown` et `mouseup`) — `src/renderer/src/pages/ac056/sortie-champ.ts` (v0.3.0, item 2)
 
 ## Points reportés
 
@@ -106,7 +108,11 @@ _(aucun pour l'instant)_
 - DRY main et domaine : `compter` du service Ac056 et `pluralize` du renderer, comparateur d'anomalies écrit deux fois, type écrit sur place dans le preload au lieu de `CibleFichierAc056`, `ListeAc056` hors de la forme `{ ok, valeur }`, `PREFIXE_FICHIER_REJET` réexporté sans usage, `provenanceDepuisNom` sur un nom avec chemin (JSDoc et test) — `src/main/services/ac056/index.ts`, `src/shared/domain/ac056/`, `src/preload/index.ts` (v0.3.0, item 1)
 - Tests de l'item 1 de la v0.3.0 : tests sans preuve (« ne contrôle pas un rejet », « et lui seul », démontage sous React 19, hook de verrou sans fournisseur), `pousser` hors de `act`, assertions sur des classes Tailwind, seuil fixe de 2 s ; cas manquants (`ctrlZFinal` avec BOM, rejet fait seulement de 0x1A, `CON.txt`, `ENOENT`, focus au retour sur l'écran AC056, 1280 px sans défilement sur Journal et Paramètres) — `src/shared/domain/ac056/*.test.ts`, `src/renderer/src/`, `e2e/specs/ac056.spec.ts` (v0.3.0, item 1)
 - Canaux `journal:*` : ils renvoient encore `ErreurStockage` complet à l'écran (chemin absolu, lecteur ou partage dans le message), contraire au principe « aucun chemin vers l'écran » de l'écran AC056 — `src/main/ipc/journal/index.ts` (v0.3.0, item 1)
-- E2E : `EPERM` transitoire au nettoyage d'un dossier temporaire de la fixture (une fois, juste après un build ; antivirus probable) — `e2e/fixtures/electron.ts` (v0.3.0, item 1)
+- E2E : `EPERM` au nettoyage d'un dossier temporaire de la fixture (antivirus probable), rendu tolérant à l'item 2 de la v0.3.0 (avertissement au lieu d'un échec). Reste : un Electron orphelin n'est plus détecté si `app.close()` échoue (tuer `app.process()`), erreur de nettoyage sans trace dans le `catch` de `launchApp`, attente jusqu'à environ 21 s — `e2e/fixtures/electron.ts` (v0.3.0, items 1 et 2)
+- DRY et YAGNI du domaine AC056 : `FAMILLES` et `CODES_STRUCTURE` en double, `controlerChamp`, `entreeListe`, `texteEntree` et `compterParLigne` exportés sans appelant en production, paramètre `_index` inutilisé de `controlerLigne`, `indices` (Map) non gelé — `src/shared/domain/ac056/` (v0.3.0, item 2)
+- Rangement de l'écran AC056 : `use-navigation-ac056` importe `pages/` (sens des dépendances), `sortie-champ.ts` générique rangé dans `pages/`, logique des tranches en double avec `carte-fichiers.tsx`, `TabBar` non générique (casts `as`), copie de référence dans un `useEffect` — `src/renderer/src/` (v0.3.0, item 2)
+- Partagé : token `w-panel-nav` inutilisé (le `content` Tailwind analyse aussi les tests), `var(--panel-nav-width)` sans valeur de repli, `select.tsx` en `focus:` au lieu de `focus-visible:`, `useEtatJournal` dans `App` (re-rendu complet en mode dégradé du journal), infobulle d'un onglet désactivé à vérifier à la main, `TextInput` qui peut rogner 1 px à `maxLength` — `tailwind.config.js`, `src/renderer/src/` (v0.3.0, item 2)
+- Tests de l'item 2 de la v0.3.0 : `App.dom.test` (classe exacte, compte de rendus fragile), quatre cas inopérants de `utils.test`, `analyse.test` qui compare deux listes écrites à la main, cas manquants `TabBar`, `TextInput` et `JournalSessionEnDirect`, U+FFFD en clair et `\T` non échappé dans des tests du renderer, accents échappés dans un commentaire d'`octets.test`, e2e couplés aux classes Tailwind et au DOM, marge de 40 px du test « une colonne » à 1280 px — `src/`, `e2e/specs/ac056.spec.ts` (v0.3.0, item 2)
 
 ## Décisions
 

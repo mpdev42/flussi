@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => {
       // Tests unitaires à côté du code ; e2e/ appartient à Playwright
       include: corpus ? ['src/**/*.corpus.test.ts'] : ['src/**/*.{test,spec}.{ts,tsx}'],
       passWithNoTests: !corpus,
+      // Corpus sur P: (bibliothèque SharePoint synchronisée) : lectures lentes, délai de 2 minutes
+      // par test au lieu des 5 secondes par défaut. Mode normal inchangé.
+      ...(corpus && { testTimeout: 120_000 }),
       env,
     },
   };

@@ -1,9 +1,10 @@
 // Source : docs/reference/lazarus/fmain.lfm, propriété Items.Strings de cbb120CodeDepartement, cbb400DepartementTarifaire.
 // Recopie mot pour mot (ordre, doublons, coquilles, espaces de fin). Affichage uniquement :
 // Lazarus ne contrôle jamais ces valeurs.
+import { figerProfond } from '../gel';
 import type { ValeurAutorisee } from '../types';
 
-export const DEPARTEMENTS: readonly ValeurAutorisee[] = [
+export const DEPARTEMENTS: readonly ValeurAutorisee[] = figerProfond([
   { code: '01', libelle: 'Ain' },
   { code: '02', libelle: 'Aisne' },
   { code: '03', libelle: 'Allier' },
@@ -114,4 +115,4 @@ export const DEPARTEMENTS: readonly ValeurAutorisee[] = [
   { code: '88', libelle: 'Nouvelle caledonie' },
   { code: '89', libelle: 'Ile de clipperton' },
   { code: '99', libelle: 'Departement hors france' },
-];
+]);

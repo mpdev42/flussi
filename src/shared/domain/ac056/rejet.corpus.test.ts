@@ -5,7 +5,12 @@
 // Aucune E/S pendant la collecte : inventaire et lectures dans les `it`. Les rejets sont lus une
 // seule fois (au premier `it`) puis mémorisés pour les suivants (lecteur réseau lent).
 import { expect, it } from 'vitest';
-import { decrireSousDossierCorpus, listerCorpus, lireCorpus } from '@shared/test/corpus';
+import {
+  decrireSousDossierCorpus,
+  listerCorpus,
+  lireCorpus,
+  MINIMUM_FICHIERS_CORPUS,
+} from '@shared/test/corpus';
 import { compterRattachements } from '@shared/test/rattachements-ac056';
 import { controlerAc056 } from './controle';
 import { lireAc056 } from './lecteur';
@@ -13,7 +18,7 @@ import type { LectureAc056 } from './modele';
 import { provenanceDepuisNom } from './provenance';
 
 /** Caractère de remplacement ou contrôle C1 (U+0080 à U+009F) : un décodage Windows-1252 raté. */
-const CARACTERE_SUSPECT = /[�\u0080-\u009F]/;
+const CARACTERE_SUSPECT = /[\uFFFD\u0080-\u009F]/;
 const NON_ASCII = /[^\u0000-\u007F]/;
 
 type RejetLu = { nom: string; lecture: LectureAc056 };
@@ -25,7 +30,7 @@ let rejets: RejetLu[] | undefined;
 function lireRejets(): RejetLu[] {
   if (rejets === undefined) {
     const noms = listerCorpus('OUT').filter((nom) => provenanceDepuisNom(nom) === 'rejet');
-    expect(noms.length).toBeGreaterThan(0);
+    expect(noms.length).toBeGreaterThanOrEqual(MINIMUM_FICHIERS_CORPUS.OUT);
     rejets = noms.map((nom) => ({ nom, lecture: lireAc056(lireCorpus('OUT', nom), 'rejet') }));
   }
   return rejets;

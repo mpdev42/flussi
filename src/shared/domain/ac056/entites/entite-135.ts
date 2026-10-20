@@ -9,7 +9,7 @@ export const ENTITE_135: DescriptionEntite = {
     // Lazarus écrit numEvt avec AddCharR('0', …, 2), sans effet : la valeur lue fait 3 octets
     // et AddCharR ne tronque pas.
     ...entete(),
-    num('rangPersonne', 26, 2, { affiche: true, maxLength: 2 }),
+    num('rangPersonne', 26, 2, { affiche: true, libelle: 'Rang de la personne', maxLength: 2 }),
     alpha('refExterne', 28, 20),
     num('numPersSouscriptrice', 48, 8),
     num('idfsysPersSouscr', 56, 8),

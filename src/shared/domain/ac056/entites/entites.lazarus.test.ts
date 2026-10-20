@@ -2,14 +2,9 @@
 // Les lectures (`Copy(ps_ligne, P, L)`) et les écritures (`AddCharR`) de Lazarus sont analysées
 // puis comparées champ par champ à `ENTITES`. Le fichier source ne contient aucune donnée
 // personnelle.
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { lireSourceLazarus, nomFlussi } from '@shared/test/source-lazarus';
 import { ENTITES, type CodeEntite, type TypeChamp } from './index';
-
-const CHEMIN_SOURCE = fileURLToPath(
-  new URL('../../../../../docs/reference/lazarus/uac056.pas', import.meta.url),
-);
 
 /** Entités non brutes, lues et écrites champ par champ par Lazarus. */
 const CODES_DECRITS: readonly CodeEntite[] = [
@@ -40,20 +35,6 @@ const ECARTS_LARGEUR: Partial<Record<CodeEntite, readonly string[]>> = {
   '110': ['monnaieGestion'], // s_monnaie_gestion : W = 1, longueur 3
   '135': ['numEvt'], // s_num_evt_n : W = 2, longueur 3
 };
-
-// ---------------------------------------------------------------------------
-// Règle de nommage mécanique (référence) : s_num_dossier_n -> numDossier
-// - retirer le préfixe `s_`
-// - retirer le suffixe final `_n` ou `_d`
-// - camelCase : s_prenom_1 -> prenom1, s_e_service -> eService
-// ---------------------------------------------------------------------------
-function nomMecanique(nomPascal: string): string {
-  const sansPrefixe = nomPascal.replace(/^s_/, '').replace(/_[nd]$/, '');
-  return sansPrefixe
-    .split('_')
-    .map((partie, i) => (i === 0 ? partie : partie.charAt(0).toUpperCase() + partie.slice(1)))
-    .join('');
-}
 
 function typeDepuisSuffixe(nomPascal: string): TypeChamp {
   if (/_n$/.test(nomPascal)) return 'numerique';
@@ -93,7 +74,7 @@ function extraireLectures(bloc: string): LectureLazarus[] {
   return [...bloc.matchAll(motif)]
     .filter((m) => !m[1]!.startsWith('s_ligne'))
     .map((m) => ({
-      nom: nomMecanique(m[1]!),
+      nom: nomFlussi(m[1]!),
       position: Number(m[3]),
       longueur: Number(m[4]),
       trim: m[2] !== undefined,
@@ -105,7 +86,7 @@ function extraireEcritures(bloc: string): EcritureLazarus[] {
   const motif = /AddCharR\(\s*'(.)'\s*,\s*(s_\w+)\s*,\s*(\d+)\s*\)/g;
   return [...bloc.matchAll(motif)].map((m) => ({
     caractere: m[1]!,
-    nom: nomMecanique(m[2]!),
+    nom: nomFlussi(m[2]!),
     largeur: Number(m[3]),
   }));
 }
@@ -114,7 +95,7 @@ function analyserSource(): {
   lectures: Map<string, LectureLazarus[]>;
   ecritures: Map<string, EcritureLazarus[]>;
 } {
-  const source = retirerCommentaires(readFileSync(CHEMIN_SOURCE).toString('latin1'));
+  const source = retirerCommentaires(lireSourceLazarus('uac056.pas', 'latin1'));
   const lectures = new Map<string, LectureLazarus[]>();
   const ecritures = new Map<string, EcritureLazarus[]>();
 
@@ -143,10 +124,10 @@ function champsDecrits(code: CodeEntite) {
 
 describe('Parseur de uac056.pas', () => {
   it('nomme mécaniquement les champs Lazarus', () => {
-    expect(nomMecanique('s_num_dossier_n')).toBe('numDossier');
-    expect(nomMecanique('s_prenom_1')).toBe('prenom1');
-    expect(nomMecanique('s_e_service')).toBe('eService');
-    expect(nomMecanique('s_date_effet_d')).toBe('dateEffet');
+    expect(nomFlussi('s_num_dossier_n')).toBe('numDossier');
+    expect(nomFlussi('s_prenom_1')).toBe('prenom1');
+    expect(nomFlussi('s_e_service')).toBe('eService');
+    expect(nomFlussi('s_date_effet_d')).toBe('dateEffet');
   });
 
   it('trouve les 17 blocs de lecture des entités non brutes', () => {

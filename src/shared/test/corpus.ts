@@ -15,6 +15,19 @@ export type SousDossierCorpus = 'IN' | 'OUT' | 'PIEGES' | 'MODIFIES';
 
 export type ResolutionCorpus = { dossier: string } | { dossier: null; raison: string };
 
+/**
+ * Nombre minimal de fichiers attendus dans chaque sous-dossier du corpus : fichiers `.txt` de IN,
+ * fichiers de rejet de OUT, paires `NOM.txt` + `NOM.erreurs.txt` de PIEGES, paires `NOM.txt` +
+ * `NOM.modification.txt` de MODIFIES. Un corpus amputé (copie partielle, dossier vidé) fait échouer
+ * les tests au lieu de les rendre vides. PIEGES passera à 2 quand le second fichier piégé sera livré.
+ */
+export const MINIMUM_FICHIERS_CORPUS: Readonly<Record<SousDossierCorpus, number>> = Object.freeze({
+  IN: 9,
+  OUT: 3,
+  PIEGES: 1,
+  MODIFIES: 3,
+});
+
 function estDossier(chemin: string): boolean {
   try {
     return statSync(chemin).isDirectory();

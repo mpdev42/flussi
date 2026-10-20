@@ -1,9 +1,10 @@
 // Source : docs/reference/lazarus/fmain.lfm, propriété Items.Strings de cbb120CodePays, cbb130Pays, cbb400CodePaysTarifaire.
 // Recopie mot pour mot (ordre, doublons, coquilles, espaces de fin). Affichage uniquement :
 // Lazarus ne contrôle jamais ces valeurs.
+import { figerProfond } from '../gel';
 import type { ValeurAutorisee } from '../types';
 
-export const PAYS: readonly ValeurAutorisee[] = [
+export const PAYS: readonly ValeurAutorisee[] = figerProfond([
   { code: 'AFG', libelle: 'Afghanistan' },
   { code: 'ZAF', libelle: 'Afrique Du Sud' },
   { code: 'ALB', libelle: 'Albanie' },
@@ -243,4 +244,4 @@ export const PAYS: readonly ValeurAutorisee[] = [
   { code: 'YEM', libelle: 'Yemen' },
   { code: 'ZMB', libelle: 'Zambie' },
   { code: 'ZWE', libelle: 'Zimbabwe' },
-];
+]);

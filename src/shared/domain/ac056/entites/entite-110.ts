@@ -7,9 +7,13 @@ export const ENTITE_110: DescriptionEntite = {
   brute: false,
   champs: [
     ...entete(),
-    date('dateEffet', 26, 8, { trim: true, affiche: true }),
+    date('dateEffet', 26, 8, {
+      trim: true,
+      affiche: true,
+      libelle: "Date d'effet 1e souscription",
+    }),
     date('dateEffetDerResil', 34, 8),
-    date('ancienContrat', 42, 8, { affiche: true }),
+    date('ancienContrat', 42, 8, { affiche: true, libelle: 'Date ancienneté contrat' }),
     alpha('origineContrat', 50, 2),
     num('indicCmu', 52, 1),
     // Lazarus l'écrit avec AddCharR(' ', …, 1), sans effet : la valeur lue fait 3 octets et

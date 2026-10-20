@@ -8,6 +8,8 @@ import {
   type CodeEntite,
   type DescriptionChamp,
 } from './index';
+import { RANG_BENEFICIAIRE, RANG_MODIFIABLE } from './entete';
+import { figerProfond } from './gel';
 import { CATEGORIES_SOCIALES } from './valeurs/categories-sociales';
 import { CIVILITES } from './valeurs/civilites';
 import { CONTEXTES } from './valeurs/contextes';
@@ -336,5 +338,96 @@ describe('valeursAutorisees', () => {
       const liste = trouverChamp('400', 'situationFamille').valeursAutorisees;
       expect(liste?.[0]).toEqual({ code: '', libelle: '' });
     });
+  });
+});
+
+describe('Libellés', () => {
+  it('sont présents si et seulement si le champ est affiché', () => {
+    const erreurs = TOUS_LES_CHAMPS.filter(
+      ({ champ }) => champ.affiche !== (champ.libelle !== undefined),
+    ).map(({ code, champ }) => `entité ${code}, champ ${champ.nom}`);
+    expect(erreurs).toEqual([]);
+  });
+
+  it('sont portés par exactement 93 champs', () => {
+    expect(couples((c) => c.libelle !== undefined)).toHaveLength(93);
+  });
+
+  it('ne se terminent ni par « : » ni par une espace, et ne sont pas vides', () => {
+    const erreurs = TOUS_LES_CHAMPS.filter(
+      ({ champ }) => champ.libelle !== undefined && !/^\S(?:.*[^\s:])?$/.test(champ.libelle),
+    ).map(({ code, champ }) => `entité ${code}, champ ${champ.nom}`);
+    expect(erreurs).toEqual([]);
+  });
+
+  it('ne laissent pas de clé libelle indéfinie', () => {
+    const erreurs = TOUS_LES_CHAMPS.filter(
+      ({ champ }) => 'libelle' in champ && champ.libelle === undefined,
+    ).map(({ code, champ }) => `entité ${code}, champ ${champ.nom}`);
+    expect(erreurs).toEqual([]);
+  });
+
+  it.each([
+    ['100', 'codeOffre', "Code de l'offre"],
+    ['115', 'codeCivilite', 'Code civilité'],
+    ['485', 'valeur', 'Valeur'],
+    ['490', 'valeur', 'Valeur'],
+    ['400', 'rang', 'Rang bénéficiaire'],
+    ['400', 'rangPersonne', 'Rang personne'],
+    ['800', 'rangPersonne', 'Rang personne'],
+  ] as const)('%s %s : « %s »', (code, nom, libelle) => {
+    expect(trouverChamp(code, nom).libelle).toBe(libelle);
+  });
+});
+
+/** Chemins des objets et tableaux non gelés de l'arbre de `valeur`. */
+function nonGeles(valeur: unknown, chemin: string): string[] {
+  if (typeof valeur !== 'object' || valeur === null) return [];
+  return [
+    ...(Object.isFrozen(valeur) ? [] : [chemin]),
+    ...Object.entries(valeur).flatMap(([cle, enfant]) => nonGeles(enfant, `${chemin}.${cle}`)),
+  ];
+}
+
+describe('Gel en profondeur', () => {
+  it.each([
+    ['ENTITES', ENTITES],
+    ['RANG_MODIFIABLE', RANG_MODIFIABLE],
+    ['RANG_BENEFICIAIRE', RANG_BENEFICIAIRE],
+    ['PAYS', PAYS],
+    ['DEPARTEMENTS', DEPARTEMENTS],
+    ['NATURES_VOIE', NATURES_VOIE],
+    ['CONTEXTES', CONTEXTES],
+    ['CATEGORIES_SOCIALES', CATEGORIES_SOCIALES],
+    ['CIVILITES', CIVILITES],
+  ] as const)('%s est gelé à tous les niveaux', (nom, table) => {
+    expect(nonGeles(table, nom)).toEqual([]);
+  });
+
+  it('refuse toute modification, même dans une liste partagée', () => {
+    const champ = trouverChamp('120', 'codePays') as { libelle?: string };
+    expect(() => {
+      champ.libelle = 'autre';
+    }).toThrow(TypeError);
+    expect(() => {
+      (PAYS as unknown as { code: string }[]).push({ code: 'XXX' });
+    }).toThrow(TypeError);
+    expect(() => {
+      (PAYS[0] as { libelle: string }).libelle = 'autre';
+    }).toThrow(TypeError);
+  });
+
+  it('figerProfond garde les références et gèle un objet déjà gelé en surface', () => {
+    const liste = [{ code: 'A' }];
+    const table = Object.freeze({ a: liste, b: liste });
+    expect(figerProfond(table)).toBe(table);
+    expect(table.a).toBe(liste);
+    expect(Object.isFrozen(liste[0])).toBe(true);
+  });
+
+  it('figerProfond laisse passer les valeurs simples', () => {
+    expect(figerProfond(3)).toBe(3);
+    expect(figerProfond(null)).toBe(null);
+    expect(figerProfond('texte')).toBe('texte');
   });
 });

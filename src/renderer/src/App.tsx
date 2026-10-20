@@ -1,11 +1,10 @@
 import { useState, type ReactNode } from 'react';
 
 import { CadreApplication, type EntreeNavigation } from '@/components/cadre-application';
-import { JournalSession } from '@/components/journal-session';
+import { JournalSessionEnDirect } from '@/components/journal-session';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useConfiguration } from '@/hooks/use-configuration';
 import { useEtatJournal } from '@/hooks/use-etat-journal';
-import { useJournalSession } from '@/hooks/use-journal-session';
 import { Accueil } from '@/pages/accueil';
 import { EcranAc056 } from '@/pages/ac056/ac056';
 import { BandeauJournal } from '@/pages/journal/bandeau-journal';
@@ -25,7 +24,6 @@ const NAVIGATION: EntreeNavigation[] = [
 function App() {
   const { configuration, erreur } = useConfiguration();
   const etatJournal = useEtatJournal();
-  const lignesJournal = useJournalSession();
   const [actif, setActif] = useState('accueil');
   // L'écran AC056 n'est monté qu'à la première visite (pas de lecture du lecteur réseau au
   // démarrage), puis reste monté, masqué, quand un autre écran est affiché.
@@ -65,7 +63,8 @@ function App() {
       navigation={NAVIGATION}
       actif={actif}
       onNaviguer={naviguer}
-      journal={<JournalSession lignes={lignesJournal} />}
+      // Le panneau s'abonne lui-même aux lignes : une ligne du journal ne re-rend pas App
+      journal={<JournalSessionEnDirect />}
       alerte={
         etatJournal &&
         !etatJournal.enregistre && <BandeauJournal lignesEnAttente={etatJournal.lignesEnAttente} />
@@ -73,7 +72,9 @@ function App() {
     >
       {ecrans[actif]}
       {ac056Visite && (
-        <div hidden={actif !== 'ac056'}>
+        // h-full : l'écran prend la hauteur visible de <main> (colonnes à défilement propre). Jamais
+        // de classe d'affichage ici (flex, grid, block) : elle l'emporterait sur [hidden].
+        <div hidden={actif !== 'ac056'} className="h-full">
           <EcranAc056 actif={actif === 'ac056'} />
         </div>
       )}

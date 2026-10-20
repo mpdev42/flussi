@@ -1,9 +1,10 @@
 // Source : docs/reference/lazarus/fmain.lfm, propriété Items.Strings de cbb100CodeContexte.
 // Recopie mot pour mot (ordre, doublons, coquilles, espaces de fin). Affichage uniquement :
 // Lazarus ne contrôle jamais ces valeurs.
+import { figerProfond } from '../gel';
 import type { ValeurAutorisee } from '../types';
 
-export const CONTEXTES: readonly ValeurAutorisee[] = [
+export const CONTEXTES: readonly ValeurAutorisee[] = figerProfond([
   { code: 'CONJ', libelle: 'Adjonction conjoint' },
   { code: 'ENF', libelle: 'Adjonction enfant' },
   { code: 'NVNE', libelle: 'Adjonction nouveau-né' },
@@ -44,4 +45,4 @@ export const CONTEXTES: readonly ValeurAutorisee[] = [
   { code: 'NPAY', libelle: 'Résiliation famille non-paiement' },
   { code: 'SAEF', libelle: 'Sans effet' },
   { code: 'FDRO', libelle: 'Stoppage' },
-];
+]);

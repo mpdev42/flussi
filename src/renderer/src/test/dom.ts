@@ -79,6 +79,37 @@ export async function cliquer(element: HTMLElement): Promise<void> {
   });
 }
 
+/**
+ * Sortie d'un champ (Tab ou clic ailleurs) : `focus()` puis `blur()`. jsdom émet `focusout` (que
+ * React écoute pour `onBlur`) ; l'élément doit être dans le document pour recevoir le focus.
+ */
+export async function quitter(element: HTMLElement): Promise<void> {
+  await act(async () => {
+    element.focus();
+    element.blur();
+  });
+}
+
+/**
+ * Évènements de pointeur de la souris, envoyés à un élément : `appuyer` (`pointerdown`), `relacher`
+ * (`pointerup`) ou `annuler` (`pointercancel`). Ni focus ni `click` : le test les déclenche lui-même.
+ */
+async function evenementPointeur(
+  type: 'pointerdown' | 'pointerup' | 'pointercancel',
+  element: HTMLElement,
+): Promise<void> {
+  await act(async () => {
+    element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+  });
+}
+
+export const appuyer = (element: HTMLElement): Promise<void> =>
+  evenementPointeur('pointerdown', element);
+export const relacher = (element: HTMLElement): Promise<void> =>
+  evenementPointeur('pointerup', element);
+export const annuler = (element: HTMLElement): Promise<void> =>
+  evenementPointeur('pointercancel', element);
+
 /** Soumet un formulaire comme le fait le navigateur (évènement `submit` qui remonte). */
 export async function soumettre(formulaire: HTMLFormElement): Promise<void> {
   await act(async () => {

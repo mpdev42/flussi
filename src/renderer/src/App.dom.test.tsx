@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ConfigurationPublique } from '@shared/types';
+import { act } from 'react';
+import type { ConfigurationPublique, LigneJournalSession } from '@shared/types';
 import { NOM_VEOS, fichierListe, ouvertureReussie } from '@/test/ac056';
 import { cliquer, monter, vider, type Monture } from '@/test/dom';
 import App from './App';
+
+// Rendus de l'écran d'accueil : il est recréé à chaque rendu d'App, il compte donc ses rendus
+const rendus = vi.hoisted(() => ({ accueil: 0 }));
 
 // Services simulés : aucun appel à window.api
 vi.mock('@/services/parametres', () => ({ lireConfiguration: vi.fn() }));
@@ -18,6 +22,12 @@ vi.mock('@/services/ac056', () => ({
   ouvrirFichierAc056: vi.fn(),
 }));
 // Écrans hors sujet : leurs propres services ne sont pas simulés ici
+vi.mock('@/pages/accueil', () => ({
+  Accueil: () => {
+    rendus.accueil += 1;
+    return <h1>Écran Accueil</h1>;
+  },
+}));
 vi.mock('@/pages/journal/journal', () => ({ Journal: () => <h1>Écran Journal</h1> }));
 vi.mock('@/pages/parametres/parametres', () => ({ Parametres: () => <h1>Écran Paramètres</h1> }));
 
@@ -90,6 +100,25 @@ describe('App — écran Fichier AC056', () => {
     expect(panneau?.textContent).toContain('Démarrage');
   });
 
+  it('ajoute une ligne poussée au panneau sans re-rendre l’application', async () => {
+    let pousser: ((ligne: LigneJournalSession) => void) | undefined;
+    vi.mocked(surLigneJournal).mockImplementation((rappel) => {
+      pousser = rappel;
+      return () => {};
+    });
+    const c = await afficher();
+    const rendusAvant = rendus.accueil;
+    expect(pousser).toBeDefined();
+
+    await act(async () => {
+      pousser?.({ rang: 2, heure: '08:00:05', niveau: 'INFO', message: 'Nouvelle ligne' });
+    });
+
+    const panneau = c.querySelector('aside[aria-label="Journal de la session"]');
+    expect(panneau?.textContent).toContain('Nouvelle ligne');
+    expect(rendus.accueil).toBe(rendusAvant);
+  });
+
   it('ne lit pas les dossiers de travail avant la première visite de l’écran', async () => {
     await afficher();
 
@@ -126,6 +155,8 @@ describe('App — écran Fichier AC056', () => {
       (h1) => h1.textContent === NOM_VEOS,
     );
     expect(masque?.closest('[hidden]')).not.toBeNull();
+    // Hauteur de <main> transmise à l'écran, sans classe d'affichage qui l'emporterait sur [hidden]
+    expect(masque?.closest('[hidden]')?.className).toBe('h-full');
 
     await cliquer(navigation(c, 'Fichier AC056'));
     await vider();
