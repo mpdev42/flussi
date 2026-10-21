@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { compterAnomalies, provenanceDepuisNom } from '@shared/domain/ac056';
 
+import { useVerrouNavigation } from '@/components/verrou-navigation';
 import { useFichierAc056 } from '@/hooks/use-fichier-ac056';
 
 import { AlertesFichier } from './alertes-fichier';
 import { BarreFichier } from './barre-fichier';
+import { BarriereFichier } from './barriere-fichier';
+import { BoutonChangerFichier } from './bouton-changer-fichier';
 import { ChoixFichier } from './choix-fichier';
 import { FichierOuvert } from './fichier-ouvert';
 import { anomalieFichierVide } from './format-ac056';
@@ -18,11 +21,25 @@ export interface EcranAc056Props {
  * Écran « Fichier AC056 » : choix du fichier dans `IN` ou `OUT` tant qu'aucun fichier n'est ouvert,
  * puis barre du fichier, alertes de chargement et de contrôle et, pour un fichier VEOS lisible, la
  * navigation (évènements, onglets, fiches). Le fichier ouvert reste en mémoire (hook
- * `useFichierAc056`) tant que l'écran est monté.
+ * `useFichierAc056`) tant que l'écran est monté. Pendant un enregistrement, la navigation principale
+ * est verrouillée et le contenu du fichier est inerte.
  */
 export function EcranAc056({ actif }: EcranAc056Props) {
-  const { fichier, ouvrir, fermer, reessayer, saisir } = useFichierAc056();
+  const {
+    fichier,
+    ouvrir,
+    fermer,
+    reessayer,
+    saisir,
+    enregistrer,
+    enregistrement,
+    retour,
+    champsModifies,
+  } = useFichierAc056();
+  // L'enregistrement ne doit pas être quitté : la navigation principale reste inactive.
+  useVerrouNavigation(enregistrement);
   const racine = useRef<HTMLDivElement>(null);
+  const boutonEnregistrer = useRef<HTMLButtonElement>(null);
   const aucun = fichier.etat === 'aucun';
   const etaitAucun = useRef(aucun);
 
@@ -63,6 +80,7 @@ export function EcranAc056({ actif }: EcranAc056Props) {
   const { nom, emplacement } = fichier.etat === 'ouvert' ? fichier : fichier.cible;
   const provenance = fichier.etat === 'ouvert' ? fichier.provenance : provenanceDepuisNom(nom);
   const analyse = fichier.etat === 'ouvert' ? fichier.analyse : null;
+  const modifie = fichier.etat === 'ouvert' && fichier.modifie;
 
   return (
     <div ref={racine} className="flex h-full min-h-0 flex-col">
@@ -72,24 +90,47 @@ export function EcranAc056({ actif }: EcranAc056Props) {
         provenance={provenance}
         analyse={analyse}
         chargement={fichier.etat === 'chargement'}
-        modifie={fichier.etat === 'ouvert' && fichier.modifie}
+        modifie={modifie}
+        champsModifies={champsModifies}
+        enregistrement={enregistrement}
+        boutonEnregistrer={boutonEnregistrer}
         onChanger={fermer}
+        onEnregistrer={() => void enregistrer()}
       />
       <div className="mx-auto flex w-full max-w-content shrink-0 flex-col gap-3 py-4 pl-10 pr-0 empty:hidden">
         <AlertesFichier
           fichier={fichier}
           horsEvenement={compteurs?.horsEvenement ?? 0}
+          retour={retour}
           onReessayer={reessayer}
+          onReessayerEnregistrement={() => {
+            // « Réessayer » disparaît dès que l'enregistrement part : le focus passe à « Enregistrer »
+            boutonEnregistrer.current?.focus();
+            void enregistrer();
+          }}
         />
       </div>
       {ouvert && compteurs && (
-        <FichierOuvert
+        <BarriereFichier
           key={`${emplacement}/${nom}`}
-          analyse={ouvert.analyse}
-          index={ouvert.index}
-          compteurs={compteurs}
-          onSaisir={saisir}
-        />
+          action={
+            <BoutonChangerFichier
+              nom={nom}
+              modifie={modifie}
+              champsModifies={champsModifies}
+              disabled={enregistrement}
+              onChanger={fermer}
+            />
+          }
+        >
+          <FichierOuvert
+            analyse={ouvert.analyse}
+            index={ouvert.index}
+            compteurs={compteurs}
+            onSaisir={saisir}
+            inactif={enregistrement}
+          />
+        </BarriereFichier>
       )}
     </div>
   );

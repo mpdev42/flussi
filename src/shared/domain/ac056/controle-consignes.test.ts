@@ -13,7 +13,7 @@ import {
   ligne,
   NON_AUTORISE,
 } from '@shared/test/controle-ac056';
-import { CONSIGNE_VEOS, REGLES } from './controle';
+import { CONSIGNE_RANG_400, CONSIGNE_VEOS, REGLES } from './controle';
 import { ENTITES, type CodeEntite } from './entites';
 import {
   JEU_LISTE_1,
@@ -132,7 +132,7 @@ describe('consignes des rangs', () => {
   ])('rang incohérent, type %s : maximum du type', (type, rang, maximum) => {
     const lignes = dansEvenement(ligneSynthetique('400', { typeAssure: type, rang }));
     expect(consignes(controle(lignes))).toEqual([
-      ['rang', 'rang-incoherent', `Rang trop élevé : ${maximum}.`],
+      ['rang', 'rang-incoherent', `Rang trop élevé : ${maximum}. ${CONSIGNE_RANG_400}`],
     ]);
   });
 
@@ -142,7 +142,32 @@ describe('consignes des rangs', () => {
   ])('rang non numérique, type %s : 2 chiffres et maximum du type', (type, maximum) => {
     const lignes = dansEvenement(ligneSynthetique('400', { typeAssure: type, rang: 'AB' }));
     expect(consignes(controle(lignes))).toEqual([
-      ['rang', 'rang-non-numerique', `Rang non numérique : saisissez 2 chiffres, ${maximum}.`],
+      [
+        'rang',
+        'rang-non-numerique',
+        `Rang non numérique : saisissez 2 chiffres, ${maximum}. ${CONSIGNE_RANG_400}`,
+      ],
+    ]);
+  });
+
+  it('400 : rappelle de corriger aussi le rang des lignes filles (décision 5 de l item 3)', () => {
+    expect(CONSIGNE_RANG_400).toBe('Corrigez aussi le rang des autres lignes de ce bénéficiaire.');
+    const rangOctet = dansEvenement(ligneSynthetique('400', { typeAssure: 'ASSPRI', rang: '0é' }));
+    // Octet interdit (divergence 5) sur un rang non numérique : les deux consignes sont complétées.
+    expect(
+      controle(rangOctet).map((a) => [a.code, a.consigne?.endsWith(CONSIGNE_RANG_400)]),
+    ).toEqual([
+      ['rang-non-numerique', true],
+      ['caractere-interdit', true],
+    ]);
+  });
+
+  it('400 : pas de complément sur le rang de personne', () => {
+    const lignes = dansEvenement(
+      ligneSynthetique('400', { typeAssure: 'ASSPRI', rangPersonne: '21' }),
+    );
+    expect(consignes(controle(lignes))).toEqual([
+      ['rangPersonne', 'rang-incoherent', `Rang trop élevé : ${ADULTE}.`],
     ]);
   });
 
@@ -163,7 +188,7 @@ describe('consignes des rangs', () => {
   });
 
   it.each(['405', '410', '485', '490', '700', '800'] as const)(
-    '%s : même consigne de rang qu en 400',
+    '%s : même consigne de rang qu en 400, sans le complément',
     (code) => {
       const lignes = dansBeneficiaire('CONJOI', ligne(code, { rang: '25' }));
       expect(consignes(controle(lignes))).toEqual([

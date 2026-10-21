@@ -50,7 +50,12 @@ const LigneEvenement = memo(function LigneEvenement({
         'min-h-8 py-1 font-mono text-data tabular-nums',
       )}
     >
-      <Icone className="shrink-0" size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Icone
+        className="pointer-events-none shrink-0"
+        size={16}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       <span>
         <span className="sr-only">Dossier </span>
         {resume.dossier}
@@ -67,7 +72,7 @@ const LigneEvenement = memo(function LigneEvenement({
         <span className="sr-only">Code </span>
         {resume.codeEvt}
       </span>
-      <span className="justify-self-end">
+      <span className="pointer-events-none justify-self-end">
         <CountBadge count={compteur} />
       </span>
     </button>
@@ -103,14 +108,19 @@ const LigneBeneficiaire = memo(function LigneBeneficiaire({
         'min-h-8 py-1 text-sm',
       )}
     >
-      <Icone className="shrink-0" size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Icone
+        className="pointer-events-none shrink-0"
+        size={16}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       <span className="font-mono text-data">{resume.lien}</span>
       <span className="font-mono text-data tabular-nums">{resume.rang}</span>
       {/* Une seule ligne, tronquée : le nom est modifiable, sa longueur ne doit pas changer la hauteur de la liste */}
       <span className="min-w-0 truncate" title={nomComplet(resume)}>
         {nomComplet(resume)}
       </span>
-      <span className="justify-self-end">
+      <span className="pointer-events-none justify-self-end">
         <CountBadge count={compteur} />
       </span>
     </button>

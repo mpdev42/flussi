@@ -322,21 +322,33 @@ function valeursDe(ligne: LigneAc056 | undefined): Readonly<Record<string, Octet
 }
 
 /**
+ * Complément de la consigne du rang de bénéficiaire d'une 400 (décision 5 de l'item 3 de la
+ * v0.3.0) : les lignes filles (405, 410, 485, 490, 700, 800) portent leur propre rang, que Flussi
+ * ne corrige pas à leur place (parité Lazarus).
+ */
+export const CONSIGNE_RANG_400 = 'Corrigez aussi le rang des autres lignes de ce bénéficiaire.';
+
+/**
  * Anomalie de contrôle. La consigne d'un champ que l'écran ne permet pas de modifier se termine
- * par `CONSIGNE_VEOS`.
+ * par `CONSIGNE_VEOS` ; celle du rang de bénéficiaire d'une 400, par `CONSIGNE_RANG_400`.
  */
 function creerAnomalie(
   ligne: LigneAc056,
   champ: DescriptionChamp,
   { code, message, consigne }: Verdict,
 ): AnomalieAc056 {
+  const complement = !champ.modifiable
+    ? CONSIGNE_VEOS
+    : ligne.code === '400' && champ.nom === 'rang'
+      ? CONSIGNE_RANG_400
+      : null;
   return Object.freeze({
     code,
     ligne: ligne.numero,
     message,
     bloquante: true,
     champ: champ.nom,
-    consigne: champ.modifiable ? consigne : `${consigne} ${CONSIGNE_VEOS}`,
+    consigne: complement === null ? consigne : `${consigne} ${complement}`,
   });
 }
 

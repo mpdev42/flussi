@@ -42,5 +42,42 @@ export type OuvertureAc056 =
       nom: string;
       provenance: Provenance;
       analyse: AnalyseAc056;
+      /** SHA-256 hexadécimal minuscule des octets lus. */
+      empreinte: string;
     }
   | { ok: false; erreur: ErreurAc056 };
+
+/** Causes d'échec de l'enregistrement : celles du stockage, plus les refus propres au module. */
+export type CodeErreurEnregistrementAc056 =
+  | CodeErreurStockage
+  | 'fichier-rejet'
+  | 'fichier-mal-forme'
+  | 'fichier-modifie'
+  | 'correction-refusee'
+  | 'enregistrement-en-cours';
+
+/** Même principe que `ErreurAc056` : texte fixe, jamais un chemin ni une valeur AC056. */
+export interface ErreurEnregistrementAc056 {
+  code: CodeErreurEnregistrementAc056;
+  message: string;
+}
+
+/** Résultat de `ac056:enregistrer`. */
+export type EnregistrementAc056 =
+  | {
+      ok: true;
+      /** `false` : aucun octet écrit (fichier inchangé, rien à enregistrer). */
+      ecrit: boolean;
+      /** Analyse du fichier tel qu'il est maintenant sur le disque. */
+      analyse: AnalyseAc056;
+      /** SHA-256 des octets du fichier après l'opération. */
+      empreinte: string;
+      /** Champs corrigés écrits par cet enregistrement (0 si le fichier était déjà à jour). */
+      champsModifies: number;
+      /**
+       * Cet enregistrement a écrit la copie de l'original dans `Originaux` : faux si le fichier était
+       * déjà à jour, ou si la copie d'un enregistrement précédent existait déjà (jamais écrasée).
+       */
+      copieOriginal: boolean;
+    }
+  | { ok: false; erreur: ErreurEnregistrementAc056 };

@@ -101,6 +101,27 @@ export async function launchApp(options: OptionsLancement = {}): Promise<AppLanc
   let app: ElectronApplication | undefined;
   const fermer = async (): Promise<void> => {
     try {
+      // Un test qui a corrigé un champ puis ferme déclencherait « Abandonner les modifications ? » :
+      // la boîte native bloquerait `app.close()`. Réponse 1 = « Quitter sans enregistrer », pour
+      // cette seule boîte. Toute autre boîte appelle la fonction d'origine (elle ne reçoit alors
+      // aucune réponse et le test échoue : une boîte inattendue doit se voir).
+      await app?.evaluate(({ dialog }) => {
+        const origine = dialog.showMessageBox.bind(dialog) as (
+          ...args: unknown[]
+        ) => ReturnType<typeof dialog.showMessageBox>;
+        dialog.showMessageBox = ((...args: unknown[]) => {
+          // Signatures `(options)` et `(fenêtre, options)` : les options sont le dernier argument
+          const options = args[args.length - 1] as { message?: string } | undefined;
+          if (options?.message === 'Abandonner les modifications ?') {
+            return Promise.resolve({ response: 1, checkboxChecked: false });
+          }
+          return origine(...args);
+        }) as typeof dialog.showMessageBox;
+      });
+    } catch {
+      // Application déjà fermée ou plantée : seul le nettoyage compte
+    }
+    try {
       await app?.close();
     } catch {
       // Application déjà fermée ou plantée : seul le nettoyage compte

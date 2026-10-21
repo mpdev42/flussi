@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { join } from 'path';
 import {
   CODES_ECRITURE,
@@ -15,6 +15,7 @@ import {
 // Import direct : l'API Windows réelle n'est créée qu'ici (jamais chargée par les tests)
 import { creerApiElevationWindows } from './adapters/config/api-windows';
 import { creerStockageDisque, formaterErreursStockage } from './adapters/stockage';
+import { brancherFermeture } from './fermeture';
 import { enregistrerHandlersAc056 } from './ipc/ac056';
 import { enregistrerHandlersJournal } from './ipc/journal';
 import { enregistrerHandlersParametres } from './ipc/parametres';
@@ -189,14 +190,37 @@ async function demarrer(): Promise<void> {
     historique: creerHistoriqueJournal(stockage, session.chemin),
     session,
   });
-  enregistrerHandlersAc056({ service: creerServiceAc056({ stockage, journal: session }) });
+  const serviceAc056 = creerServiceAc056({ stockage, journal: session });
+  enregistrerHandlersAc056({
+    service: serviceAc056,
+    // Seule la page de la fenêtre principale signale des corrections non enregistrées
+    estEmetteurAutorise: (emetteur) =>
+      fenetrePrincipale !== null &&
+      !fenetrePrincipale.isDestroyed() &&
+      emetteur === fenetrePrincipale.webContents,
+  });
+
+  // Application installée : pas de menu (Ctrl+R, Ctrl+W et outils de développement inactifs). Le
+  // copier-coller reste géré par Chromium sous Windows.
+  if (app.isPackaged) Menu.setApplicationMenu(null);
 
   const fenetre = creerFenetrePrincipale(configuration.mode);
   fenetrePrincipale = fenetre;
   fenetre.on('closed', () => {
     fenetrePrincipale = null;
   });
-  brancherFermeture(fenetre, session);
+  brancherFermeture(fenetre, {
+    attendreEnregistrement: () => serviceAc056.attendreEnregistrement(),
+    fichierModifie: () => serviceAc056.fichierModifie(),
+    confirmerAbandon: (nom) => confirmerAbandon(fenetre, nom),
+    terminerSession: () => terminerSession(fenetre, session),
+  });
+  // Page rechargée ou processus arrêté : les corrections en mémoire de l'écran sont perdues, la
+  // fermeture ne doit pas poser la question à tort
+  fenetre.webContents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame && !details.isSameDocument) serviceAc056.signalerModifications(null);
+  });
+  fenetre.webContents.on('render-process-gone', () => serviceAc056.signalerModifications(null));
   session.surChangement((etat) => {
     if (!fenetre.isDestroyed()) fenetre.webContents.send('journal:etat-change', etat);
   });
@@ -233,29 +257,21 @@ async function terminerSession(fenetre: BrowserWindow, session: SessionEcriture)
 }
 
 /**
- * Fermeture de la fenêtre principale : suspendue le temps d'écrire « Fin de session ». Une erreur
- * inattendue est journalisée en console et n'empêche jamais la fermeture.
+ * Boîte « Abandonner les modifications ? » de la fermeture. `dialog.showMessageBox` est lu à
+ * l'appel : un test e2e peut le remplacer. Renvoie `true` si l'utilisateur quitte quand même.
  */
-function brancherFermeture(fenetre: BrowserWindow, session: SessionEcriture): void {
-  let fermetureAutorisee = false;
-  let fermetureEnCours = false;
-
-  fenetre.on('close', (event) => {
-    if (fermetureAutorisee) return;
-    event.preventDefault();
-    if (fermetureEnCours) return;
-    fermetureEnCours = true;
-
-    void (async () => {
-      try {
-        await terminerSession(fenetre, session);
-      } catch (erreur) {
-        console.error('[main] Erreur à la fermeture du journal :', erreur);
-      }
-      fermetureAutorisee = true;
-      if (!fenetre.isDestroyed()) fenetre.close();
-    })();
+async function confirmerAbandon(fenetre: BrowserWindow, nom: string): Promise<boolean> {
+  const { response } = await dialog.showMessageBox(fenetre, {
+    type: 'warning',
+    title: 'Flussi',
+    message: 'Abandonner les modifications ?',
+    detail: `Les corrections de ${nom} ne sont pas enregistrées. Elles seront perdues si vous quittez Flussi.`,
+    buttons: ['Annuler', 'Quitter sans enregistrer'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
   });
+  return response === 1;
 }
 
 /**

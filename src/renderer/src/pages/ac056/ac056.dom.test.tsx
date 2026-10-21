@@ -15,6 +15,8 @@ import { EcranAc056 } from './ac056';
 vi.mock('@/services/ac056', () => ({
   listerFichiersAc056: vi.fn(),
   ouvrirFichierAc056: vi.fn(),
+  enregistrerFichierAc056: vi.fn(),
+  signalerModificationsAc056: vi.fn(),
 }));
 
 import { listerFichiersAc056, ouvrirFichierAc056 } from '@/services/ac056';
@@ -332,7 +334,7 @@ describe('EcranAc056 — fichier ouvert', () => {
       `Ce fichier est mal formé${NB}: relancez l'export VEOS`,
     );
     expect(alerte?.textContent).toContain(
-      "Corriger les champs ne répare pas la structure du fichier. Relancez l'export dans VEOS, puis rechargez le fichier.",
+      `L'enregistrement est refusé${NB}: corriger les champs ne répare pas la structure du fichier. Relancez l'export dans VEOS, puis rechargez le fichier.`,
     );
     expect(c.textContent).toContain('4 erreurs');
     // Fichier mal formé : tout est en lecture seule, rien « à corriger » dans les champs

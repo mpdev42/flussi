@@ -36,6 +36,7 @@ function creerFauxStockage() {
     verifierAcces: () => Promise.reject(new Error('non utilisé')),
     lister: () => Promise.reject(new Error('non utilisé')),
     lire: () => Promise.reject(new Error('non utilisé')),
+    ecrire: () => Promise.reject(new Error('non utilisé')),
     async ajouter(emplacement, chemin, octets): Promise<ResultatStockage<void>> {
       appels++;
       if (controle.delaiMs > 0) await new Promise((r) => setTimeout(r, controle.delaiMs));

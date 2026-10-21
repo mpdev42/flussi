@@ -1,5 +1,7 @@
-// Écriture : relecture puis réécriture identique à l'octet près, et conséquences de parité Lazarus
-// (Trim à la lecture, AddCharR à l'écriture) figées.
+// Écriture : relecture puis réécriture identique à l'octet près. Seuls les octets des champs
+// corrigés changent (décision 4 de l'item 3 de la v0.3.0) : une ligne non corrigée est recopiée
+// même là où le `Trim` et le bourrage de Lazarus l'auraient changée ; un champ corrigé est écrit
+// comme Lazarus l'écrit (`AddCharR`), le reste de la ligne reste celui de l'origine.
 import { describe, expect, it } from 'vitest';
 import {
   enChaineBinaire,
@@ -9,9 +11,10 @@ import {
   type OptionsFichierSynthetique,
 } from '@shared/test/ac056-synthetique';
 import type { CodeEntite } from './entites';
-import { contenuLigne, ecrireAc056 } from './ecrivain';
+import { contenuLigne, ecrireAc056, ErreurEcritureAc056 } from './ecrivain';
 import { lireAc056 } from './lecteur';
 import type { LigneAc056, LigneBrute, LigneDecrite } from './modele';
+import { modifierChamp } from './modification';
 import type { Octets } from './octets';
 
 /** Lit puis réécrit un contenu ; renvoie les octets d'entrée et de sortie en chaînes binaires. */
@@ -55,34 +58,47 @@ describe('contenuLigne', () => {
     expect(contenuLigne(ligne)).toHaveLength(699);
   });
 
-  it('reconstitue la ligne décrite à partir des valeurs', () => {
+  it('renvoie l origine d une ligne décrite sans correction', () => {
     const origine = ligneSynthetique('405', { nom: 'DUPONT', prenom1: 'TEST', rang: '01' });
     const ligne = decrite(lireAc056(fichierSynthetique([origine])).fichier.lignes[0]);
     expect(contenuLigne(ligne)).toBe(origine);
   });
 
-  it('écrit les valeurs, pas l origine', () => {
+  it('ignore les valeurs d une ligne sans champsModifies : l origine fait foi', () => {
     const origine = ligneSynthetique('405', { nom: 'DUPONT' });
     const lue = decrite(lireAc056(fichierSynthetique([origine])).fichier.lignes[0]);
     const modifiee: LigneDecrite = { ...lue, valeurs: { ...lue.valeurs, nom: octets('MARTIN') } };
+    expect(contenuLigne(modifiee)).toBe(origine);
+  });
+
+  it('écrit la valeur d un champ corrigé, pas l origine', () => {
+    const origine = ligneSynthetique('405', { nom: 'DUPONT' });
+    const lue = decrite(lireAc056(fichierSynthetique([origine])).fichier.lignes[0]);
+    const modifiee: LigneDecrite = {
+      ...lue,
+      valeurs: { ...lue.valeurs, nom: octets('MARTIN') },
+      champsModifies: ['nom'],
+    };
     expect(contenuLigne(modifiee)).toBe(ligneSynthetique('405', { nom: 'MARTIN' }));
     expect(modifiee.origine).toBe(origine);
   });
 
-  it('bourre à droite avec des zéros un champ numérique', () => {
+  it('bourre à droite avec des zéros un champ numérique corrigé', () => {
     const lue = decrite(lireAc056(fichierSynthetique([ligneSynthetique('400')])).fichier.lignes[0]);
     const modifiee: LigneDecrite = {
       ...lue,
       valeurs: { ...lue.valeurs, rangPersonne: octets('1') },
+      champsModifies: ['rangPersonne'],
     };
     expect(contenuLigne(modifiee)).toBe(ligneSynthetique('400', { rangPersonne: '10' }));
   });
 
-  it('bourre une valeur vide avec le bourrage du champ', () => {
+  it('bourre une valeur corrigée vide avec le bourrage du champ', () => {
     const lue = decrite(lireAc056(fichierSynthetique([ligneSynthetique('400')])).fichier.lignes[0]);
     const modifiee: LigneDecrite = {
       ...lue,
       valeurs: { ...lue.valeurs, rangPersonne: octets(''), codePays: octets('') },
+      champsModifies: ['rangPersonne', 'codePays'],
     };
     expect(contenuLigne(modifiee)).toBe(ligneSynthetique('400'));
   });
@@ -90,50 +106,45 @@ describe('contenuLigne', () => {
   describe('garde-fou des 700 octets', () => {
     const lue = () =>
       decrite(lireAc056(fichierSynthetique([ligneSynthetique('405')])).fichier.lignes[0]);
-
-    it('lève si une valeur dépasse son champ (jamais de troncature)', () => {
-      const modifiee: LigneDecrite = {
-        ...lue(),
-        valeurs: { ...lue().valeurs, nom: octets('N'.repeat(60)) },
-      };
-      expect(() => contenuLigne(modifiee)).toThrow();
+    const corrigee = (valeurs: Record<string, Octets>): LigneDecrite => ({
+      ...lue(),
+      valeurs,
+      champsModifies: ['nom'],
     });
 
-    it('lève si une valeur dépasse son champ d un seul octet', () => {
-      const modifiee: LigneDecrite = {
-        ...lue(),
-        valeurs: { ...lue().valeurs, nom: octets('N'.repeat(51)) },
-      };
-      expect(() => contenuLigne(modifiee)).toThrow();
+    it('lève si une valeur corrigée dépasse son champ (jamais de troncature)', () => {
+      expect(() =>
+        contenuLigne(corrigee({ ...lue().valeurs, nom: octets('N'.repeat(60)) })),
+      ).toThrow();
     });
 
-    it('lève si une valeur est absente', () => {
+    it('lève si une valeur corrigée dépasse son champ d un seul octet', () => {
+      expect(() =>
+        contenuLigne(corrigee({ ...lue().valeurs, nom: octets('N'.repeat(51)) })),
+      ).toThrow();
+    });
+
+    it('lève si la valeur d un champ corrigé est absente', () => {
       const sansNom: Record<string, Octets> = { ...lue().valeurs };
       delete sansNom.nom;
-      const modifiee: LigneDecrite = { ...lue(), valeurs: sansNom };
-      expect(() => contenuLigne(modifiee)).toThrow();
+      expect(() => contenuLigne(corrigee(sansNom))).toThrow();
     });
 
     it('lève si toutes les valeurs sont absentes', () => {
-      const modifiee: LigneDecrite = { ...lue(), valeurs: {} };
-      expect(() => contenuLigne(modifiee)).toThrow();
+      expect(() => contenuLigne(corrigee({}))).toThrow();
     });
 
-    it('fait lever ecrireAc056 si une valeur dépasse son champ', () => {
+    it('fait lever ecrireAc056 si une valeur corrigée dépasse son champ', () => {
       const fichier = lireAc056(fichierSynthetique([ligneSynthetique('405')])).fichier;
-      const modifiee: LigneDecrite = {
-        ...lue(),
-        valeurs: { ...lue().valeurs, nom: octets('N'.repeat(60)) },
-      };
+      const modifiee = corrigee({ ...lue().valeurs, nom: octets('N'.repeat(60)) });
       expect(() => ecrireAc056({ ...fichier, lignes: [modifiee] })).toThrow();
     });
 
-    it('fait lever ecrireAc056 si une valeur est absente', () => {
+    it('fait lever ecrireAc056 si la valeur d un champ corrigé est absente', () => {
       const fichier = lireAc056(fichierSynthetique([ligneSynthetique('405')])).fichier;
       const sansNom: Record<string, Octets> = { ...lue().valeurs };
       delete sansNom.nom;
-      const modifiee: LigneDecrite = { ...lue(), valeurs: sansNom };
-      expect(() => ecrireAc056({ ...fichier, lignes: [modifiee] })).toThrow();
+      expect(() => ecrireAc056({ ...fichier, lignes: [corrigee(sansNom)] })).toThrow();
     });
   });
 });
@@ -255,22 +266,31 @@ describe('ecrireAc056', () => {
     });
   });
 
-  describe('parité Lazarus : Trim à la lecture, bourrage à l écriture', () => {
+  describe('ligne non corrigée recopiée à l identique (décision 4 de l item 3 de la v0.3.0)', () => {
+    // Divergence avec Lazarus, qui régénère la ligne (`Trim` à la lecture, `AddCharR` à l'écriture) :
+    // dernière colonne, ce que Lazarus aurait écrit dans le champ.
     it.each<[string, CodeEntite, string, string, string]>([
-      ['800 rangPersonne « ␠1 » devient « 10 »', '800', 'rangPersonne', ' 1', '10'],
-      ['800 rangPersonne « 1␠ » devient « 10 »', '800', 'rangPersonne', '1 ', '10'],
-      ['800 rangPersonne blanc devient « 00 »', '800', 'rangPersonne', '  ', '00'],
-      ['100 echPrinc blanc devient « 0000 »', '100', 'echPrinc', '    ', '0000'],
-      ['100 echPrinc « ␠12␠ » devient « 1200 »', '100', 'echPrinc', ' 12 ', '1200'],
-      ['405 nom « ␠␠DUPONT » est recalé à gauche', '405', 'nom', '  DUPONT', 'DUPONT'],
-      ['405 nom « DUPONT␠␠ » reste cadré à gauche', '405', 'nom', 'DUPONT  ', 'DUPONT'],
-      ['405 nom : tabulation de tête remplacée', '405', 'nom', '\tDUPONT', 'DUPONT'],
-      ['405 nom : tabulation de fin remplacée', '405', 'nom', 'DUPONT\t', 'DUPONT'],
-      ['405 nom : 0x00 et 0x01 en bord retirés', '405', 'nom', '\x00\x01DUPONT\x01\x00', 'DUPONT'],
-      ['405 nom : blancs intérieurs conservés', '405', 'nom', ' DU  PONT ', 'DU  PONT'],
-    ])('%s', (_titre, code, champ, entree, attendu) => {
-      const { sortie } = relireLignes([ligneSynthetique(code, { [champ]: entree })]);
-      expect(sortie).toBe(ligneSynthetique(code, { [champ]: attendu }));
+      ['800 rangPersonne « ␠1 » (Lazarus : « 10 »)', '800', 'rangPersonne', ' 1', '10'],
+      ['800 rangPersonne « 1␠ » (Lazarus : « 10 »)', '800', 'rangPersonne', '1 ', '10'],
+      ['800 rangPersonne blanc (Lazarus : « 00 »)', '800', 'rangPersonne', '  ', '00'],
+      ['100 echPrinc blanc (Lazarus : « 0000 »)', '100', 'echPrinc', '    ', '0000'],
+      ['100 echPrinc « ␠12␠ » (Lazarus : « 1200 »)', '100', 'echPrinc', ' 12 ', '1200'],
+      ['405 nom « ␠␠DUPONT » (Lazarus : recalé à gauche)', '405', 'nom', '  DUPONT', 'DUPONT'],
+      ['405 nom : tabulation de tête (Lazarus : retirée)', '405', 'nom', '\tDUPONT', 'DUPONT'],
+      ['405 nom : tabulation de fin (Lazarus : remplacée)', '405', 'nom', 'DUPONT\t', 'DUPONT'],
+      [
+        '405 nom : 0x00 et 0x01 en bord (Lazarus : retirés)',
+        '405',
+        'nom',
+        '\x00\x01DUPONT\x01\x00',
+        'DUPONT',
+      ],
+      ['405 nom « ␠DU␠␠PONT␠ » (Lazarus : recalé)', '405', 'nom', ' DU  PONT ', 'DU  PONT'],
+    ])('%s', (_titre, code, champ, entree, lazarus) => {
+      const ligne = ligneSynthetique(code, { [champ]: entree });
+      expect(ligneSynthetique(code, { [champ]: lazarus })).not.toBe(ligne);
+      const { sortie } = relireLignes([ligne]);
+      expect(sortie).toBe(ligne);
     });
 
     it.each([
@@ -319,6 +339,58 @@ describe('ecrireAc056', () => {
     });
   });
 
+  describe('ligne corrigée : seuls les octets du champ corrigé changent', () => {
+    /** Lit `ligne` (seule dans son fichier), applique les saisies, renvoie la ligne écrite. */
+    function ecrireCorrigee(ligne: string, saisies: Record<string, string>): string {
+      let fichier = lireAc056(fichierSynthetique([ligne])).fichier;
+      for (const [champ, texte] of Object.entries(saisies)) {
+        const resultat = modifierChamp(fichier, { ligne: 1, champ }, texte);
+        if (!resultat.ok) throw new Error(`saisie refusée : ${resultat.erreur.code}`);
+        fichier = resultat.fichier;
+      }
+      return enChaineBinaire(ecrireAc056(fichier));
+    }
+
+    it('garde une tabulation, une espace de tête et la zone non décrite des autres champs', () => {
+      const autres = { prenom1: '\tJEAN', numInsee: ' 1', zoneNonDecrite: ' RESIDU\t' };
+      const ligne = ligneSynthetique('405', { ...autres, nom: 'D#PONT' });
+      expect(ecrireCorrigee(ligne, { nom: 'DUPONT' })).toBe(
+        ligneSynthetique('405', { ...autres, nom: 'DUPONT' }),
+      );
+    });
+
+    it('garde un rang de personne blanc (que Lazarus bourrerait en « 00 ») si le rang est corrigé', () => {
+      const ligne = ligneSynthetique('800', {
+        rang: '9X',
+        rangPersonne: '  ',
+        refExterne: '\tREF',
+      });
+      expect(ecrireCorrigee(ligne, { rang: '02' })).toBe(
+        ligneSynthetique('800', { rang: '02', rangPersonne: '  ', refExterne: '\tREF' }),
+      );
+    });
+
+    it('écrit le rang de personne corrigé, sans toucher au reste de la 800', () => {
+      const ligne = ligneSynthetique('800', { rangPersonne: '  ', refExterne: ' REF' });
+      expect(ecrireCorrigee(ligne, { rangPersonne: '05' })).toBe(
+        ligneSynthetique('800', { rangPersonne: '05', refExterne: ' REF' }),
+      );
+    });
+
+    it('écrit rognée une valeur saisie avec des blancs dans un champ Trim', () => {
+      const ligne = ligneSynthetique('405', { nom: 'D#PONT', prenom1: ' JEAN' });
+      expect(ecrireCorrigee(ligne, { nom: ' DUPONT\t' })).toBe(
+        ligneSynthetique('405', { nom: 'DUPONT', prenom1: ' JEAN' }),
+      );
+    });
+
+    it('rend la ligne d origine si le champ corrigé reprend ses octets', () => {
+      const ligne = ligneSynthetique('405', { nom: 'DUPONT', prenom1: '\tJEAN' });
+      expect(ecrireCorrigee(ligne, { nom: 'MARTIN' })).not.toBe(ligne);
+      expect(ecrireCorrigee(ligne, { nom: 'DUPONT' })).toBe(ligne);
+    });
+  });
+
   describe('octets invalides en UTF-8', () => {
     it.each([
       ['0xE9 seul', 'CAF\xE9'],
@@ -342,10 +414,80 @@ describe('ecrireAc056', () => {
   });
 
   describe('contenu d une ligne décrite', () => {
-    it('reconstitue la première ligne de la sortie à partir des valeurs', () => {
+    it('recopie la première ligne de la sortie depuis l origine', () => {
       const ligne = ligneSynthetique('405', { nom: 'DUPONT', prenom1: 'TEST' });
       const { sortie } = relireLignes([ligne, ligneSynthetique('400')]);
       expect(premiereLigne(sortie)).toBe(ligne);
+    });
+  });
+});
+
+describe('ErreurEcritureAc056', () => {
+  /** Erreur levée par `fn`, qui doit lever. */
+  function erreurDe(fn: () => unknown): unknown {
+    try {
+      fn();
+    } catch (erreur) {
+      return erreur;
+    }
+    throw new Error('erreur attendue');
+  }
+
+  const lue = () =>
+    decrite(lireAc056(fichierSynthetique([ligneSynthetique('405')])).fichier.lignes[0]);
+
+  it('est une Error nommée, avec son code', () => {
+    const erreur = new ErreurEcritureAc056('invariant', 'message');
+    expect(erreur).toBeInstanceOf(Error);
+    expect(erreur.name).toBe('ErreurEcritureAc056');
+    expect(erreur.code).toBe('invariant');
+    expect(erreur.message).toBe('message');
+  });
+
+  it('code fichier-rejet pour un rejet', () => {
+    const fichier = lireAc056(new Uint8Array(), 'rejet').fichier;
+    const erreur = erreurDe(() => ecrireAc056(fichier));
+    expect(erreur).toBeInstanceOf(ErreurEcritureAc056);
+    expect(erreur).toMatchObject({
+      code: 'fichier-rejet',
+      message: 'Un fichier de rejet est en lecture seule : il ne se réécrit jamais.',
+    });
+  });
+
+  it('code invariant pour une valeur corrigée absente, sans citer de valeur', () => {
+    const sansNom: Record<string, Octets> = { ...lue().valeurs };
+    delete sansNom.nom;
+    const erreur = erreurDe(() =>
+      contenuLigne({ ...lue(), valeurs: sansNom, champsModifies: ['nom'] }),
+    );
+    expect(erreur).toBeInstanceOf(ErreurEcritureAc056);
+    expect(erreur).toMatchObject({
+      code: 'invariant',
+      message: 'Ligne 1 : valeur du champ nom absente.',
+    });
+  });
+
+  it('code invariant pour un champ corrigé inconnu de l entité', () => {
+    const erreur = erreurDe(() => contenuLigne({ ...lue(), champsModifies: ['inconnu'] }));
+    expect(erreur).toBeInstanceOf(ErreurEcritureAc056);
+    expect(erreur).toMatchObject({
+      code: 'invariant',
+      message: 'Ligne 1 (entité 405) : champ inconnu inconnu.',
+    });
+  });
+
+  it('code invariant pour une ligne de plus de 700 octets, sans citer de valeur', () => {
+    const modifiee: LigneDecrite = {
+      ...lue(),
+      valeurs: { ...lue().valeurs, nom: 'N'.repeat(60) as Octets },
+      champsModifies: ['nom'],
+    };
+    const fichier = lireAc056(fichierSynthetique([ligneSynthetique('405')])).fichier;
+    const erreur = erreurDe(() => ecrireAc056({ ...fichier, lignes: [modifiee] }));
+    expect(erreur).toBeInstanceOf(ErreurEcritureAc056);
+    expect(erreur).toMatchObject({
+      code: 'invariant',
+      message: 'Ligne 1 (entité 405) : 710 octets au lieu de 700.',
     });
   });
 });

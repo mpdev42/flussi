@@ -12,6 +12,7 @@
 | 2 | Enregistrement possible même si le fichier contient encore des erreurs ; le blocage se fait au dépôt MSP (v0.5.0). `CLAUDE.md` dit « enregistrement si le fichier ne contient plus d'erreur » | 3 |
 | 3 | Adapter `stockage` : écriture par remplacement (fichier temporaire puis renommage) en plus de l'ajout seul, et création d'un sous-dossier de copies des originaux dans `IN` (aujourd'hui, seuls les sous-dossiers `Journal\AAAA\MM` sont créés) | 3 |
 | 4 | Codes `ERR028` et suivants, propres à Flussi, au-delà de la table de Lazarus | 4 |
+| 5 | Condition de bascule « enregistré sans modification = identique octet par octet » : deux exceptions (lignes vides et 0x1A finaux supprimés) ; un fichier corrigé ne change qu'aux octets des champs corrigés (Lazarus régénère chaque ligne). Reporté dans `CLAUDE.md` le 2026-10-21 | 3 |
 
 ---
 
@@ -251,7 +252,7 @@ Décisions techniques : bénéficiaires et éléments de liste sélectionnés pa
 
 ### 3. Modification des champs en erreur et enregistrement du fichier, même incomplet
 
-**Statut** : À faire
+**Statut** : Terminé
 **Pattern** : custom
 
 **Description** — Modification des champs en erreur et enregistrement du fichier, possible même s'il reste des erreurs, avec copie de l'original et compteur des erreurs restantes. Le dépôt chez MSP d'un fichier qui contient encore une erreur sera refusé (v0.5.0).
@@ -274,13 +275,63 @@ Décisions techniques : bénéficiaires et éléments de liste sélectionnés pa
 
 **Repris du backlog** :
 
-- Rang saisi sur un seul chiffre : parité Lazarus conservée (« 1 » devient « 10 », `AddCharR`), ni contrôle ni complément à la saisie (v0.1.0, item 3)
-- Réécriture silencieuse : signaler une anomalie non bloquante quand une ligne non modifiée, régénérée avec le `Trim` et le bourrage de Lazarus, diffère de l'origine (par exemple un `rangNaissance` à blanc qui sort en `00`) — `src/shared/domain/ac056/ecrivain.ts`, `fpc.ts` (v0.1.0, revue release)
+- ~~Rang saisi sur un seul chiffre : parité Lazarus conservée (« 1 » devient « 10 », `AddCharR`), ni contrôle ni complément à la saisie (v0.1.0, item 3)~~ — remplacé par la décision 1 du démarrage de l'item (refus)
+- Réécriture silencieuse : signaler une anomalie non bloquante quand une ligne non modifiée, régénérée avec le `Trim` et le bourrage de Lazarus, diffère de l'origine (par exemple un `rangNaissance` à blanc qui sort en `00`) — `src/shared/domain/ac056/ecrivain.ts`, `fpc.ts` (v0.1.0, revue release) — clos par la décision 4 remplacée (seuls les champs corrigés changent)
 - Modification réservée aux champs en erreur (parité Lazarus `VerrouillerComposants`, `MarquerControleErreur`), `maxLength` appliqué à la saisie — `src/shared/domain/ac056/modification.ts` (v0.1.0, item 3)
 - Fichier en anomalie de structure : refuser l'enregistrement et afficher la consigne « relancer l'export VEOS » — `src/shared/domain/ac056/structure.ts` (v0.1.0, item 4)
 - `ecrireAc056` lève des `Error` sans code : une classe ou un `code` d'erreur distingue « rejet en lecture seule » d'un invariant violé, pour un message précis à l'écran — `src/shared/domain/ac056/ecrivain.ts` (v0.1.0, revue release)
 
 **Fichiers impactés** : `src/main/adapters/stockage/` (écriture par remplacement, sous-dossier des originaux), `src/main/services/ac056/`, `src/main/ipc/ac056/`, `src/shared/domain/ac056/` (`ecrivain.ts`, `modification.ts`, `structure.ts`), `src/renderer/src/pages/ac056/`, `CLAUDE.md` (écarts 2 et 3).
+
+**Décisions du démarrage de l'item** (2026-10-21, `/item-start`, validées « comme tu conseilles ») :
+
+1. **Rang saisi sur un seul chiffre refusé** à la sortie du champ, « Saisissez 2 chiffres, par exemple 05 » : tous les rangs modifiables (rang du bénéficiaire des 400 à 800, rang de personne des 400 et 800) ; rang vide refusé aussi. Divergence : Lazarus écrit « 50 » pour « 5 » (`AddCharR`).
+   - Précisions (2026-10-21, en cours d'implémentation) : le contrôle porte sur la valeur telle qu'elle sera relue (le `rangPersonne` de la 800 est trimé : « 5 » entouré d'une espace est refusé aussi). Le corpus `MODIFIES` contient un rang saisi sur un chiffre dans Lazarus (`MATH_20260923_054813`, 400 `rangPersonne`, écrit « X0 ») : option 1 retenue par l'utilisateur, ce cas attend désormais le refus `valeur-trop-courte` au lieu d'une comparaison SHA-256, et `MINIMUM_FICHIERS_CORPUS.MODIFIES` passe de 3 à 2 en attendant un cas ordinaire de plus (à déposer par l'utilisateur).
+2. **Champ corrigé modifiable jusqu'au changement de fichier**, même après un enregistrement : le domaine reporte `champsModifies` sur l'analyse du fichier écrit. À la réouverture, un champ sans erreur redevient en lecture seule (comme Lazarus).
+3. **Exceptions à la règle « octet par octet »** : lignes vides et 0x1A finaux supprimés. Sans ces défauts ni correction, le fichier n'est pas réécrit (« Le fichier est déjà à jour : rien à enregistrer »). À inscrire dans `CLAUDE.md` (conditions de bascule) et dans le tableau des écarts à `/item-finish`.
+4. ~~**Ligne non corrigée réécrite différemment au format de Lazarus** : anomalie non bloquante `ligne-reecrite`, calculée au chargement d'un fichier VEOS, sans valeur ; affichée par la liste de l'item 5.~~ **Remplacée le 2026-10-21** (revue de code de `/item-finish`, bloquant B1, solution (a) choisie par l'utilisateur) : **seuls les octets des champs corrigés changent** ; toute autre partie du fichier (lignes non corrigées, autres champs d'une ligne corrigée, zone non décrite) est recopiée depuis l'origine. Aucune valeur ne change sans action de l'utilisateur (la réécriture complète au format de Lazarus changeait par exemple un rang « 5␠ » en « 50 » ou retirait une tabulation, effaçant une erreur « À corriger dans VEOS »). Divergence avec Lazarus (qui régénère chaque ligne) limitée aux cas où le `Trim`/bourrage changerait les octets ; sans effet sur le corpus (`IN` et `MODIFIES`). L'anomalie `ligne-reecrite` est retirée (plus d'objet). Le backlog « réécriture silencieuse » est clos par cette décision.
+   - Précisions de la même revue : **B2** valeur saisie rognée (`Trim` de Lazarus) pour les champs trimés à la lecture, « valeur telle qu'elle sera relue » (un second enregistrement sans saisie ne réécrit plus rien) ; **B3** rangs : chiffres seuls (« ␠5 » refusé, même message « Saisissez 2 chiffres, par exemple 05. ») ; **B4** le message d'échec d'enregistrement reste affiché jusqu'au prochain enregistrement ou au changement de fichier (le clic sur « Réessayer » n'est plus perdu).
+5. **Consigne du rang de la 400** complétée : « Corrigez aussi le rang des autres lignes de ce bénéficiaire. » Rang des lignes filles non corrigé automatiquement (parité).
+6. **Fermeture** : avec des corrections non enregistrées, boîte Windows native « Abandonner les modifications ? » (« Annuler », « Quitter sans enregistrer »), avant « Fin de session ». Menu d'Electron retiré dans l'application installée (Ctrl+R, Ctrl+W, outils de développement inactifs).
+7. **Copie de l'original** dans `Originaux\NOM.txt`, dans le dossier du fichier (`IN\Originaux` en pratique), au premier enregistrement, jamais écrasée.
+
+**Approche retenue** : l'écran envoie la liste des champs corrigés (`correctionsAc056`, dérivée de `champsModifies`) avec l'empreinte SHA-256 reçue à l'ouverture ; le main relit l'original, vérifie l'empreinte, rejoue les corrections par le domaine (`preparerEnregistrement`, pur), copie l'original (mode `creer`), remplace le fichier (temporaire, relecture, renommage) et renvoie l'analyse du fichier écrit. Canaux `ac056:enregistrer` et `ac056:modifications` (état « modifié » pour la fermeture). Garde-fous dans le domaine (`fichier-mal-forme`, `champ-verrouille`, règle `peutCorriger`).
+
+**Notes de l'implémentation** (2026-10-21, à reprendre par `/item-finish`) :
+
+- Retours d'enregistrement (« Fichier enregistré », « … avec N erreurs », « déjà à jour ») affichés dans l'alerte du fichier, sans ajouter d'alerte (maquette, et pas de décalage de l'écran quand le retour s'efface à la saisie suivante) ; l'échec reste une alerte séparée avec « Réessayer ».
+- Garde `precedent === actuel` supprimée de `saisir` (`courant.current` et l'état React mis à jour ensemble).
+- `BoutonChangerFichier` partagé par la barre et la barrière d'erreur (confirmation aussi depuis la barrière).
+- Aides e2e extraites dans `e2e/aides/ac056.ts`.
+- Mesure de bout en bout (5 510 lignes, 3,7 Mo) : correction puis clic sur « Enregistrer » → alerte « Fichier enregistré » : 715 à 800 ms. `preparerEnregistrement` seul : 514 à 612 ms (plafond du test à 3 s, suite lancée en parallèle).
+- Points ouverts : `ENOTDIR` traduit en « fichier introuvable » par l'adapter (cas artificiel). La valeur saisie avec une espace en tête dans un champ trimé est réglée par B2 (rognée à la saisie).
+- Correctifs de la revue de `/item-finish` (B1 à B4 et points mineurs) : seuls les octets des champs corrigés changent (`contenuLigne`), `ligne-reecrite` retirée ; saisie rognée pour les champs trimés ; rangs en chiffres seuls (`rang-non-numerique` n'apparaît plus qu'à la lecture) ; refus de `preparerEnregistrement` en union discriminée (`indice`) ; cas `MODIFIES` attendu en refus nommé (`CAS_REFUS_RANG_INCOMPLET`) ; retour `echec` conservé jusqu'au prochain enregistrement, nouveau retour `interrompu` (« Enregistrement interrompu : vérifiez le fichier avant de réessayer ») quand la réponse IPC est perdue ; focus sur « Enregistrer » après « Réessayer » ; clé de `ChampAc056` par indice de ligne ; signal « modifié » effacé aussi après « déjà à jour » ; `creer` refuse une cible qui n'est pas un fichier ; `unlink` du temporaire rejoué ; émetteur contrôlé sur `ac056:enregistrer` ; fenêtre désactivée pendant la fermeture ; faux e2e de la boîte limité à « Abandonner les modifications ? ».
+- Vérifié à la main par l'utilisateur en `npm run dev` (2026-10-21) : vraie boîte « Abandonner les modifications ? » à la fermeture, Alt+Tab pendant la frappe (saisie non appliquée), enregistrement sur un dossier de test du vrai `P:`. Ctrl+R et Ctrl+W restent actifs en dev (attendu : menu retiré seulement si `app.isPackaged`).
+- Reste à vérifier sur l'application installée : menu absent (Ctrl+R, Ctrl+W, Ctrl+Maj+I), fichier enregistré rechargé dans Lazarus sans erreur, annonce du refus par NVDA.
+
+**Revue de code** (deux passes, 2026-10-21) : quatre bloquants à la première passe, tous corrigés (B1 lignes non corrigées réécrites au format de Lazarus, d'où la décision 4 remplacée ; B2 second enregistrement qui réécrit le fichier ; B3 « ␠5 » accepté dans un rang ; B4 clic sur « Réessayer » perdu) ; verdict final « OK pour merge ».
+
+**Points ouverts** (revue de code, deuxième passe, et points restés ouverts de la première), reportés dans `docs/backlog.md` :
+
+- **Fermeture juste après « Enregistrer »** (risque moyen, très improbable) : un IPC d'enregistrement arrivé pendant « Fin de session » écrit le fichier, mais ses lignes de journal sont ignorées (`ajouter` sans effet après `terminer`). Poser un verrou côté main dès la confirmation de fermeture (refus typé « Flussi se ferme »), puis attendre, puis terminer la session — `src/main/fermeture.ts`, `src/main/services/ac056/index.ts`.
+- **Retour `interrompu`** (risque moyen, plausible) : le main a pu écrire et effacer son signal « modifié » ; l'écran ne le renvoie pas, donc des saisies ultérieures se perdent sans confirmation à la fermeture. Renvoyer le signal dans les branches `interrompu` ; `try/finally` autour du verrou d'`enregistrer` (réponse malformée = écran inerte) ; un rejet zod déterministe fait boucler « Réessayer » — `src/renderer/src/hooks/use-fichier-ac056.ts`.
+- **Messages d'échec** : titre « …le fichier n'a pas été modifié » contradictoire avec la cause `fichier-modifie` (après `interrompu`, ou synchronisation OneDrive) et « refaites les corrections » faux ; consigne « vérifiez le fichier » sans moyen de vérifier ; cause `verrou` « après plusieurs tentatives » affichée même sans rejeu ; EISDIR et ENOTDIR présentés comme « fichier introuvable » — `pages/ac056/textes-ac056.ts`, `src/main/services/ac056/index.ts`, `src/main/adapters/stockage/erreurs.ts`.
+- **`analyseReportee`** : vérifier aussi `bom`, `nature` et la longueur de chaque ligne (ligne vide en tête suivie d'une 000 commençant par EF BB BF) et lever `ErreurEcritureAc056('invariant')` au lieu d'`Error` — `src/shared/domain/ac056/enregistrement.ts`.
+- **Rangs** : tester les chiffres avant la longueur (« é5 » reçoit « valeur trop longue ») ; code `valeur-trop-courte` à renommer (`rang-incomplet`) — `src/shared/domain/ac056/modification.ts`.
+- **Petits défauts d'écran** : focus perdu après « Réessayer » d'un chargement (antérieur, item 1) ; confirmation au texte générique quand un champ est ressaisi à sa valeur enregistrée (compteur à 0, « Modifié ») ; ponctuation des retours d'enregistrement et espace insécable avant « : » dans les nouveaux textes ; `ErreurSaisie` redéfinie dans le hook sous le nom du type du domaine — `pages/ac056/`, `hooks/use-fichier-ac056.ts`.
+- **Navigation du main** : `did-navigate` plutôt que `did-start-navigation` pour effacer le signal ; aucune garde `will-navigate` (un fichier déposé sur la fenêtre remplace l'application, sans menu pour recharger dans l'application installée) — `src/main/index.ts`.
+- **Diagnostic** : `ErreurEcritureAc056.code` et le code d'un refus `correction-refusee` ne sont tracés nulle part (console du main) ; `modifierChamp` recopie le tableau des lignes à chaque correction (O(N·L), coûteux près du plafond de 10 000 corrections) — `ecrivain.ts`, `enregistrement.ts`, `src/main/services/ac056/index.ts`.
+- **Tests** : tests corpus de réécriture devenus tautologiques depuis B1 (ajouter un test qui régénère chaque ligne de `IN` à la manière de Lazarus et compte les lignes qui diffèrent, 0 attendu) ; `champEnErreur` testé par son propre filtre ; pas de correction sur une ligne CP1252 ; clé de `ChampAc056` par indice non testée côté DOM ; `interrompu` puis `fichier-modifie` non testé ; « Réessayer » relu par libellé (vérifier la même référence) ; U+FFFD littéral et refus non vérifié dans `use-fichier-ac056.test.tsx:686` ; faux `setEnabled` toujours obéissant ; e2e « Annuler » sans `isEnabled()` ; la fixture e2e délègue une boîte inattendue à la vraie fonction (boîte Windows réelle pendant les tests, contraire à `CLAUDE.md`) ; commentaire faux `disque.test.ts:646`.
+- **Corpus `MODIFIES`** : déposer un cas ordinaire (fichier enregistré par Lazarus après correction d'un champ, rang sur 2 chiffres), puis remonter `MINIMUM_FICHIERS_CORPUS.MODIFIES` à 3 — `src/shared/test/corpus.ts`.
+- **Questions** :
+  - frappe en cours à la fermeture (champ jamais quitté) : perdue sans confirmation (parité Lazarus) ; signaler « modifié » dès la première frappe ?
+  - saisie refusée au même clic qu'« Enregistrer » : le fichier est enregistré sans elle ; bloquer avec un message ?
+  - zoom clavier (Ctrl+Plus, Ctrl+Moins, Ctrl+0) perdu avec le menu dans l'application installée : garder un menu minimal caché ?
+  - garde-fou du main sans « champ en erreur » (conséquence de la décision 2) : accepté ?
+  - clic sur l'évènement ou le bénéficiaire déjà sélectionné sans effet (implémenté, divergence avec « première fiche en erreur au clic ») : à valider ;
+  - barrière d'erreur : le contenu ne revient qu'au changement de fichier ;
+  - 0x1A collé dans une valeur : accepté à la saisie puis signalé `caractere-interdit` ; Lazarus, solution de repli, tronquerait le fichier à la relecture ; refuser à la saisie ?
+  - `P:` qui ne répond plus pendant un enregistrement : la croix ne réagit pas, sans retour, jusqu'à la fin de l'écriture.
 
 ---
 

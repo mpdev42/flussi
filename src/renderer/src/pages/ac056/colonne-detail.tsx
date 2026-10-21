@@ -148,6 +148,7 @@ export function ColonneDetail({
         <FicheEntite
           code={fiche.code}
           ligne={ligneFiche}
+          indice={fiche.indice}
           anomalies={anomaliesParLigne.get(ligneFiche.numero) ?? AUCUNE_ANOMALIE}
           fichierModifiable={analyse.structure === 0}
           onSaisir={onSaisir}

@@ -64,11 +64,14 @@ export function creerErreur(
  * `EBUSY` et `EPERM`, l'appelant ne traduit qu'après les nouvelles tentatives.
  *
  * `racineLecteur` n'est utilisée que pour les erreurs réseau (`lecteur-indisponible`).
+ * `nouvellesTentatives` : nombre de nouvelles tentatives faites avant cet échec ; le message d'un
+ * verrou ne les cite que s'il y en a eu.
  */
 export function traduireCodeSysteme(
   code: string | undefined,
   contexte: ContexteErreur,
   racineLecteur: string,
+  nouvellesTentatives = 0,
 ): ErreurStockage {
   const { emplacement, racine, chemin } = contexte;
 
@@ -101,7 +104,9 @@ export function traduireCodeSysteme(
         'verrou',
         emplacement,
         chemin,
-        'fichier verrouillé (synchronisation OneDrive ou autre programme), toujours occupé après 3 nouvelles tentatives.',
+        nouvellesTentatives > 0
+          ? `fichier verrouillé (synchronisation OneDrive ou autre programme), toujours occupé après ${nouvellesTentatives} nouvelles tentatives.`
+          : 'fichier verrouillé (synchronisation OneDrive ou autre programme).',
       );
     case 'ENOTDIR':
       return creerErreur('introuvable', emplacement, chemin, 'fichier ou dossier introuvable.');

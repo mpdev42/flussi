@@ -330,7 +330,8 @@ describe('controlerAc056 : champs modifiés (champsModifies)', () => {
   });
 
   it('juge la valeur saisie : un octet interdit saisi est signalé une seule fois', () => {
-    const fichier = modifier(lire(lignes), 5, 'nom', 'DUPONT\x07');
+    // À l'intérieur de la valeur : en bord, `Trim` le retirerait (précision B2).
+    const fichier = modifier(lire(lignes), 5, 'nom', 'DUP\x07ONT');
     expect(triplets(controlerAc056(fichier))).toEqual([[5, 'nom', NON_AUTORISE]]);
   });
 
@@ -362,9 +363,12 @@ describe('controlerAc056 : champs modifiés (champsModifies)', () => {
     expect(controlerAc056(deux)).toEqual([]);
   });
 
-  it('juge la valeur saisie d un rang : une tabulation saisie est signalée', () => {
-    const fichier = modifier(lire(dansBeneficiaire('AUTRE', ligne('405'))), 5, 'rang', '\t5');
-    expect(triplets(controlerAc056(fichier))).toEqual([[5, 'rang', INTERDIT]]);
+  it('ne laisse saisir aucune tabulation dans un rang (chiffres seuls, précision B3)', () => {
+    const fichier = lire(dansBeneficiaire('AUTRE', ligne('405')));
+    expect(modifierChamp(fichier, { ligne: 5, champ: 'rang' }, '\t5')).toMatchObject({
+      ok: false,
+      erreur: { code: 'valeur-trop-courte' },
+    });
   });
 
   it('juge le rang saisi avec le type d assuré de la 400', () => {

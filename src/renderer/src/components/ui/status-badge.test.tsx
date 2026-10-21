@@ -2,7 +2,13 @@ import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CircleCheck } from 'lucide-react';
-import { ToneBadge, type ToneBadgeTone } from './status-badge';
+import {
+  CountBadge,
+  EnvironmentBadge,
+  StatusBadge,
+  ToneBadge,
+  type ToneBadgeTone,
+} from './status-badge';
 
 // Rendu statique en environnement node : pas de DOM, on lit le HTML produit
 function html(element: ReactElement): string {
@@ -55,5 +61,42 @@ describe('ToneBadge', () => {
       </ToneBadge>,
     );
     expect(rendu).not.toContain('title=');
+  });
+
+  it('rend l’icône transparente au pointeur, la racine garde l’infobulle', () => {
+    const rendu = html(
+      <ToneBadge tone="warning" icon={CircleCheck} title="Info bulle">
+        Texte
+      </ToneBadge>,
+    );
+    expect(classesIcone(rendu)).toContain('pointer-events-none');
+    expect(classesRacine(rendu)).not.toContain('pointer-events-none');
+  });
+});
+
+/** Classes de l'élément racine du rendu. */
+function classesRacine(rendu: string): string[] {
+  return /^<[a-z]+ class="([^"]*)"/.exec(rendu)?.[1].split(' ') ?? [];
+}
+
+/** Classes de la première icône `svg` du rendu. */
+function classesIcone(rendu: string): string[] {
+  return /<svg[^>]* class="([^"]*)"/.exec(rendu)?.[1].split(' ') ?? [];
+}
+
+describe('StatusBadge et EnvironmentBadge', () => {
+  it('rendent leur icône transparente au pointeur', () => {
+    expect(classesIcone(html(<StatusBadge status="du-jour" />))).toContain('pointer-events-none');
+    expect(classesIcone(html(<EnvironmentBadge />))).toContain('pointer-events-none');
+  });
+});
+
+describe('CountBadge', () => {
+  it('est transparent au pointeur (rendu dans des boutons et lignes cliquables)', () => {
+    expect(classesRacine(html(<CountBadge count={3} />))).toContain('pointer-events-none');
+  });
+
+  it('ne rend rien à 0', () => {
+    expect(html(<CountBadge count={0} />)).toBe('');
   });
 });

@@ -47,7 +47,7 @@ afterEach(() => {
 
 // --- Faux système de fichiers ---
 
-type Operation = keyof SystemeFichiers;
+type Operation = keyof SystemeFichiers | 'sync';
 
 interface Panne {
   operation: Operation;
@@ -67,6 +67,9 @@ const systemeReel: SystemeFichiers = {
   mkdir: async (chemin) => {
     await fsPromises.mkdir(chemin);
   },
+  open: (chemin, drapeaux) => fsPromises.open(chemin, drapeaux),
+  rename: (ancien, nouveau) => fsPromises.rename(ancien, nouveau),
+  unlink: (chemin) => fsPromises.unlink(chemin),
 };
 
 function creerFaux(pannes: Panne[] = [], surcharges: Partial<SystemeFichiers> = {}) {
@@ -111,6 +114,27 @@ function creerFaux(pannes: Panne[] = [], surcharges: Partial<SystemeFichiers> = 
     mkdir: async (chemin) => {
       intercepter('mkdir', chemin);
       return (surcharges.mkdir ?? systemeReel.mkdir)(chemin);
+    },
+    open: async (chemin, drapeaux) => {
+      intercepter('open', chemin);
+      const fichier = await (surcharges.open ?? systemeReel.open)(chemin, drapeaux);
+      // Trace l'ordre des opérations sur le descripteur (sync avant rename)
+      return {
+        writeFile: (octets) => fichier.writeFile(octets),
+        sync: async () => {
+          intercepter('sync', chemin);
+          await fichier.sync();
+        },
+        close: () => fichier.close(),
+      };
+    },
+    rename: async (ancien, nouveau) => {
+      intercepter('rename', ancien);
+      return (surcharges.rename ?? systemeReel.rename)(ancien, nouveau);
+    },
+    unlink: async (chemin) => {
+      intercepter('unlink', chemin);
+      return (surcharges.unlink ?? systemeReel.unlink)(chemin);
     },
   };
 
@@ -389,6 +413,254 @@ describe('creerStockageDisque — ajouter', () => {
     ]);
     const erreur = erreurDe(await stockage.ajouter('journal', 'x.txt', new Uint8Array([1])));
     expect(erreur).toMatchObject({ code: 'lecteur-indisponible', chemin: dossiers.journal });
+  });
+});
+
+// --- ecrire ---
+
+describe('creerStockageDisque — ecrire', () => {
+  const octets = new Uint8Array([0xef, 0xbb, 0xbf, 0x41, 0x0d, 0x0a, 0x80, 0xff, 0x00]);
+  const cible = () => join(dossiers.out, 'FICHIER.txt');
+  /** Fichiers du dossier OUT : détecte tout temporaire oublié. */
+  const contenuOut = () => readdirSync(dossiers.out).sort();
+
+  it('écrit un nouveau fichier, octets exacts, sans temporaire restant', async () => {
+    const { stockage } = creerStockage();
+    expect(valeurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'))).toBe(
+      'ecrit',
+    );
+    expect(memesOctets(readFileSync(cible()), octets)).toBe(true);
+    expect(contenuOut()).toEqual(['FICHIER.txt']);
+  });
+
+  it('passe par un temporaire du même dossier, synchronisé avant le renommage', async () => {
+    const { stockage, faux } = creerStockage();
+    valeurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+
+    const [temporaire] = faux.cheminsAppeles('open');
+    expect(win32.dirname(temporaire as string)).toBe(dossiers.out);
+    expect(win32.basename(temporaire as string)).toMatch(/^FICHIER\.txt\.[0-9a-f-]{36}\.tmp$/);
+    expect(faux.cheminsAppeles('rename')).toEqual([temporaire]);
+    const operations = faux.appels.map((a) => a.operation);
+    expect(operations.indexOf('sync')).toBeGreaterThan(operations.indexOf('open'));
+    expect(operations.indexOf('rename')).toBeGreaterThan(operations.indexOf('sync'));
+    expect(faux.cheminsAppeles('unlink')).toEqual([]);
+  });
+
+  it('remplace un fichier existant', async () => {
+    writeFileSync(cible(), 'ancien contenu plus long que le nouveau');
+    const { stockage } = creerStockage();
+    expect(valeurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'))).toBe(
+      'ecrit',
+    );
+    expect(memesOctets(readFileSync(cible()), octets)).toBe(true);
+    expect(contenuOut()).toEqual(['FICHIER.txt']);
+  });
+
+  it('mode creer : écrit quand la cible est absente', async () => {
+    const { stockage } = creerStockage();
+    expect(valeurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'creer'))).toBe('ecrit');
+    expect(memesOctets(readFileSync(cible()), octets)).toBe(true);
+  });
+
+  it('mode creer : cible existante → deja-present, rien n’est écrit', async () => {
+    writeFileSync(cible(), 'original');
+    const { stockage, faux } = creerStockage();
+    expect(valeurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'creer'))).toBe(
+      'deja-present',
+    );
+    expect(readFileSync(cible(), 'utf8')).toBe('original');
+    expect(faux.cheminsAppeles('open')).toEqual([]);
+    expect(contenuOut()).toEqual(['FICHIER.txt']);
+  });
+
+  it('crée les sous-dossiers intermédiaires, jamais la racine', async () => {
+    const { stockage, faux } = creerStockage();
+    valeurDe(await stockage.ecrire('out', 'a/b/FICHIER.txt', octets, 'remplacer'));
+    expect(faux.cheminsAppeles('mkdir')).toEqual([
+      win32.join(dossiers.out, 'a'),
+      win32.join(dossiers.out, 'a', 'b'),
+    ]);
+    expect(existsSync(join(dossiers.out, 'a', 'b', 'FICHIER.txt'))).toBe(true);
+  });
+
+  it('racine absente : dossier-absent, la racine n’est pas recréée', async () => {
+    rmSync(dossiers.out, { recursive: true });
+    const { stockage, faux } = creerStockage();
+    const erreur = erreurDe(await stockage.ecrire('out', 'a/FICHIER.txt', octets, 'remplacer'));
+    expect(erreur).toMatchObject({ code: 'dossier-absent', emplacement: 'out' });
+    expect(existsSync(dossiers.out)).toBe(false);
+    expect(faux.cheminsAppeles('mkdir')).not.toContain(dossiers.out);
+  });
+
+  it('rejoue le seul renommage sur EBUSY, puis réussit', async () => {
+    const { stockage, faux, delais } = creerStockage([
+      { operation: 'rename', code: 'EBUSY', fois: 2 },
+    ]);
+    expect(valeurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'))).toBe(
+      'ecrit',
+    );
+    expect(faux.cheminsAppeles('rename')).toHaveLength(3);
+    // Une seule écriture : seul le renommage est rejoué
+    expect(faux.cheminsAppeles('open')).toHaveLength(1);
+    expect(faux.cheminsAppeles('readFile')).toHaveLength(1);
+    expect(delais).toEqual([500, 1000]);
+    expect(memesOctets(readFileSync(cible()), octets)).toBe(true);
+    expect(contenuOut()).toEqual(['FICHIER.txt']);
+  });
+
+  it('échec final du renommage : temporaire supprimé, cible intacte, erreur typée', async () => {
+    writeFileSync(cible(), 'original');
+    const { stockage, faux, delais } = creerStockage([{ operation: 'rename', code: 'EPERM' }]);
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur).toMatchObject({ code: 'acces-refuse', emplacement: 'out' });
+    expect(faux.cheminsAppeles('rename')).toHaveLength(4);
+    expect(delais).toEqual([500, 1000, 2000]);
+    expect(faux.cheminsAppeles('unlink')).toEqual(faux.cheminsAppeles('open'));
+    expect(readFileSync(cible(), 'utf8')).toBe('original');
+    expect(contenuOut()).toEqual(['FICHIER.txt']);
+  });
+
+  it.each([
+    ['open', 'EACCES', 'acces-refuse', false],
+    ['sync', 'EIO', 'erreur-systeme', true],
+    ['readFile', 'ETIMEDOUT', 'lecteur-indisponible', true],
+  ] as const)(
+    'échec de %s (%s) : erreur typée, plus de temporaire',
+    async (operation, code, attendu, temporaireCree) => {
+      const { stockage, faux } = creerStockage([{ operation, code }]);
+      const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+      expect(erreur.code).toBe(attendu);
+      expect(faux.cheminsAppeles('rename')).toEqual([]);
+      expect(faux.cheminsAppeles('unlink')).toHaveLength(temporaireCree ? 1 : 0);
+      expect(contenuOut()).toEqual([]);
+    },
+  );
+
+  it('relecture différente : erreur système, temporaire supprimé, rien de renommé', async () => {
+    const { stockage, faux } = creerStockage([], {
+      readFile: async () => new Uint8Array([1, 2, 3]),
+    });
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur.code).toBe('erreur-systeme');
+    expect(faux.cheminsAppeles('rename')).toEqual([]);
+    expect(faux.cheminsAppeles('unlink')).toHaveLength(1);
+    expect(contenuOut()).toEqual([]);
+  });
+
+  it('une erreur de suppression du temporaire ne masque pas l’erreur d’origine', async () => {
+    const { stockage } = creerStockage([
+      { operation: 'rename', code: 'EACCES' },
+      { operation: 'unlink', code: 'EACCES' },
+    ]);
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur.code).toBe('acces-refuse');
+  });
+
+  it('mode creer : une cible qui est un dossier est une erreur, pas deja-present', async () => {
+    mkdirSync(cible());
+    const { stockage, faux } = creerStockage();
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'creer'));
+    expect(erreur).toMatchObject({ code: 'introuvable', chemin: cible() });
+    expect(faux.cheminsAppeles('open')).toEqual([]);
+    expect(contenuOut()).toEqual(['FICHIER.txt']);
+  });
+
+  it('mode creer : un stat de la cible en échec autre que ENOENT est une erreur typée', async () => {
+    const { stockage, faux } = creerStockage([
+      { operation: 'stat', chemin: cible(), code: 'EACCES' },
+    ]);
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'creer'));
+    expect(erreur).toMatchObject({ code: 'acces-refuse', emplacement: 'out' });
+    expect(faux.cheminsAppeles('open')).toEqual([]);
+    expect(contenuOut()).toEqual([]);
+  });
+
+  /** Descripteur dont certaines opérations échouent (les autres sont réelles). */
+  function ouvrirAvecPannes(pannes: { writeFile?: string; close?: string }) {
+    return async (chemin: string, drapeaux: 'wx') => {
+      const reel = await systemeReel.open(chemin, drapeaux);
+      return {
+        writeFile: async (contenu: Uint8Array) => {
+          if (pannes.writeFile) {
+            throw Object.assign(new Error('panne simulée'), { code: pannes.writeFile });
+          }
+          await reel.writeFile(contenu);
+        },
+        sync: () => reel.sync(),
+        close: async () => {
+          await reel.close();
+          if (pannes.close) throw Object.assign(new Error('panne simulée'), { code: pannes.close });
+        },
+      };
+    };
+  }
+
+  it('échec de l’écriture : erreur typée, temporaire supprimé, jamais renommé', async () => {
+    const { stockage, faux } = creerStockage([], { open: ouvrirAvecPannes({ writeFile: 'EIO' }) });
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur.code).toBe('erreur-systeme');
+    expect(faux.cheminsAppeles('rename')).toEqual([]);
+    expect(faux.cheminsAppeles('unlink')).toHaveLength(1);
+    expect(contenuOut()).toEqual([]);
+  });
+
+  it('échec de l’écriture puis de la fermeture : l’erreur d’origine prime', async () => {
+    const { stockage } = creerStockage([], {
+      open: ouvrirAvecPannes({ writeFile: 'EACCES', close: 'EIO' }),
+    });
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur.code).toBe('acces-refuse');
+    expect(contenuOut()).toEqual([]);
+  });
+
+  it('échec de la fermeture : erreur typée, temporaire supprimé, jamais renommé', async () => {
+    const { stockage, faux } = creerStockage([], { open: ouvrirAvecPannes({ close: 'EIO' }) });
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur.code).toBe('erreur-systeme');
+    expect(faux.cheminsAppeles('rename')).toEqual([]);
+    expect(faux.cheminsAppeles('unlink')).toHaveLength(1);
+    expect(contenuOut()).toEqual([]);
+  });
+
+  it('rejoue la suppression du temporaire sur EBUSY, comme le renommage', async () => {
+    const { stockage, faux, delais } = creerStockage([
+      { operation: 'rename', code: 'EACCES' },
+      { operation: 'unlink', code: 'EBUSY', fois: 2 },
+    ]);
+    const erreur = erreurDe(await stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'));
+    expect(erreur.code).toBe('acces-refuse');
+    expect(faux.cheminsAppeles('unlink')).toHaveLength(3);
+    expect(delais).toEqual([500, 1000]);
+    expect(contenuOut()).toEqual([]);
+  });
+
+  it('cite les nouvelles tentatives dans le message de verrou seulement si le renommage en a fait', async () => {
+    const rejoue = creerStockage([{ operation: 'rename', code: 'EBUSY' }]);
+    const apresTentatives = erreurDe(
+      await rejoue.stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'),
+    );
+    expect(apresTentatives.code).toBe('verrou');
+    expect(apresTentatives.message).toContain('3 nouvelles tentatives');
+
+    // Le stat de la cible n'est pas rejoué : un verrou y est signalé sans mention de tentatives
+    const sansRejeu = creerStockage([{ operation: 'open', code: 'EBUSY' }]);
+    const sansTentatives = erreurDe(
+      await sansRejeu.stockage.ecrire('out', 'FICHIER.txt', octets, 'remplacer'),
+    );
+    expect(sansTentatives.code).toBe('verrou');
+    expect(sansTentatives.message).not.toContain('tentatives');
+    expect(sansRejeu.delais).toEqual([]);
+  });
+
+  it('refuse un nom invalide sans aucun appel au système de fichiers', async () => {
+    const { stockage, faux } = creerStockage();
+    for (const nom of ['../x.txt', 'C:\\x.txt', 'sous/NUL.txt', '']) {
+      expect(erreurDe(await stockage.ecrire('out', nom, octets, 'remplacer')).code).toBe(
+        'chemin-refuse',
+      );
+    }
+    expect(faux.appels).toEqual([]);
   });
 });
 
@@ -820,6 +1092,7 @@ describe('creerStockageDisque — chemin-refuse', () => {
       ['lire', 'journal', '../x', (s) => s.lire('journal', '../x')],
       ['ajouter', 'in', 'C:\\x', (s) => s.ajouter('in', 'C:\\x', new Uint8Array([1]))],
       ['lister', 'out', 'a/..', (s) => s.lister('out', 'a/..')],
+      ['ecrire', 'out', '../x', (s) => s.ecrire('out', '../x', new Uint8Array([1]), 'creer')],
     ];
 
   it.each(cas)(

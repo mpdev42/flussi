@@ -3,6 +3,7 @@
 
 import { act, createElement, useEffect, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { vi } from 'vitest';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -14,8 +15,18 @@ export interface Monture {
   demonter: () => Promise<void>;
 }
 
+/**
+ * Fenêtre active ou non pour `document.hasFocus()`. jsdom répond faux pendant un `blur` même quand le
+ * focus passe à un autre élément du document (Chromium répond vrai) : `monter` force donc la réponse
+ * à vrai, et un test de perte de focus de la fenêtre appelle `fenetreActive(false)`.
+ */
+export function fenetreActive(active: boolean): void {
+  vi.spyOn(Document.prototype, 'hasFocus').mockReturnValue(active);
+}
+
 /** Monte un élément dans le document jsdom, dans `act`. Penser à `demonter()` en fin de test. */
 export async function monter(element: ReactElement): Promise<Monture> {
+  fenetreActive(true);
   const conteneur = document.createElement('div');
   document.body.appendChild(conteneur);
   const racine: Root = createRoot(conteneur);
@@ -91,8 +102,9 @@ export async function quitter(element: HTMLElement): Promise<void> {
 }
 
 /**
- * Évènements de pointeur de la souris, envoyés à un élément : `appuyer` (`pointerdown`), `relacher`
- * (`pointerup`) ou `annuler` (`pointercancel`). Ni focus ni `click` : le test les déclenche lui-même.
+ * Évènements de pointeur de la souris, envoyés à un élément : `appuyerPointeur` (`pointerdown`),
+ * `relacherPointeur` (`pointerup`) ou `annulerPointeur` (`pointercancel`). Ni focus ni `click` : le
+ * test les déclenche lui-même.
  */
 async function evenementPointeur(
   type: 'pointerdown' | 'pointerup' | 'pointercancel',
@@ -103,11 +115,11 @@ async function evenementPointeur(
   });
 }
 
-export const appuyer = (element: HTMLElement): Promise<void> =>
+export const appuyerPointeur = (element: HTMLElement): Promise<void> =>
   evenementPointeur('pointerdown', element);
-export const relacher = (element: HTMLElement): Promise<void> =>
+export const relacherPointeur = (element: HTMLElement): Promise<void> =>
   evenementPointeur('pointerup', element);
-export const annuler = (element: HTMLElement): Promise<void> =>
+export const annulerPointeur = (element: HTMLElement): Promise<void> =>
   evenementPointeur('pointercancel', element);
 
 /** Soumet un formulaire comme le fait le navigateur (évènement `submit` qui remonte). */

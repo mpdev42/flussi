@@ -57,6 +57,10 @@ export interface TabBarProps {
  * posé sur le filet de 1 px du conteneur (`border-b` passé par `className`), il le recouvre au
  * lieu de s'y ajouter.
  *
+ * Tout le contenu d'un onglet (icône, libellé, compteur, textes masqués) est en
+ * `pointer-events-none` : la cible du pointeur est toujours le bouton. Sinon, un compteur retiré
+ * entre `pointerup` et `click` (correction appliquée au relâchement du pointeur) annulerait le clic.
+ *
  * Onglet désactivé : la mention (`mentionDesactive`, masquée) fait partie du nom accessible,
  * « Garanties (entité absente) ». L'infobulle (`titreDesactive`) n'est pas posée sur le bouton,
  * où elle deviendrait sa description accessible et serait lue après la mention, mais sur une
@@ -137,18 +141,30 @@ export function TabBar({
             )}
           >
             {enErreur && (
-              <CircleAlert className="shrink-0" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <CircleAlert
+                className="pointer-events-none shrink-0"
+                size={14}
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             )}
-            <span className={cn(onglet.mono && 'font-mono text-data tabular-nums')}>
+            <span
+              className={cn(
+                'pointer-events-none',
+                onglet.mono && 'font-mono text-data tabular-nums',
+              )}
+            >
               {onglet.libelle}
             </span>
             {enErreur && (
               <>
-                <span className="sr-only">, </span>
+                <span className="pointer-events-none sr-only">, </span>
                 <CountBadge count={compteur} noun={noun} />
               </>
             )}
-            {onglet.desactive && <span className="sr-only"> {mentionDesactive}</span>}
+            {onglet.desactive && (
+              <span className="pointer-events-none sr-only"> {mentionDesactive}</span>
+            )}
           </button>
         );
         if (!onglet.desactive) return bouton;

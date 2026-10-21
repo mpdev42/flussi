@@ -7,7 +7,8 @@ export const ENTITE_800: DescriptionEntite = {
   brute: false,
   champs: [
     ...entete(RANG_BENEFICIAIRE),
-    // Trim + bourrage '0' : Lazarus réécrit un rang blanc en zéros.
+    // Trim + bourrage '0' : Lazarus réécrit un rang blanc en zéros ; Flussi recopie la ligne telle
+    // quelle tant que le champ n'est pas corrigé (décision 4 de l'item 3 de la v0.3.0).
     num('rangPersonne', 26, 2, { ...RANG_MODIFIABLE, trim: true, libelle: 'Rang personne' }),
     alpha('indicActionRefExterne', 28, 1),
     num('facetteRefExterne', 29, 1),

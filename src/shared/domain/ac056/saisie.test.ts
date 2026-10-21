@@ -16,16 +16,23 @@ import {
   dansBeneficiaire,
   dansEvenement,
   ligne,
+  marquerCorriges,
   sansNumDossier,
 } from '@shared/test/controle-ac056';
-import { analyserAc056, bilanAnalyse, type AnalyseAc056 } from './analyse';
+import { analyserAc056, bilanAnalyse, familleAnomalie, type AnalyseAc056 } from './analyse';
 import { compterAnomalies } from './compteurs';
 import { controlerAc056 } from './controle';
 import { ENTITES } from './entites';
 import { indexerLignes } from './index-lignes';
 import { lireAc056 } from './lecteur';
 import type { FichierAc056 } from './modele';
-import { controlerLigne, saisirChamp, type ResultatSaisie } from './saisie';
+import {
+  champEnErreur,
+  controlerLigne,
+  peutCorriger,
+  saisirChamp,
+  type ResultatSaisie,
+} from './saisie';
 
 interface Chargement {
   readonly analyse: AnalyseAc056;
@@ -40,6 +47,19 @@ function charger(lignes: readonly string[], options?: OptionsFichierSynthetique)
 /** Analyse recalculée en entier sur un fichier modifié : lecture d'origine puis contrôle complet. */
 const recalculee = (lecture: Chargement['lecture'], fichier: FichierAc056) =>
   bilanAnalyse(fichier, [...lecture, ...controlerAc056(fichier)]);
+
+/**
+ * Lecture d'un fichier dont les champs modifiables (de toutes les lignes, ou de `numeros`) sont
+ * marqués comme déjà corrigés : `saisirChamp` les accepte alors, en erreur ou non.
+ */
+function chargerCorriges(
+  lignes: readonly string[],
+  numeros?: readonly number[],
+  options?: OptionsFichierSynthetique,
+): { readonly lecture: Chargement['lecture']; readonly fichier: FichierAc056 } {
+  const { fichier, anomalies } = lireAc056(fichierSynthetique(lignes, options));
+  return { lecture: anomalies, fichier: marquerCorriges(fichier, numeros) };
+}
 
 function reussie(resultat: ResultatSaisie): AnalyseAc056 {
   if (!resultat.ok) throw new Error(`échec inattendu : ${resultat.erreur.code}`);
@@ -123,8 +143,9 @@ describe('saisirChamp', () => {
     expect(Object.isFrozen(apres.anomalies)).toBe(true);
   });
 
-  it('introduit une erreur sans toucher l analyse reçue', () => {
-    const { analyse, lecture } = charger(dansEvenement(ligne('115', { nom: 'DUPONT' })));
+  it('introduit une erreur dans un champ déjà corrigé, sans toucher l analyse reçue', () => {
+    const { lecture, fichier } = chargerCorriges(dansEvenement(ligne('115', { nom: 'DUPONT' })));
+    const analyse = recalculee(lecture, fichier);
     const index = indexerLignes(analyse.fichier);
     const apres = reussie(saisirChamp(analyse, index, { ligne: 4, champ: 'nom' }, 'D#PONT'));
     expect(apres.anomalies.map((a) => [a.ligne, a.champ, a.code])).toEqual([
@@ -147,28 +168,101 @@ describe('saisirChamp', () => {
     expect(apres).toEqual(recalculee(lecture, apres.fichier));
   });
 
-  it('garde les anomalies de structure : 115 en double non rattachée (divergence 5 seule)', () => {
+  describe('fichier en anomalie de structure : refus fichier-mal-forme', () => {
+    // 115 en double : la ligne 4 est perdue (le dernier gagne), la ligne 5 est en erreur.
     const lignes = dansEvenement(ligne('115', { nom: 'D#PONT' }), ligne('115', { nom: 'D#PONT' }));
-    const { analyse, lecture } = charger(lignes);
-    // Ligne 4 perdue (le dernier gagne) : seule la ligne 5 est contrôlée par les règles Lazarus.
-    expect(analyse.anomalies.map((a) => [a.ligne, a.code])).toEqual([
-      [5, 'entite-en-double'],
-      [5, 'caractere-non-autorise'],
-    ]);
-    const index = indexerLignes(analyse.fichier);
-    const avecInterdit = reussie(saisirChamp(analyse, index, { ligne: 4, champ: 'nom' }, 'DUPÉ'));
-    expect(avecInterdit.anomalies.map((a) => [a.ligne, a.code])).toEqual([
-      [4, 'caractere-interdit'],
-      [5, 'entite-en-double'],
-      [5, 'caractere-non-autorise'],
-    ]);
-    expect(avecInterdit).toEqual(recalculee(lecture, avecInterdit.fichier));
-    const corrigee = reussie(saisirChamp(avecInterdit, index, { ligne: 5, champ: 'nom' }, 'A'));
-    expect(corrigee.anomalies.map((a) => [a.ligne, a.code])).toEqual([
-      [4, 'caractere-interdit'],
-      [5, 'entite-en-double'],
-    ]);
-    expect(corrigee).toEqual(recalculee(lecture, corrigee.fichier));
+    const MAL_FORME = {
+      code: 'fichier-mal-forme',
+      message:
+        "Fichier mal formé : aucun champ ne se corrige dans Flussi. Relancez l'export dans VEOS.",
+    };
+
+    it('refuse même un champ en erreur', () => {
+      const { analyse } = charger(lignes);
+      expect(analyse.structure).toBe(1);
+      expect(analyse.anomalies.map((a) => [a.ligne, a.code])).toEqual([
+        [5, 'entite-en-double'],
+        [5, 'caractere-non-autorise'],
+      ]);
+      const index = indexerLignes(analyse.fichier);
+      expect(saisirChamp(analyse, index, { ligne: 5, champ: 'nom' }, 'DUPONT')).toEqual({
+        ok: false,
+        erreur: MAL_FORME,
+      });
+    });
+
+    it('refuse un champ déjà corrigé et un champ sans erreur', () => {
+      const { lecture, fichier } = chargerCorriges(lignes, [4]);
+      const analyse = recalculee(lecture, fichier);
+      const index = indexerLignes(analyse.fichier);
+      expect(saisirChamp(analyse, index, { ligne: 4, champ: 'nom' }, 'A')).toEqual({
+        ok: false,
+        erreur: MAL_FORME,
+      });
+      expect(saisirChamp(analyse, index, { ligne: 5, champ: 'prenom1' }, 'A')).toEqual({
+        ok: false,
+        erreur: MAL_FORME,
+      });
+    });
+
+    it('garde le raccourci avant le refus : texte inchangé d un champ sans erreur', () => {
+      const { analyse } = charger(lignes);
+      const index = indexerLignes(analyse.fichier);
+      expect(reussie(saisirChamp(analyse, index, { ligne: 5, champ: 'prenom1' }, ''))).toBe(
+        analyse,
+      );
+    });
+  });
+
+  describe('champ sans erreur ni correction : refus champ-verrouille', () => {
+    it('refuse la saisie d un champ modifiable sans erreur, sans citer la valeur', () => {
+      const { analyse } = charger(dansEvenement(ligne('115', { nom: 'DUPONT', prenom1: 'J#AN' })));
+      const index = indexerLignes(analyse.fichier);
+      expect(saisirChamp(analyse, index, { ligne: 4, champ: 'nom' }, 'SECRET')).toEqual({
+        ok: false,
+        erreur: {
+          code: 'champ-verrouille',
+          message: 'Entité 115 : champ « Nom » sans erreur, non modifiable.',
+        },
+      });
+    });
+
+    it('laisse modifier un champ déjà corrigé, même sans erreur (décision 2)', () => {
+      const { analyse, lecture } = charger(dansEvenement(ligne('115', { nom: 'D#PONT' })));
+      const index = indexerLignes(analyse.fichier);
+      const cible = { ligne: 4, champ: 'nom' };
+      const corrigee = reussie(saisirChamp(analyse, index, cible, 'DUPONT'));
+      expect(corrigee.erreurs).toBe(0);
+      const encore = reussie(saisirChamp(corrigee, index, cible, 'DURAND'));
+      expect(encore.fichier.lignes[3]).toMatchObject({ champsModifies: ['nom'] });
+      expect(encore).toEqual(recalculee(lecture, encore.fichier));
+    });
+
+    it('garde les refus de modifierChamp pour un champ jamais modifiable', () => {
+      const { analyse } = charger(dansEvenement(ligne('115')));
+      const index = indexerLignes(analyse.fichier);
+      expect(saisirChamp(analyse, index, { ligne: 4, champ: 'codeCivilite' }, 'M')).toMatchObject({
+        ok: false,
+        erreur: { code: 'champ-non-modifiable' },
+      });
+      expect(saisirChamp(analyse, index, { ligne: 4, champ: 'inexistant' }, 'M')).toMatchObject({
+        ok: false,
+        erreur: { code: 'champ-inconnu' },
+      });
+      expect(saisirChamp(analyse, index, { ligne: 1, champ: 'nom' }, 'M')).toMatchObject({
+        ok: false,
+        erreur: { code: 'ligne-non-decrite' },
+      });
+    });
+
+    it('refuse un rang sur un seul chiffre (valeur-trop-courte)', () => {
+      const { analyse } = charger(dansBeneficiaire('ENFANT', ligne('700', { rang: '40' })));
+      const index = indexerLignes(analyse.fichier);
+      expect(saisirChamp(analyse, index, { ligne: 5, champ: 'rang' }, '5')).toEqual({
+        ok: false,
+        erreur: { code: 'valeur-trop-courte', message: 'Saisissez 2 chiffres, par exemple 05.' },
+      });
+    });
   });
 
   it('juge le rang avec le type d assuré de la 400 (ENFANT : seuil 40)', () => {
@@ -178,13 +272,18 @@ describe('saisirChamp', () => {
     const index = indexerLignes(analyse.fichier);
     const apres = reussie(saisirChamp(analyse, index, { ligne: 5, champ: 'rang' }, '39'));
     expect(apres.anomalies).toEqual([]);
-    const pire = reussie(saisirChamp(apres, index, { ligne: 5, champ: 'rang' }, 'X'));
-    expect(pire.anomalies.map((a) => a.code)).toEqual(['rang-non-numerique']);
+    // Un rang non numérique ne se saisit plus (précision B3) : seul le seuil reste à juger.
+    expect(saisirChamp(apres, index, { ligne: 5, champ: 'rang' }, 'XX')).toMatchObject({
+      ok: false,
+      erreur: { code: 'valeur-trop-courte' },
+    });
+    const pire = reussie(saisirChamp(apres, index, { ligne: 5, champ: 'rang' }, '45'));
+    expect(pire.anomalies.map((a) => a.code)).toEqual(['rang-incoherent']);
     expect(pire).toEqual(recalculee(lecture, pire.fichier));
   });
 
   it('renvoie l erreur de modification sans analyse', () => {
-    const { analyse } = charger(dansEvenement(ligne('115')));
+    const { analyse } = charger(dansEvenement(ligne('115', { nom: 'D#PONT' })));
     const index = indexerLignes(analyse.fichier);
     expect(saisirChamp(analyse, index, { ligne: 4, champ: 'nom' }, 'A\nB')).toMatchObject({
       ok: false,
@@ -212,20 +311,21 @@ describe('saisirChamp', () => {
   });
 
   describe('égale l analyse recalculée en entier, pour chaque champ modifiable', () => {
-    // Fichier qui mêle : BOM, ligne vide, fin LF, 115 et 120 en double, ENFANT, ASCEND, rang non
-    // numérique, ligne brute de code connu (400 de 699 octets) et ses filles.
+    // Fichier qui mêle : BOM, ligne vide, fin LF, ENFANT, ASCEND, CONJOI, rang non numérique,
+    // libellé de voie en minuscules. Sans anomalie de structure : la saisie y serait refusée.
+    // Tous les champs modifiables sont marqués comme déjà corrigés, pour être tous saisissables.
     const base = lignesCompletes({ dossiers: 1 });
     const i400 = base.findIndex((l) => l.slice(22, 25) === '400');
+    const i120 = base.findIndex((l) => l.slice(22, 25) === '120');
+    base[i120] = ligne('120', { libelleVoie: 'rue' });
     const lignes = [
       ...base.slice(0, i400),
-      ligne('115', { nom: 'DOUBLON' }),
-      ligne('120', { libelleVoie: 'rue' }),
       ligneSynthetique('400', { typeAssure: 'ENFANT', rang: '40', rangPersonne: '41' }),
       ligne('405', { rang: '39', nom: 'ENFANT' }),
       ligne('700', { rang: '40' }),
       ligneSynthetique('400', { typeAssure: 'ASCEND', rang: '99' }),
       ligne('485', { rang: 'XX' }),
-      ligneSynthetique('400', { typeAssure: 'CONJOI' }).slice(0, 699),
+      ligneSynthetique('400', { typeAssure: 'CONJOI' }),
       ligne('405', { rang: '21' }),
       ...base.slice(i400),
     ];
@@ -233,11 +333,13 @@ describe('saisirChamp', () => {
     const fins = lignes.map((_l, i) => (i === 6 ? ('\n' as const) : ('\r\n' as const)));
     const corps = enChaineBinaire(fichierSynthetique(lignes, { bom: true, fin: fins }));
     const octets = enOctetsBruts(corps);
-    const VALEURS = ['A', 'D#PONT', 'é', '\t', '40', '39', '21', '20', 'X', '', '12345', '1234'];
+    const VALEURS = ['A', 'D#PONT', 'é', '\t', '40', '39', '21', '20', 'XX', '', '12345', '1234'];
 
     it('chaque saisie, sur chaque ligne décrite', () => {
-      const analyse = analyserAc056(octets, 'veos');
-      const { anomalies: lecture } = lireAc056(octets);
+      const { fichier: lu, anomalies: lecture } = lireAc056(octets);
+      const analyse = recalculee(lecture, marquerCorriges(lu));
+      expect(analyse.structure).toBe(0);
+      expect(analyse.erreurs).toBeGreaterThan(0);
       const index = indexerLignes(analyse.fichier);
       let saisies = 0;
       for (const l of analyse.fichier.lignes) {
@@ -250,7 +352,11 @@ describe('saisirChamp', () => {
               { ligne: l.numero, champ: champ.nom },
               texte,
             );
-            if (!resultat.ok) continue;
+            if (!resultat.ok) {
+              // Seuls refus attendus : longueur (trop longue, ou rang incomplet).
+              expect(['valeur-trop-longue', 'valeur-trop-courte']).toContain(resultat.erreur.code);
+              continue;
+            }
             saisies++;
             expect(resultat.analyse, `ligne ${l.numero}, ${champ.nom}`).toEqual(
               recalculee(lecture, resultat.analyse.fichier),
@@ -267,7 +373,8 @@ describe('saisirChamp, n° de dossier vide (présence conditionnelle de Lazarus)
   it('ne contrôle pas la 115 sans n° de dossier, ni avant ni après la saisie', () => {
     const octets = fichierSynthetique(dansEvenement(ligne('115', { nom: 'D#PONT' })));
     const { fichier, anomalies: lecture } = lireAc056(octets);
-    const vide = sansNumDossier(fichier, 4);
+    // Champ marqué comme corrigé : sans contrôle, il n'est jamais en erreur.
+    const vide = marquerCorriges(sansNumDossier(fichier, 4), [4]);
     const analyse = bilanAnalyse(vide, [...lecture, ...controlerAc056(vide)]);
     expect(analyse.anomalies).toEqual([]);
     const index = indexerLignes(vide);
@@ -350,10 +457,13 @@ describe('mesure de la sortie de champ (non bloquante)', () => {
     expect(lignes.length).toBe(5510);
     const octets = fichierSynthetique(lignes);
     expect(octets.length).toBeGreaterThan(3_850_000);
-    const analyse = analyserAc056(octets, 'veos');
-    const index = indexerLignes(analyse.fichier);
     const numeros = numerosDe(lignes, '405');
     const numero = numeros[Math.floor(numeros.length / 2)]!;
+    // Le nom de cette 405 est marqué comme corrigé : il reste saisissable sans erreur.
+    const { fichier, anomalies: lecture } = lireAc056(octets);
+    const analyse = recalculee(lecture, marquerCorriges(fichier, [numero]));
+    expect(analyse.anomalies).toEqual(analyserAc056(octets, 'veos').anomalies);
+    const index = indexerLignes(analyse.fichier);
 
     let courante = analyse;
     const saisie = mesurer(15, (i) => {
@@ -372,4 +482,65 @@ describe('mesure de la sortie de champ (non bloquante)', () => {
     // Assertion large : la mesure ne doit pas faire échouer la CI sur une machine lente.
     expect(saisie.mediane).toBeLessThan(5000);
   }, 60_000);
+});
+
+describe('peutCorriger', () => {
+  it.each([
+    [true, true, false, true, true],
+    [true, false, true, true, true],
+    [true, true, true, true, true],
+    [true, false, false, true, false],
+    [false, true, true, true, false],
+    [true, true, true, false, false],
+    [true, true, false, false, false],
+  ])(
+    'modifiable %s, en erreur %s, corrigé %s, fichier modifiable %s : %s',
+    (modifiable, enErreur, corrige, fichierModifiable, attendu) => {
+      expect(peutCorriger({ modifiable, enErreur, corrige, fichierModifiable })).toBe(attendu);
+    },
+  );
+});
+
+describe('champEnErreur', () => {
+  // Fichier qui mêle anomalies de lecture (BOM, LF), de structure et de contrôle.
+  const lignes = dansBeneficiaire(
+    'CONJOI',
+    ligne('405', { rang: '25', nom: 'A!', prenom1: '\tB' }),
+    ligne('410', { rang: '2X' }),
+    ligne('410'),
+  );
+  const fins = lignes.map((_l, i) => (i === 4 ? ('\n' as const) : ('\r\n' as const)));
+  const analyse = analyserAc056(fichierSynthetique(lignes, { bom: true, fin: fins }), 'veos');
+
+  it('ne trouve un champ que sur les anomalies de contrôle', () => {
+    expect(analyse.anomalies.some((a) => familleAnomalie(a.code) !== 'controle')).toBe(true);
+    for (const a of analyse.anomalies) {
+      if (a.champ !== undefined) expect(familleAnomalie(a.code)).toBe('controle');
+    }
+  });
+
+  it('donne le même résultat que le filtre de l écran et que la famille de contrôle', () => {
+    let enErreur = 0;
+    for (const l of analyse.fichier.lignes) {
+      if (l.nature !== 'decrite') continue;
+      for (const champ of ENTITES[l.code].champs) {
+        const cible = { ligne: l.numero, champ: champ.nom };
+        // Écran : anomalies bloquantes de la ligne, puis celles du champ.
+        const ecran = analyse.anomalies
+          .filter((a) => a.bloquante && a.ligne === l.numero)
+          .some((a) => a.champ === champ.nom);
+        const controle = analyse.anomalies.some(
+          (a) =>
+            a.bloquante &&
+            a.ligne === l.numero &&
+            a.champ === champ.nom &&
+            familleAnomalie(a.code) === 'controle',
+        );
+        expect(champEnErreur(analyse.anomalies, cible)).toBe(ecran);
+        expect(champEnErreur(analyse.anomalies, cible)).toBe(controle);
+        if (ecran) enErreur++;
+      }
+    }
+    expect(enErreur).toBeGreaterThanOrEqual(3);
+  });
 });

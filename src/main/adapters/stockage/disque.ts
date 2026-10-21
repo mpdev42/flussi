@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import * as fsPromises from 'node:fs/promises';
 import { win32 } from 'node:path';
 import { setTimeout as attendreTimer } from 'node:timers/promises';
@@ -46,7 +47,13 @@ const systemeFichiersDisque: SystemeFichiers = {
   mkdir: async (chemin) => {
     await fsPromises.mkdir(chemin);
   },
+  open: (chemin, drapeaux) => fsPromises.open(chemin, drapeaux),
+  rename: (ancien, nouveau) => fsPromises.rename(ancien, nouveau),
+  unlink: (chemin) => fsPromises.unlink(chemin),
 };
+
+const memesOctets = (a: Uint8Array, b: Uint8Array): boolean =>
+  Buffer.from(a.buffer, a.byteOffset, a.byteLength).equals(b);
 
 /**
  * Crée le stockage disque. Seuls `in`, `out` et `journal` de `dossiers` servent (`travail` est
@@ -60,6 +67,13 @@ export function creerStockageDisque(
   const attendre = options.attendre ?? ((ms: number) => attendreTimer(ms));
 
   /**
+   * Nombre de nouvelles tentatives faites avant de relancer une erreur de verrou : le message
+   * « toujours occupé après N nouvelles tentatives » ne vaut que pour une opération rejouée. Une
+   * erreur de verrou venue d'une opération qui n'est pas rejouée n'y figure pas.
+   */
+  const tentativesFaites = new WeakMap<object, number>();
+
+  /**
    * Exécute l'opération ENTIÈRE ; sur `EBUSY` ou `EPERM` seulement, la rejoue après 500, 1 000
    * puis 2 000 ms (4 essais au plus). Toute autre erreur est relancée aussitôt.
    */
@@ -69,7 +83,12 @@ export function creerStockageDisque(
         return await operation();
       } catch (erreur) {
         const delai = DELAIS_NOUVELLES_TENTATIVES_MS[essai];
-        if (delai === undefined || !estCodeVerrou(codeSysteme(erreur))) throw erreur;
+        if (delai === undefined || !estCodeVerrou(codeSysteme(erreur))) {
+          if (essai > 0 && typeof erreur === 'object' && erreur !== null) {
+            tentativesFaites.set(erreur, essai);
+          }
+          throw erreur;
+        }
         await attendre(delai);
       }
     }
@@ -118,9 +137,11 @@ export function creerStockageDisque(
   async function traduire(erreur: unknown, contexte: ContexteErreur): Promise<ErreurStockage> {
     const code = codeSysteme(erreur);
     const racineLecteur = win32.parse(contexte.racine).root;
+    const tentatives =
+      typeof erreur === 'object' && erreur !== null ? (tentativesFaites.get(erreur) ?? 0) : 0;
     return code === 'ENOENT'
       ? diagnostiquerAbsence(contexte, racineLecteur)
-      : traduireCodeSysteme(code, contexte, racineLecteur);
+      : traduireCodeSysteme(code, contexte, racineLecteur, tentatives);
   }
 
   /** Opération avec nouvelles tentatives, dont l'échec devient une erreur typée (jamais d'exception). */
@@ -194,6 +215,41 @@ export function creerStockageDisque(
       taille: infos.size,
       modification: Number.isFinite(infos.mtimeMs) ? new Date(infos.mtimeMs).toISOString() : null,
     };
+  }
+
+  /**
+   * La cible existe-t-elle comme fichier ? `ENOENT` = non ; toute autre erreur remonte, comme une
+   * cible qui existe sans être un fichier (un dossier : `EISDIR`, jamais prise pour une copie déjà
+   * présente).
+   */
+  async function fichierCibleExiste(chemin: string): Promise<boolean> {
+    let infos: InfosFichier;
+    try {
+      infos = await fs.stat(chemin);
+    } catch (erreur) {
+      if (codeSysteme(erreur) === 'ENOENT') return false;
+      throw erreur;
+    }
+    if (!infos.isFile())
+      throw Object.assign(new Error('la cible existe sans être un fichier'), { code: 'EISDIR' });
+    return true;
+  }
+
+  /**
+   * Crée les sous-dossiers intermédiaires, niveau par niveau et non récursif : si la racine de
+   * l'emplacement disparaît, le premier `mkdir` échoue en `ENOENT` au lieu de recréer une
+   * arborescence parallèle. Un dossier déjà là (`EEXIST`) n'est pas une erreur.
+   */
+  async function creerSousDossiers(racine: string, segments: readonly string[]): Promise<void> {
+    let courant = racine;
+    for (const segment of segments) {
+      courant = win32.join(courant, segment);
+      try {
+        await fs.mkdir(courant);
+      } catch (erreur) {
+        if (codeSysteme(erreur) !== 'EEXIST') throw erreur;
+      }
+    }
   }
 
   return {
@@ -288,19 +344,64 @@ export function creerStockageDisque(
       const dossiersIntermediaires = contexte.segments.slice(0, -1);
 
       return executer(contexte, async () => {
-        // Niveau par niveau et non récursif : si la racine de l'emplacement disparaît, le
-        // premier mkdir échoue en ENOENT au lieu de recréer une arborescence parallèle
-        let courant = contexte.racine;
-        for (const segment of dossiersIntermediaires) {
-          courant = win32.join(courant, segment);
-          try {
-            await fs.mkdir(courant);
-          } catch (erreur) {
-            if (codeSysteme(erreur) !== 'EEXIST') throw erreur;
-          }
-        }
+        await creerSousDossiers(contexte.racine, dossiersIntermediaires);
         await fs.appendFile(contexte.chemin, octets);
       });
+    },
+
+    async ecrire(emplacement, chemin, octets, mode) {
+      const cible = resoudre(emplacement, chemin);
+      if (!cible.ok) return cible;
+      const contexte = cible.valeur;
+      const nomFichier = contexte.segments[contexte.segments.length - 1] ?? '';
+      const dossiersIntermediaires = contexte.segments.slice(0, -1);
+      const dossierCible = win32.join(contexte.racine, ...dossiersIntermediaires);
+      // Ne finit pas par `.txt` : jamais listé comme fichier AC056
+      const temporaire = win32.join(dossierCible, `${nomFichier}.${randomUUID()}.tmp`);
+      let temporaireCree = false;
+
+      try {
+        await creerSousDossiers(contexte.racine, dossiersIntermediaires);
+
+        if (mode === 'creer' && (await fichierCibleExiste(contexte.chemin))) {
+          return { ok: true, valeur: 'deja-present' };
+        }
+
+        const ouvert = await fs.open(temporaire, 'wx');
+        temporaireCree = true;
+        try {
+          await ouvert.writeFile(octets);
+          await ouvert.sync();
+        } catch (erreur) {
+          try {
+            await ouvert.close();
+          } catch {
+            // L'erreur d'origine prime
+          }
+          throw erreur;
+        }
+        await ouvert.close();
+
+        // Relecture : ce qui est sur le disque doit être identique, octet par octet
+        const relu = await fs.readFile(temporaire);
+        if (!memesOctets(relu, octets)) {
+          throw Object.assign(new Error('relecture différente'), { code: 'EIO' });
+        }
+
+        // Nouvelles tentatives sur le seul renommage (verrou OneDrive sur la cible)
+        await avecNouvellesTentatives(() => fs.rename(temporaire, contexte.chemin));
+        return { ok: true, valeur: 'ecrit' };
+      } catch (erreur) {
+        if (temporaireCree) {
+          try {
+            // Rejoué comme le renommage : le temporaire peut être verrouillé par la synchronisation
+            await avecNouvellesTentatives(() => fs.unlink(temporaire));
+          } catch {
+            // Au mieux : la cible n'a pas été touchée
+          }
+        }
+        return { ok: false, erreur: await traduire(erreur, contexte) };
+      }
     },
   };
 }

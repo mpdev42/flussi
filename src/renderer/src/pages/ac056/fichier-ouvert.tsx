@@ -20,7 +20,12 @@ export interface FichierOuvertProps {
   /** Compteurs d'erreurs de l'analyse, calculés une fois par l'écran. */
   compteurs: CompteursAc056;
   /** Applique la saisie d'un champ à la sortie du champ (voir `useFichierAc056`). */
-  onSaisir: (cible: CibleChamp, texte: string, index?: IndexLignesAc056) => ErreurSaisie | null;
+  onSaisir: (cible: CibleChamp, texte: string, index: IndexLignesAc056) => ErreurSaisie | null;
+  /**
+   * Enregistrement en cours : tout le contenu est inerte (`inert`), champs, onglets et listes
+   * comprises, sans changer la mise en page.
+   */
+  inactif?: boolean;
 }
 
 /**
@@ -29,7 +34,13 @@ export interface FichierOuvertProps {
  * et les alertes, au-dessus, restent en place. Monté avec le fichier : la sélection repart du
  * premier évènement pour chaque fichier ouvert.
  */
-export function FichierOuvert({ analyse, index, compteurs, onSaisir }: FichierOuvertProps) {
+export function FichierOuvert({
+  analyse,
+  index,
+  compteurs,
+  onSaisir,
+  inactif = false,
+}: FichierOuvertProps) {
   const { fichier } = analyse;
   const { selection, actions } = useNavigationAc056(index, compteurs);
   const anomaliesParLigne = useMemo(
@@ -59,7 +70,7 @@ export function FichierOuvert({ analyse, index, compteurs, onSaisir }: FichierOu
 
   if (index.evenements.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-content py-4 pl-10 pr-0">
+      <div className="mx-auto w-full max-w-content py-4 pl-10 pr-0" inert={inactif}>
         <p className="m-0 text-body-sm text-neutral-600">
           Ce fichier ne contient aucun évènement à afficher.
         </p>
@@ -68,7 +79,11 @@ export function FichierOuvert({ analyse, index, compteurs, onSaisir }: FichierOu
   }
 
   return (
-    <div className="mx-auto grid min-h-0 w-full max-w-content flex-1 grid-cols-ac056 grid-rows-1 gap-4 py-4 pl-10 pr-0">
+    <div
+      className="mx-auto grid min-h-0 w-full max-w-content flex-1 grid-cols-ac056 grid-rows-1 gap-4 py-4 pl-10 pr-0"
+      inert={inactif}
+      aria-busy={inactif || undefined}
+    >
       <ColonneEvenements
         evenements={resumes}
         compteurs={compteurs.parEvenement}

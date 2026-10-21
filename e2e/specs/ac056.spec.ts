@@ -1,6 +1,7 @@
-import { test, expect, type ElectronApplication, type Locator, type Page } from '@playwright/test';
-import { readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { test, expect, type Page } from '@playwright/test';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
+import { analyserAc056 } from '../../src/shared/domain/ac056';
 import {
   enWindows1252,
   fichierSynthetique,
@@ -8,14 +9,47 @@ import {
   lignesRejet,
 } from '../../src/shared/test/ac056-synthetique';
 import { avecChamp } from '../../src/shared/test/controle-ac056';
+import {
+  alerteFichier,
+  allerA,
+  allerAuFichierAc056,
+  beneficiaires,
+  carte,
+  changerDeFichier,
+  champFiche,
+  cliquerALaSouris,
+  colonneEvenements,
+  compteurBarre,
+  corrigerPuisTab,
+  DATE_VALIDE,
+  dateFichier,
+  deposerDansIn,
+  detailEvenement,
+  echapper,
+  ecrire,
+  evenements,
+  fixerFenetre,
+  ligne,
+  lignesAvecNomEnErreur,
+  lignesValides,
+  lireJournalSession,
+  navigation,
+  NB_ERREURS,
+  NOM_COURT_ERREUR,
+  ongletBeneficiaire,
+  ongletEvenement,
+  ouvrir,
+  panneauJournal,
+  PLUS_D_ERREUR,
+  sansDefilementHorizontal,
+  taper,
+} from '../aides/ac056';
 import { launchApp } from '../fixtures/electron';
 
 // Écran « Fichier AC056 » (item 1 de la v0.3.0). Fichiers AC056 synthétiques uniquement, fabriqués
 // ici : aucune donnée du corpus. Les valeurs « repérables » (préfixe ZZ) servent à vérifier
 // qu'aucune valeur AC056 ne parvient au journal.
 
-const MOTIF_SESSION = /^\d{8}-\d{6}-.+\.txt$/;
-const VALEUR_REPERABLE_VALIDE = 'ZZPRENOMREPERABLE';
 const VALEUR_REPERABLE_ERREUR = 'ZZ#NOMREPERABLE';
 const MESSAGE_REJET_REPERABLE = 'ZZMESSAGEREJET';
 
@@ -27,40 +61,17 @@ const REJET_DANS_IN = 'AC056COUR_REJ_DEPOSE.txt';
 const REJET_OUT = 'AC056COUR_REJ_20261019.txt';
 const DISPARU = 'AC056_DISPARU.txt';
 
-/** Nombre de 405 modifiées dans le fichier avec erreurs : une erreur de contrôle par ligne. */
-const NB_ERREURS = 2;
-
-/** Date de modification d'un fichier du jeu (heure locale, comme l'affichage de l'écran). */
-const dateFichier = (jour: number, heure: number, minute: number): Date =>
-  new Date(2026, 9, jour, heure, minute);
-
 /** `10/10/2026 à 08:05`, tel que l'écran affiche une date. */
 function texteDate(date: Date): string {
   const d = (n: number): string => String(n).padStart(2, '0');
   return `${d(date.getDate())}/${d(date.getMonth() + 1)}/${date.getFullYear()} à ${d(date.getHours())}:${d(date.getMinutes())}`;
 }
 
-const DATE_VALIDE = dateFichier(18, 10, 0);
 const DATE_ERREURS = dateFichier(17, 9, 30);
 const DATE_MAL_FORME = dateFichier(16, 14, 15);
 const DATE_VIDE = dateFichier(15, 8, 5);
 const DATE_REJET_DANS_IN = dateFichier(14, 16, 45);
 const DATE_REJET_OUT = dateFichier(19, 7, 20);
-
-function ecrire(dossier: string, nom: string, contenu: Uint8Array, modification: Date): void {
-  const chemin = path.join(dossier, nom);
-  writeFileSync(chemin, contenu);
-  utimesSync(chemin, modification, modification);
-}
-
-/** Lignes d'un fichier VEOS conforme, avec un prénom repérable sur chaque 405. */
-function lignesValides(): string[] {
-  return lignesCompletes({ dossiers: 1 }).map((ligne) =>
-    ligne.slice(22, 25) === '405'
-      ? avecChamp(ligne, '405', 'prenom1', VALEUR_REPERABLE_VALIDE)
-      : ligne,
-  );
-}
 
 /** Fichier VEOS dont `NB_ERREURS` lignes 405 ont un nom au caractère refusé (`#`). */
 function lignesAvecErreurs(): string[] {
@@ -72,26 +83,8 @@ function lignesAvecErreurs(): string[] {
   });
 }
 
-/**
- * Fichier VEOS dont les deux 405 ont un nom court au caractère refusé (`DU#PONT`, corrigé en
- * `DUPONT`). Le nom s'affiche dans la liste des bénéficiaires et dans l'en-tête de la fiche : un
- * nom corrigé qui change de nombre de lignes à l'écran déplacerait la mise en page. Les tests de
- * clic après saisie partent donc d'un nom de longueur réaliste, la valeur repérable est trop longue.
- */
-const NOM_COURT_ERREUR = 'DU#PONT';
-
 /** Nom fictif de 44 caractères, au caractère refusé (`#`) : passe à la ligne s'il n'est pas tronqué. */
 const NOM_LONG_ERREUR = 'ZZ#NOMREPERABLE-FICTIF-TRES-LONG-POUR-RETOUR';
-
-/** Fichier VEOS dont `nombre` lignes 405 ont le nom `nom` (au caractère refusé). */
-function lignesAvecNomEnErreur(nom: string, nombre = NB_ERREURS): string[] {
-  let restantes = nombre;
-  return lignesCompletes({ dossiers: 1 }).map((ligne) => {
-    if (ligne.slice(22, 25) !== '405' || restantes === 0) return ligne;
-    restantes -= 1;
-    return avecChamp(ligne, '405', 'nom', nom);
-  });
-}
 
 const lignesAvecErreursNomCourt = (): string[] => lignesAvecNomEnErreur(NOM_COURT_ERREUR);
 const lignesAvecErreursNomLong = (): string[] => lignesAvecNomEnErreur(NOM_LONG_ERREUR);
@@ -135,164 +128,12 @@ function preparerJeuAvecFichierADisparaitre(racine: string): void {
   );
 }
 
-const echapper = (texte: string): string => texte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-function navigation(page: Page): Locator {
-  return page.getByRole('navigation', { name: 'Navigation principale' });
-}
-
-async function allerA(page: Page, libelle: string): Promise<void> {
-  await navigation(page).getByRole('button', { name: libelle, exact: true }).click();
-}
-
-async function allerAuFichierAc056(page: Page): Promise<void> {
-  await allerA(page, 'Fichier AC056');
-  await expect(page.getByRole('heading', { level: 1, name: 'Fichier AC056' })).toBeVisible();
-}
-
-function carte(page: Page, dossier: 'IN' | 'OUT'): Locator {
-  return page.getByRole('group', { name: dossier, exact: true });
-}
-
-function ligne(page: Page, dossier: 'IN' | 'OUT', nom: string): Locator {
-  return carte(page, dossier).getByRole('button', { name: new RegExp(echapper(nom)) });
-}
-
-async function ouvrir(page: Page, dossier: 'IN' | 'OUT', nom: string): Promise<void> {
-  await ligne(page, dossier, nom).click();
-  await expect(page.getByRole('heading', { level: 1, name: nom, exact: true })).toBeVisible();
-}
-
-/**
- * Retour à la liste. L'écran relit les dossiers à chaque retour : on attend la fin de cette
- * relecture (plus aucune carte en cours de chargement) pour ne pas agir sur une liste périmée.
- */
-async function changerDeFichier(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Changer de fichier' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Fichier AC056' })).toBeVisible();
-  await expect(carte(page, 'IN')).toBeVisible();
-  await expect(carte(page, 'OUT')).toBeVisible();
-  await expect(page.locator('[role="group"][aria-busy="true"]')).toHaveCount(0);
-}
-
-function panneauJournal(page: Page): Locator {
-  return page.locator('aside[aria-label="Journal de la session"]');
-}
-
-/** Fichier du journal de la session en cours (dossier du mois courant), en lignes. */
-function lireJournalSession(racineTravail: string): string[] {
-  const maintenant = new Date();
-  const dossier = path.join(
-    racineTravail,
-    'Journal',
-    String(maintenant.getFullYear()),
-    String(maintenant.getMonth() + 1).padStart(2, '0'),
-  );
-  const sessions = readdirSync(dossier).filter((nom) => MOTIF_SESSION.test(nom));
-  expect(sessions).toHaveLength(1);
-  const contenu = readFileSync(path.join(dossier, sessions[0] as string), 'utf8');
-  return contenu.split('\r\n').filter((l) => l !== '');
-}
-
-/** Pas de défilement horizontal, ni sur le document ni dans la zone principale. */
-async function sansDefilementHorizontal(page: Page): Promise<void> {
-  const { document, principale } = await page.evaluate(() => {
-    const racine = document.documentElement;
-    const main = document.querySelector('main');
-    return {
-      document: racine.scrollWidth - racine.clientWidth,
-      principale: main ? main.scrollWidth - main.clientWidth : 0,
-    };
-  });
-  expect(document, 'débordement horizontal du document (px)').toBeLessThanOrEqual(0);
-  expect(principale, 'débordement horizontal de la zone principale (px)').toBeLessThanOrEqual(0);
-}
-
-/** Barre du fichier ouvert (nom en h1, dossier, type et compteur d'erreurs). */
-function compteurBarre(page: Page, nom: string): Locator {
-  return page.getByRole('heading', { level: 1, name: nom, exact: true }).locator('xpath=..');
-}
-
-function colonneEvenements(page: Page): Locator {
-  return page.getByRole('region', { name: 'Évènements', exact: true });
-}
-
-function detailEvenement(page: Page): Locator {
-  return page.getByRole('region', { name: 'Détail de l’évènement', exact: true });
-}
-
-/** Boutons des évènements (premier niveau de la liste, pas les bénéficiaires). */
-function evenements(page: Page): Locator {
-  return colonneEvenements(page).locator('ul:not([aria-labelledby]) > li > button');
-}
-
-/** Boutons des bénéficiaires de l'évènement sélectionné. */
-function beneficiaires(page: Page): Locator {
-  return colonneEvenements(page).locator('ul[aria-labelledby] button');
-}
-
-function ongletEvenement(page: Page, nom: string | RegExp): Locator {
-  return page
-    .getByRole('tablist', { name: 'Entités de l’évènement' })
-    .getByRole('tab', { name: nom });
-}
-
-function ongletBeneficiaire(page: Page, nom: string | RegExp): Locator {
-  return page
-    .getByRole('tablist', { name: 'Entités du bénéficiaire' })
-    .getByRole('tab', { name: nom });
-}
-
-/** Champ de la fiche par son libellé exact (« Nom » n'est pas « Nom de jeune fille »). */
-function champFiche(page: Page, libelle: string): Locator {
-  return detailEvenement(page).getByLabel(libelle, { exact: true });
-}
-
-/** Remplace le texte d'un champ par une vraie frappe au clavier, puis quitte le champ par Tab. */
-async function corrigerPuisTab(page: Page, champ: Locator, texte: string): Promise<void> {
-  await champ.focus();
-  await page.keyboard.press('Control+a');
-  await page.keyboard.type(texte);
-  await page.keyboard.press('Tab');
-}
-
-/** Alerte du fichier VEOS lisible (`role="status"`), toujours présente, avec ou sans erreur. */
-function alerteFichier(page: Page): Locator {
-  return page.getByRole('status').filter({ hasText: /^Le fichier / });
-}
-
 /** Lignes d'un fichier VEOS conforme sans la 155 du premier évènement du dossier 1. */
 function lignesSans155DuPremierEvenement(): string[] {
   return lignesValides().filter(
     (l) =>
       !(l.slice(22, 25) === '155' && l.slice(9, 17) === '00000001' && l.slice(17, 20) === '001'),
   );
-}
-
-/** Dépose un seul fichier dans `IN`. */
-function deposerDansIn(nom: string, lignes: string[]): (racine: string) => void {
-  return (racine) => {
-    ecrire(path.join(racine, 'IN'), nom, fichierSynthetique(lignes), DATE_VALIDE);
-  };
-}
-
-async function fixerFenetre(
-  app: ElectronApplication,
-  page: Page,
-  largeur: number,
-  hauteur: number,
-) {
-  await app.evaluate(
-    ({ BrowserWindow }, [l, h]) => {
-      const fenetre = BrowserWindow.getAllWindows()[0];
-      if (!fenetre) return;
-      if (fenetre.isMaximized()) fenetre.unmaximize();
-      fenetre.setContentSize(l as number, h as number);
-    },
-    [largeur, hauteur],
-  );
-  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(largeur);
-  await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(hauteur);
 }
 
 test('fichier AC056 — la navigation place « Fichier AC056 » entre « Accueil » et « Journal »', async () => {
@@ -789,9 +630,7 @@ test('fichier AC056 — correction : la fiche en erreur s’ouvre seule et les c
 
     // Plus aucune erreur : compteurs à zéro partout et alerte de succès, sans saut de sélection
     await expect(barre).toContainText('Aucune erreur');
-    await expect(
-      page.getByRole('status').filter({ hasText: 'Le fichier ne contient aucune erreur.' }),
-    ).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: PLUS_D_ERREUR })).toBeVisible();
     await expect(evenements(page).first()).not.toContainText('erreur');
     await expect(ongletEvenement(page, /^Bénéficiaires/)).not.toContainText('erreur');
     await expect(beneficiaires(page).nth(1)).not.toContainText('erreur');
@@ -808,21 +647,6 @@ test('fichier AC056 — correction : la fiche en erreur s’ouvre seule et les c
     await fermer();
   }
 });
-
-/** Clic souris réel au centre de l'élément, sans l'attente de stabilité de `locator.click()`. */
-async function cliquerALaSouris(page: Page, cible: Locator): Promise<void> {
-  const boite = await cible.boundingBox();
-  expect(boite, 'cible du clic visible').not.toBeNull();
-  const { x, y, width, height } = boite as NonNullable<typeof boite>;
-  await page.mouse.click(x + width / 2, y + height / 2);
-}
-
-/** Remplace le texte d'un champ par une vraie frappe, SANS quitter le champ. */
-async function taper(page: Page, champ: Locator, texte: string): Promise<void> {
-  await champ.focus();
-  await page.keyboard.press('Control+a');
-  await page.keyboard.type(texte);
-}
 
 /**
  * Positions verticales (px) de ce qui se trouve autour de la zone de saisie : colonne des
@@ -869,7 +693,7 @@ test('fichier AC056 — dernière correction puis clic souris : la mise en page 
     const avantDerniere = await positionsEcran(page);
     await corrigerPuisTab(page, nom, 'DUPONT');
     await expect(barre).toContainText('Aucune erreur');
-    await expect(alerteFichier(page)).toHaveText('Le fichier ne contient aucune erreur.');
+    await expect(alerteFichier(page)).toHaveText(PLUS_D_ERREUR);
     expect(await positionsEcran(page), 'après la dernière correction').toEqual(avantDerniere);
     await corrigerPuisTab(page, nom, NOM_COURT_ERREUR);
     await expect(barre).toContainText('1 erreur');
@@ -885,7 +709,7 @@ test('fichier AC056 — dernière correction puis clic souris : la mise en page 
     await expect(evenements(page).first()).not.toHaveAttribute('aria-current', 'true');
     await expect(detail).toContainText(/Évènement\s*002/);
     await expect(barre).toContainText('Aucune erreur');
-    await expect(alerteFichier(page)).toHaveText('Le fichier ne contient aucune erreur.');
+    await expect(alerteFichier(page)).toHaveText(PLUS_D_ERREUR);
     await expect(evenements(page).first()).not.toContainText('erreur');
 
     // Retour sur le premier évènement : la correction est bien appliquée
@@ -951,7 +775,7 @@ test('fichier AC056 — nom long corrigé en nom court : la mise en page ne boug
     await expect(evenements(page).first()).not.toHaveAttribute('aria-current', 'true');
     await expect(detail).toContainText(/Évènement\s*002/);
     await expect(barre).toContainText('Aucune erreur');
-    await expect(alerteFichier(page)).toHaveText('Le fichier ne contient aucune erreur.');
+    await expect(alerteFichier(page)).toHaveText(PLUS_D_ERREUR);
 
     // Retour sur le premier évènement : la correction est bien appliquée
     await evenements(page).first().click();
@@ -985,7 +809,7 @@ test('fichier AC056 — dernière correction puis clic souris sur un onglet', as
       detailEvenement(page).getByRole('heading', { level: 2, name: /^400 · / }),
     ).toBeVisible();
     await expect(barre).toContainText('Aucune erreur');
-    await expect(alerteFichier(page)).toHaveText('Le fichier ne contient aucune erreur.');
+    await expect(alerteFichier(page)).toHaveText(PLUS_D_ERREUR);
   } finally {
     await fermer();
   }
@@ -1016,7 +840,7 @@ test('fichier AC056 — seule erreur de la 405 corrigée puis clic souris sur l�
     ).toBeVisible();
     // La saisie a bien été appliquée avant le clic : compteurs à jour partout
     await expect(barre).toContainText('Aucune erreur');
-    await expect(alerteFichier(page)).toHaveText('Le fichier ne contient aucune erreur.');
+    await expect(alerteFichier(page)).toHaveText(PLUS_D_ERREUR);
     await expect(ongletBeneficiaire(page, /^405$/)).not.toContainText('erreur');
     await expect(beneficiaires(page).first()).not.toContainText('erreur');
     await expect(evenements(page).first()).not.toContainText('erreur');
@@ -1055,7 +879,7 @@ test('fichier AC056 — dernière erreur des bénéficiaires corrigée puis clic
       detailEvenement(page).getByRole('heading', { level: 2, name: /^100 · / }),
     ).toBeVisible();
     await expect(barre).toContainText('Aucune erreur');
-    await expect(alerteFichier(page)).toHaveText('Le fichier ne contient aucune erreur.');
+    await expect(alerteFichier(page)).toHaveText(PLUS_D_ERREUR);
     await expect(ongletEvenement(page, /^Bénéficiaires/)).not.toContainText('erreur');
     await expect(evenements(page).first()).not.toContainText('erreur');
   } finally {
@@ -1103,7 +927,7 @@ test('fichier AC056 — confirmation « Abandonner les modifications ? » après
     await page.getByRole('button', { name: 'Changer de fichier' }).click();
     const dialogue = page.getByRole('alertdialog', { name: /Abandonner les modifications/ });
     await expect(dialogue).toBeVisible();
-    await expect(dialogue).toContainText('Elles seront perdues.');
+    await expect(dialogue).toContainText('Il sera perdu si vous ouvrez un autre fichier.');
     await expect(dialogue.getByRole('button', { name: 'Annuler' })).toBeFocused();
 
     // Annuler garde le fichier et la correction
@@ -1334,6 +1158,50 @@ test('fichier AC056 — mesure sur un fichier d’environ 4 Mo : ouverture, sort
     const navigation = await lireSonde(page);
     noterMesure('clic sur un évènement', navigation, 300, details);
     expect(navigation).toBeLessThan(300);
+  } finally {
+    await fermer();
+  }
+});
+
+test('fichier AC056 — mesure sur un fichier d’environ 4 Mo : enregistrement après une correction', async () => {
+  test.setTimeout(180_000);
+  const lignes = lignesCompletes({ dossiers: 81 });
+  const premiere405 = lignes.findIndex((l) => l.slice(22, 25) === '405');
+  lignes[premiere405] = avecChamp(lignes[premiere405] as string, '405', 'nom', 'DUP#ONT');
+  const octets = fichierSynthetique(lignes);
+  const { page, racineTravail, fermer } = await launchApp({
+    preparerTravail: (racine) => {
+      ecrire(path.join(racine, 'IN'), 'AC056_4MO.txt', octets, DATE_VALIDE);
+    },
+  });
+  try {
+    await allerAuFichierAc056(page);
+    const details = `${lignes.length} lignes, ${(octets.length / 1024 / 1024).toFixed(1)} Mo`;
+    await ouvrir(page, 'IN', 'AC056_4MO.txt');
+    await corrigerPuisTab(page, champFiche(page, 'Nom'), 'DUPONT');
+    await expect(compteurBarre(page, 'AC056_4MO.txt')).toContainText('Aucune erreur');
+
+    // Du clic sur « Enregistrer » à l'alerte « Fichier enregistré » (copie de l'original comprise)
+    await armerSonde(page, 'click', { selecteur: '[role="status"]', texte: 'Fichier enregistré' });
+    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    const enregistrement = await lireSonde(page);
+    noterMesure('enregistrement du fichier', enregistrement, 10_000, details);
+    expect(enregistrement).toBeLessThan(10_000);
+
+    // Le fichier écrit est celui de la correction, l'original est copié tel quel
+    const ecrit = readFileSync(path.join(racineTravail, 'IN', 'AC056_4MO.txt'));
+    const copie = readFileSync(path.join(racineTravail, 'IN', 'Originaux', 'AC056_4MO.txt'));
+    expect(Buffer.compare(copie, Buffer.from(octets))).toBe(0);
+    expect(ecrit.length).toBe(octets.length);
+    // Pas seulement sa longueur : le domaine relit le fichier sans erreur (celle du nom est
+    // corrigée), il diffère des octets d'origine et il est identique, octet par octet, au fichier
+    // d'origine dont seul le nom de la première 405 est remplacé
+    expect(analyserAc056(ecrit, 'veos').erreurs).toBe(0);
+    expect(analyserAc056(Buffer.from(octets), 'veos').erreurs).toBe(1);
+    expect(Buffer.compare(ecrit, Buffer.from(octets))).not.toBe(0);
+    const corrigees = [...lignes];
+    corrigees[premiere405] = avecChamp(lignes[premiere405] as string, '405', 'nom', 'DUPONT');
+    expect(Buffer.compare(ecrit, Buffer.from(fichierSynthetique(corrigees)))).toBe(0);
   } finally {
     await fermer();
   }
