@@ -2,6 +2,7 @@
 // lecture seule, affichées comme du texte, décision 6 de l'item 2 de la v0.3.0).
 import {
   CONSIGNE_VEOS,
+  peutCorriger,
   valeurAffichee,
   type AnomalieAc056,
   type DescriptionChamp,
@@ -85,7 +86,8 @@ export function messageChamp(
 /**
  * Vrai si l'écran laisse modifier le champ d'une ligne décrite d'un fichier VEOS : champ modifiable
  * de Lazarus, fichier sans anomalie de structure (décision 4) et champ en erreur, ou déjà corrigé
- * pendant la session (décision 3). `anomalies` : les anomalies bloquantes de ce champ.
+ * pendant la session (décision 3). `anomalies` : les anomalies bloquantes de ce champ. La règle est
+ * celle du domaine (`peutCorriger`), la même que celle du refus d'une saisie.
  */
 export function champModifiable(
   champ: DescriptionChamp,
@@ -93,7 +95,12 @@ export function champModifiable(
   corrige: boolean,
   fichierModifiable: boolean,
 ): boolean {
-  return champ.modifiable && fichierModifiable && (corrige || anomalies.length > 0);
+  return peutCorriger({
+    modifiable: champ.modifiable,
+    enErreur: anomalies.length > 0,
+    corrige,
+    fichierModifiable,
+  });
 }
 
 /** Anomalies bloquantes par numéro de ligne d'origine (les autres ne marquent rien à l'écran). */

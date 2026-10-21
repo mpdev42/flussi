@@ -18,6 +18,39 @@ export function sansCtrlZFinal(octets: Uint8Array): Uint8Array {
   return octets.subarray(0, longueur);
 }
 
+/**
+ * Contenu sans ses lignes vides : ce que l'écrivain doit reproduire d'un fichier VEOS qui en
+ * contient (supprimées à l'enregistrement, avec leur fin de ligne). Découpage indépendant du
+ * lecteur : fins de ligne CRLF, LF ou CR, BOM UTF-8 de tête conservé, dernière ligne sans fin de
+ * ligne gardée telle quelle.
+ */
+export function sansLignesVides(octets: Uint8Array): Uint8Array {
+  const bom = octets[0] === 0xef && octets[1] === 0xbb && octets[2] === 0xbf;
+  const parties: Uint8Array[] = [octets.subarray(0, bom ? LONGUEUR_BOM : 0)];
+  let debut = bom ? LONGUEUR_BOM : 0;
+  let i = debut;
+  while (i < octets.length) {
+    const octet = octets[i];
+    if (octet !== 0x0d && octet !== 0x0a) {
+      i += 1;
+      continue;
+    }
+    const fin = octet === 0x0d && octets[i + 1] === 0x0a ? i + 2 : i + 1;
+    if (i > debut) parties.push(octets.subarray(debut, fin));
+    debut = fin;
+    i = fin;
+  }
+  if (debut < octets.length) parties.push(octets.subarray(debut));
+
+  const resultat = new Uint8Array(parties.reduce((total, p) => total + p.length, 0));
+  let position = 0;
+  for (const partie of parties) {
+    resultat.set(partie, position);
+    position += partie.length;
+  }
+  return resultat;
+}
+
 /** Empreinte SHA-256 (hexadécimale) d'un contenu. */
 export function empreinteSha256(octets: Uint8Array): string {
   return createHash('sha256').update(octets).digest('hex');

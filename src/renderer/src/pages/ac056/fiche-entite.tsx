@@ -47,6 +47,11 @@ function ErreursLigne({
 export interface FicheEntiteProps {
   code: CodeFiche;
   ligne: LigneAc056;
+  /**
+   * Indice de la ligne dans `FichierAc056.lignes` : il ne change pas à l'enregistrement, alors que
+   * le numéro de ligne change quand des lignes vides sont supprimées. Il fixe la clé des champs.
+   */
+  indice: number;
   /** Anomalies bloquantes de la ligne. */
   anomalies: readonly AnomalieAc056[];
   /** Faux si le fichier a une anomalie de structure : tous les champs sont en lecture seule. */
@@ -62,6 +67,7 @@ export interface FicheEntiteProps {
 export function FicheEntite({
   code,
   ligne,
+  indice,
   anomalies,
   fichierModifiable,
   onSaisir,
@@ -97,7 +103,7 @@ export function FicheEntite({
         <div className={GRILLE_CHAMPS}>
           {champs.map((champ) => (
             <ChampAc056
-              key={`${ligne.numero}:${champ.nom}`}
+              key={`${indice}:${champ.nom}`}
               champ={champ}
               ligne={ligne.numero}
               valeur={ligne.valeurs[champ.nom] ?? VALEUR_VIDE}

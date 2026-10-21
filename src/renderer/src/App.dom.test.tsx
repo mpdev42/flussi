@@ -20,6 +20,8 @@ vi.mock('@/services/journal', () => ({
 vi.mock('@/services/ac056', () => ({
   listerFichiersAc056: vi.fn(),
   ouvrirFichierAc056: vi.fn(),
+  enregistrerFichierAc056: vi.fn(),
+  signalerModificationsAc056: vi.fn(),
 }));
 // Écrans hors sujet : leurs propres services ne sont pas simulés ici
 vi.mock('@/pages/accueil', () => ({

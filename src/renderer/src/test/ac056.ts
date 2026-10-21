@@ -13,7 +13,12 @@ import {
   lignesCompletes,
   ligneSynthetique,
 } from '@shared/test/ac056-synthetique';
-import type { FichierListeAc056, OuvertureAc056 } from '@shared/types';
+import type {
+  CodeErreurEnregistrementAc056,
+  EnregistrementAc056,
+  FichierListeAc056,
+  OuvertureAc056,
+} from '@shared/types';
 
 export const NOM_VEOS = 'AC056COUR_20261017.txt';
 export const NOM_REJET = 'AC056COUR_REJ_20261017.txt';
@@ -56,6 +61,9 @@ export function analyseSynthetique(
   return structuredClone(analyserAc056(fichierSynthetique(lignes), provenance));
 }
 
+/** Empreinte SHA-256 fictive (64 caractères hexadécimaux) des ouvertures de test. */
+export const EMPREINTE_FICTIVE = 'a'.repeat(64);
+
 /** Ouverture réussie d'un fichier synthétique (analyse réelle, clonée). */
 export function ouvertureSynthetique(
   nom: string,
@@ -69,6 +77,7 @@ export function ouvertureSynthetique(
     nom,
     provenance,
     analyse: analyseSynthetique(lignes, provenance),
+    empreinte: EMPREINTE_FICTIVE,
   };
 }
 
@@ -87,7 +96,14 @@ export function ouvertureReussie(
   emplacement: 'in' | 'out' = 'in',
 ): OuvertureAc056 {
   const provenance: Provenance = nom.startsWith('AC056COUR_REJ_') ? 'rejet' : 'veos';
-  return { ok: true, emplacement, nom, provenance, analyse: analyse({ provenance, ...surcharge }) };
+  return {
+    ok: true,
+    emplacement,
+    nom,
+    provenance,
+    analyse: analyse({ provenance, ...surcharge }),
+    empreinte: EMPREINTE_FICTIVE,
+  };
 }
 
 /**
@@ -142,4 +158,44 @@ export function ouvertureAvecAnomalies(
     bilanAnalyse(fichier, [...anomalies, ...ajout(ouverture.analyse)]),
   );
   return { ...ouverture, analyse };
+}
+
+/** Empreinte SHA-256 fictive du fichier après un enregistrement (différente de celle d'ouverture). */
+export const EMPREINTE_ENREGISTREE = 'b'.repeat(64);
+
+/**
+ * Enregistrement réussi qui renvoie `analyse` (celle du fichier écrit : avec erreurs si elle en
+ * porte). `surcharge` : `ecrit`, `champsModifies`, `empreinte`, `copieOriginal`.
+ */
+export function enregistrementReussi(
+  analyse: AnalyseAc056,
+  surcharge: Partial<Omit<Extract<EnregistrementAc056, { ok: true }>, 'ok' | 'analyse'>> = {},
+): EnregistrementAc056 {
+  return {
+    ok: true,
+    ecrit: true,
+    analyse,
+    empreinte: EMPREINTE_ENREGISTREE,
+    champsModifies: 1,
+    copieOriginal: true,
+    ...surcharge,
+  };
+}
+
+/** Enregistrement sans effet : aucun octet écrit, le fichier est déjà à jour. */
+export function enregistrementAJour(analyse: AnalyseAc056): EnregistrementAc056 {
+  return enregistrementReussi(analyse, {
+    ecrit: false,
+    empreinte: EMPREINTE_FICTIVE,
+    champsModifies: 0,
+    copieOriginal: false,
+  });
+}
+
+/** Enregistrement refusé ou en échec, avec la cause telle que le main la formule. */
+export function enregistrementEchec(
+  message = 'lecteur de travail non monté',
+  code: CodeErreurEnregistrementAc056 = 'lecteur-indisponible',
+): EnregistrementAc056 {
+  return { ok: false, erreur: { code, message } };
 }

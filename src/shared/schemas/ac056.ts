@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CorrectionAc056 } from '../domain/ac056/enregistrement';
 
 // Schémas du module Ac056. Pur TypeScript : aucun import Node (partagé avec le renderer).
 
@@ -36,3 +37,35 @@ export const fichierAc056Schema = z.strictObject({
   nom: nomFichierAc056Schema,
 });
 export type CibleFichierAc056 = z.infer<typeof fichierAc056Schema>;
+
+/**
+ * Une correction de l'écran (`correctionsAc056`) : le champ (nom Flussi) de la ligne et le texte de
+ * la valeur gardée. Le type est celui du domaine (`CorrectionAc056`), vérifié par `satisfies`.
+ */
+export const correctionAc056Schema = z.strictObject({
+  ligne: z.number().int().min(1).max(1_000_000),
+  champ: z.string().regex(/^[A-Za-z][A-Za-z0-9]{0,63}$/),
+  texte: z.string().max(700),
+}) satisfies z.ZodType<CorrectionAc056>;
+
+/**
+ * Argument de `ac056:enregistrer` : le fichier ouvert, l'empreinte SHA-256 de ses octets à
+ * l'ouverture (le main refuse d'écrire si le fichier a changé depuis) et les corrections saisies,
+ * au plus une par couple (ligne, champ).
+ */
+export const enregistrementAc056Schema = z
+  .strictObject({
+    emplacement: emplacementAc056Schema,
+    nom: nomFichierAc056Schema,
+    empreinte: z.string().regex(/^[0-9a-f]{64}$/),
+    corrections: z.array(correctionAc056Schema).max(10_000),
+  })
+  .refine(
+    ({ corrections }) =>
+      new Set(corrections.map((c) => `${c.ligne}:${c.champ}`)).size === corrections.length,
+    { message: 'Corrections : un seul texte par ligne et par champ', path: ['corrections'] },
+  );
+export type DemandeEnregistrementAc056 = z.infer<typeof enregistrementAc056Schema>;
+
+/** Argument de `ac056:modifications` : le fichier aux corrections non enregistrées, sinon `null`. */
+export const modificationsAc056Schema = z.strictObject({ fichier: fichierAc056Schema.nullable() });

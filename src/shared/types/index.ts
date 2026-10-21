@@ -4,8 +4,11 @@ import type { Configuration } from '../schemas/config';
 import type { OriginesConfiguration } from './parametres';
 
 export type {
+  CodeErreurEnregistrementAc056,
   EmplacementAc056,
+  EnregistrementAc056,
   ErreurAc056,
+  ErreurEnregistrementAc056,
   FichierListeAc056,
   ListeAc056,
   OuvertureAc056,

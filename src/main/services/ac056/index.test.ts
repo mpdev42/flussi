@@ -1,12 +1,16 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Stockage } from '../../adapters/stockage';
 import type { AnalyseAc056 } from '@shared/domain/ac056';
 import {
+  enChaineBinaire,
+  enOctetsBruts,
   fichierSynthetique,
   lignesCompletes,
   lignesRejet,
   ligneSynthetique,
 } from '@shared/test/ac056-synthetique';
+import { dansEvenement, ligne } from '@shared/test/controle-ac056';
 import { nomFichierAc056Schema } from '@shared/schemas/ac056';
 import type { NiveauJournal } from '@shared/schemas/journal';
 import type { ElementStockage, ErreurStockage, ResultatStockage } from '@shared/types/stockage';
@@ -62,11 +66,12 @@ let erreurs: { in: ErreurStockage | null; out: ErreurStockage | null };
 let octets: Map<string, ResultatStockage<Uint8Array>>;
 let lister: ReturnType<typeof vi.fn<Stockage['lister']>>;
 let lire: ReturnType<typeof vi.fn<Stockage['lire']>>;
+let ecrire: ReturnType<typeof vi.fn<Stockage['ecrire']>>;
 let lignesJournal: [NiveauJournal, string][];
 let ajouter: ReturnType<typeof vi.fn<(niveau: NiveauJournal, message: string) => Promise<void>>>;
 
 function creerService() {
-  return creerServiceAc056({ stockage: { lister, lire }, journal: { ajouter } });
+  return creerServiceAc056({ stockage: { lister, lire, ecrire }, journal: { ajouter } });
 }
 
 beforeEach(() => {
@@ -87,6 +92,13 @@ beforeEach(() => {
         erreur: erreurStockage('introuvable'),
       },
   );
+  // Le faux stockage garde ce qui est écrit : une lecture suivante le voit, `creer` n'écrase jamais
+  ecrire = vi.fn<Stockage['ecrire']>(async (emplacement, chemin, contenu, mode) => {
+    const cle = `${emplacement}/${chemin}`;
+    if (mode === 'creer' && octets.has(cle)) return { ok: true, valeur: 'deja-present' };
+    octets.set(cle, { ok: true, valeur: contenu });
+    return { ok: true, valeur: 'ecrit' };
+  });
   lignesJournal = [];
   ajouter = vi.fn(async (niveau: NiveauJournal, message: string) => {
     lignesJournal.push([niveau, message]);
@@ -335,6 +347,17 @@ describe('creerServiceAc056 — ouvrir', () => {
     expect(analyserAc056).toHaveBeenCalledWith(expect.any(Uint8Array), 'rejet');
   });
 
+  it('renvoie le SHA-256 hexadécimal minuscule des octets lus', async () => {
+    const contenu = veosComplet();
+    deposer('in', 'a.txt', contenu);
+
+    const resultat = await creerService().ouvrir('in', 'a.txt');
+
+    if (!resultat.ok) throw new Error('échec inattendu');
+    expect(resultat.empreinte).toMatch(/^[0-9a-f]{64}$/);
+    expect(resultat.empreinte).toBe(createHash('sha256').update(contenu).digest('hex'));
+  });
+
   it('renvoie un résultat qui traverse l’IPC (clonage structuré)', async () => {
     deposer('in', 'a.txt', veosComplet());
 
@@ -350,6 +373,7 @@ describe('creerServiceAc056 — ouvrir', () => {
 
     expect(lister).not.toHaveBeenCalled();
     expect(lire).toHaveBeenCalledTimes(1);
+    expect(ecrire).not.toHaveBeenCalled();
   });
 });
 
@@ -638,5 +662,536 @@ describe('creerServiceAc056 — ouvrir, fichiers synthétiques', () => {
     expect(resultat.ok).toBe(true);
     // Marge large : environ 300 ms mesurées, la limite visée est la seconde
     expect(duree).toBeLessThan(2000);
+  });
+});
+
+// --- enregistrer ---
+
+describe('creerServiceAc056 — enregistrer', () => {
+  const SENTINELLE = 'SENTINELLEZORG';
+  const NOM = 'AC056COUR_20261014.txt';
+  const COMPLET = lignesCompletes({ dossiers: 1 });
+  const ORIGINAL = fichierSynthetique(COMPLET);
+  const EMPREINTE = createHash('sha256').update(ORIGINAL).digest('hex');
+  const N405 = COMPLET.findIndex((l) => l.slice(22, 25) === '405') + 1;
+
+  const sha256 = (contenu: Uint8Array) => createHash('sha256').update(contenu).digest('hex');
+  const octetsDe = (cle: string): Uint8Array => {
+    const entree = octets.get(cle);
+    if (!entree?.ok) throw new Error(`fichier absent : ${cle}`);
+    return entree.valeur;
+  };
+
+  function demande(
+    corrections: { ligne: number; champ: string; texte: string }[],
+    options: { emplacement?: 'in' | 'out'; nom?: string; empreinte?: string } = {},
+  ) {
+    return {
+      emplacement: options.emplacement ?? ('in' as const),
+      nom: options.nom ?? NOM,
+      empreinte: options.empreinte ?? EMPREINTE,
+      corrections,
+    };
+  }
+
+  const correctionNom = (texte = 'MARTIN') => ({ ligne: N405, champ: 'nom', texte });
+
+  beforeEach(() => {
+    deposer('in', NOM, ORIGINAL);
+  });
+
+  describe('chemin nominal', () => {
+    it('copie l’original, remplace le fichier et trace chaque étape dans l’ordre', async () => {
+      const resultat = await creerService().enregistrer(demande([correctionNom()]));
+
+      if (!resultat.ok) throw new Error(`échec inattendu : ${resultat.erreur.message}`);
+      expect(resultat).toMatchObject({ ecrit: true, champsModifies: 1, copieOriginal: true });
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['INFO', `Original de ${NOM} copié dans IN\\Originaux`],
+        ['SUCCES', `Fichier ${NOM} enregistré : 1 champ modifié`],
+      ]);
+    });
+
+    it('lit le fichier une fois, écrit d’abord la copie (creer) puis le fichier (remplacer)', async () => {
+      const resultat = await creerService().enregistrer(demande([correctionNom()]));
+
+      expect(lire).toHaveBeenCalledTimes(1);
+      expect(lire).toHaveBeenCalledWith('in', NOM);
+      expect(ecrire).toHaveBeenCalledTimes(2);
+      expect(ecrire.mock.calls[0]).toEqual(['in', `Originaux/${NOM}`, ORIGINAL, 'creer']);
+      expect(ecrire.mock.calls[1]?.slice(0, 2)).toEqual(['in', NOM]);
+      expect(ecrire.mock.calls[1]?.[3]).toBe('remplacer');
+      // La copie garde les octets d'origine, le fichier porte la correction
+      expect(octetsDe(`in/Originaux/${NOM}`)).toEqual(ORIGINAL);
+      const ecrits = octetsDe(`in/${NOM}`);
+      expect(ecrits).not.toEqual(ORIGINAL);
+      if (!resultat.ok) throw new Error('échec inattendu');
+      expect(resultat.empreinte).toMatch(/^[0-9a-f]{64}$/);
+      expect(resultat.empreinte).toBe(sha256(ecrits));
+      expect(resultat.analyse.erreurs).toBe(0);
+    });
+
+    it('un fichier de OUT est copié dans OUT\\Originaux', async () => {
+      deposer('out', NOM, ORIGINAL);
+
+      await creerService().enregistrer(demande([correctionNom()], { emplacement: 'out' }));
+
+      expect(ecrire.mock.calls[0]?.slice(0, 2)).toEqual(['out', `Originaux/${NOM}`]);
+      expect(lignesJournal[1]).toEqual(['INFO', `Original de ${NOM} copié dans OUT\\Originaux`]);
+    });
+
+    it('ne copie l’original qu’une fois : au second enregistrement, aucune ligne de copie', async () => {
+      const service = creerService();
+      const premier = await service.enregistrer(demande([correctionNom('MARTIN')]));
+      if (!premier.ok) throw new Error('échec inattendu');
+      lignesJournal.length = 0;
+
+      const second = await service.enregistrer(
+        demande([correctionNom('DURAND')], { empreinte: premier.empreinte }),
+      );
+
+      // La copie du premier enregistrement existe déjà : celui-ci n'en écrit pas
+      expect(second).toMatchObject({ ok: true, ecrit: true, copieOriginal: false });
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['SUCCES', `Fichier ${NOM} enregistré : 1 champ modifié`],
+      ]);
+      // La copie garde la version reçue de VEOS
+      expect(octetsDe(`in/Originaux/${NOM}`)).toEqual(ORIGINAL);
+    });
+
+    it('compte les erreurs restantes du fichier écrit (enregistrement possible malgré elles)', async () => {
+      // « # » est un caractère non autorisé : une erreur bloquante reste après la correction
+      const resultat = await creerService().enregistrer(demande([correctionNom('D#PONT')]));
+
+      expect(resultat).toMatchObject({ ok: true, ecrit: true, analyse: { erreurs: 1 } });
+      expect(lignesJournal.at(-1)).toEqual([
+        'SUCCES',
+        `Fichier ${NOM} enregistré : 1 champ modifié, 1 erreur restante`,
+      ]);
+    });
+
+    it('met « erreurs restantes » au pluriel', async () => {
+      const [, seconde] = COMPLET.flatMap((l, i) => (l.slice(22, 25) === '405' ? [i + 1] : []));
+      const resultat = await creerService().enregistrer(
+        demande([correctionNom('D#PONT'), { ligne: seconde ?? 0, champ: 'nom', texte: 'D#RAND' }]),
+      );
+
+      expect(resultat).toMatchObject({ ok: true, analyse: { erreurs: 2 } });
+      expect(lignesJournal.at(-1)).toEqual([
+        'SUCCES',
+        `Fichier ${NOM} enregistré : 2 champs modifiés, 2 erreurs restantes`,
+      ]);
+    });
+
+    it('« aucun champ modifié » quand seuls des défauts de forme sont corrigés', async () => {
+      const avecDefauts = [...COMPLET];
+      avecDefauts.splice(3, 0, '');
+      const lu = fichierSynthetique(avecDefauts);
+      deposer('in', NOM, lu);
+
+      const resultat = await creerService().enregistrer(demande([], { empreinte: sha256(lu) }));
+
+      expect(resultat).toMatchObject({ ok: true, ecrit: true, champsModifies: 0 });
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['INFO', `Original de ${NOM} copié dans IN\\Originaux`],
+        ['INFO', `Fichier ${NOM} : 1 ligne vide supprimée`],
+        ['SUCCES', `Fichier ${NOM} enregistré : aucun champ modifié`],
+      ]);
+    });
+
+    it('trace les lignes vides (pluriel) et le Ctrl-Z final supprimés, avant le succès', async () => {
+      const avecDefauts = [...COMPLET];
+      avecDefauts.splice(3, 0, '');
+      avecDefauts.splice(1, 0, '');
+      const lu = enOctetsBruts(`${enChaineBinaire(fichierSynthetique(avecDefauts))}\x1A`);
+      deposer('in', NOM, lu);
+
+      // Les lignes vides décalent les numéros du fichier lu : deux avant la ligne 405
+      await creerService().enregistrer(
+        demande([{ ligne: N405 + 2, champ: 'nom', texte: 'MARTIN' }], { empreinte: sha256(lu) }),
+      );
+
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['INFO', `Original de ${NOM} copié dans IN\\Originaux`],
+        ['INFO', `Fichier ${NOM} : 2 lignes vides supprimées`],
+        ['INFO', `Fichier ${NOM} : caractère de fin de fichier (Ctrl-Z) supprimé`],
+        ['SUCCES', `Fichier ${NOM} enregistré : 1 champ modifié`],
+      ]);
+    });
+
+    it('fichier identique : rien n’est écrit, ni copie ni remplacement', async () => {
+      const resultat = await creerService().enregistrer(demande([]));
+
+      expect(ecrire).not.toHaveBeenCalled();
+      expect(resultat).toMatchObject({
+        ok: true,
+        ecrit: false,
+        empreinte: EMPREINTE,
+        champsModifies: 0,
+        copieOriginal: false,
+      });
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['INFO', `Fichier ${NOM} déjà à jour : rien à enregistrer`],
+      ]);
+    });
+
+    it('renvoie un résultat qui traverse l’IPC (clonage structuré)', async () => {
+      const ecrit = await creerService().enregistrer(demande([correctionNom()]));
+      const identique = await creerService().enregistrer(demande([]));
+      const refuse = await creerService().enregistrer(demande([], { empreinte: 'f'.repeat(64) }));
+
+      for (const resultat of [ecrit, identique, refuse]) {
+        expect(() => structuredClone(resultat)).not.toThrow();
+      }
+    });
+  });
+
+  describe('refus', () => {
+    it('empreinte différente : fichier-modifie, rien d’écrit', async () => {
+      const resultat = await creerService().enregistrer(
+        demande([correctionNom()], { empreinte: 'b'.repeat(64) }),
+      );
+
+      const cause =
+        'le fichier a changé depuis son ouverture : rechargez-le puis refaites les corrections';
+      expect(resultat).toEqual({ ok: false, erreur: { code: 'fichier-modifie', message: cause } });
+      expect(ecrire).not.toHaveBeenCalled();
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['ERREUR', `Fichier ${NOM} non enregistré : ${cause}`],
+      ]);
+    });
+
+    it('fichier mal formé : fichier-mal-forme, rien d’écrit', async () => {
+      const mal = fichierSynthetique(dansEvenement(ligne('110'), ligne('110')));
+      deposer('in', NOM, mal);
+
+      const resultat = await creerService().enregistrer(demande([], { empreinte: sha256(mal) }));
+
+      expect(resultat).toEqual({
+        ok: false,
+        erreur: {
+          code: 'fichier-mal-forme',
+          message: "fichier mal formé : relancez l'export VEOS",
+        },
+      });
+      expect(ecrire).not.toHaveBeenCalled();
+      expect(lignesJournal[1]).toEqual([
+        'ERREUR',
+        `Fichier ${NOM} non enregistré : fichier mal formé : relancez l'export VEOS`,
+      ]);
+    });
+
+    it('fichier de rejet : fichier-rejet, rien d’écrit', async () => {
+      const nomRejet = 'AC056COUR_REJ_20261014.txt';
+      const rejet = fichierSynthetique(lignesRejet({ dossiers: 1 }));
+      deposer('in', nomRejet, rejet);
+
+      const resultat = await creerService().enregistrer(
+        demande([], { nom: nomRejet, empreinte: sha256(rejet) }),
+      );
+
+      expect(resultat).toEqual({
+        ok: false,
+        erreur: { code: 'fichier-rejet', message: 'un fichier de rejet est en lecture seule' },
+      });
+      expect(ecrire).not.toHaveBeenCalled();
+      expect(lignesJournal[1]).toEqual([
+        'ERREUR',
+        `Fichier ${nomRejet} non enregistré : un fichier de rejet est en lecture seule`,
+      ]);
+    });
+
+    it('correction refusée par le domaine : correction-refusee, sans citer la valeur', async () => {
+      const resultat = await creerService().enregistrer(
+        demande([{ ligne: N405, champ: 'nom', texte: `${SENTINELLE}\n` }]),
+      );
+
+      const cause = "une correction n'a pas pu être appliquée : rechargez le fichier";
+      expect(resultat).toEqual({
+        ok: false,
+        erreur: { code: 'correction-refusee', message: cause },
+      });
+      expect(ecrire).not.toHaveBeenCalled();
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['ERREUR', `Fichier ${NOM} non enregistré : ${cause}`],
+      ]);
+    });
+
+    it('lecture impossible : erreur du stockage, sans chemin', async () => {
+      lire.mockResolvedValueOnce({ ok: false, erreur: erreurStockage('verrou') });
+
+      const resultat = await creerService().enregistrer(demande([correctionNom()]));
+
+      if (resultat.ok) throw new Error('succès inattendu');
+      expect(resultat.erreur.code).toBe('verrou');
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['ERREUR', `Fichier ${NOM} non enregistré : ${resultat.erreur.message}`],
+      ]);
+      expect(ecrire).not.toHaveBeenCalled();
+    });
+
+    it('fichier disparu : introuvable', async () => {
+      const resultat = await creerService().enregistrer(demande([], { nom: 'absent.txt' }));
+
+      expect(resultat).toEqual({
+        ok: false,
+        erreur: { code: 'introuvable', message: 'fichier introuvable' },
+      });
+    });
+  });
+
+  describe('échecs d’écriture', () => {
+    it('échec de la copie : erreur, le fichier n’est pas remplacé', async () => {
+      ecrire.mockResolvedValueOnce({ ok: false, erreur: erreurStockage('acces-refuse') });
+
+      const resultat = await creerService().enregistrer(demande([correctionNom()]));
+
+      if (resultat.ok) throw new Error('succès inattendu');
+      expect(resultat.erreur.code).toBe('acces-refuse');
+      expect(ecrire).toHaveBeenCalledTimes(1);
+      expect(octetsDe(`in/${NOM}`)).toEqual(ORIGINAL);
+      expect(octets.has(`in/Originaux/${NOM}`)).toBe(false);
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['ERREUR', `Fichier ${NOM} non enregistré : ${resultat.erreur.message}`],
+      ]);
+    });
+
+    it('échec du remplacement : copie présente, erreur, aucun succès', async () => {
+      ecrire.mockImplementationOnce(async (emplacement, chemin, contenu) => {
+        octets.set(`${emplacement}/${chemin}`, { ok: true, valeur: contenu });
+        return { ok: true, valeur: 'ecrit' };
+      });
+      ecrire.mockResolvedValueOnce({ ok: false, erreur: erreurStockage('verrou') });
+
+      const resultat = await creerService().enregistrer(demande([correctionNom()]));
+
+      if (resultat.ok) throw new Error('succès inattendu');
+      expect(resultat.erreur.code).toBe('verrou');
+      expect(octetsDe(`in/Originaux/${NOM}`)).toEqual(ORIGINAL);
+      expect(octetsDe(`in/${NOM}`)).toEqual(ORIGINAL);
+      expect(lignesJournal.map(([niveau]) => niveau)).toEqual(['TITRE', 'INFO', 'ERREUR']);
+      expect(lignesJournal[2]).toEqual([
+        'ERREUR',
+        `Fichier ${NOM} non enregistré : ${resultat.erreur.message}`,
+      ]);
+    });
+
+    it('exception inattendue : erreur-systeme sans le message de l’exception, verrou libéré', async () => {
+      const service = creerService();
+      const console_ = vi.spyOn(console, 'error').mockImplementation(() => {});
+      lire.mockResolvedValueOnce({ ok: true, valeur: null as never });
+
+      const resultat = await service.enregistrer(demande([correctionNom()]));
+
+      expect(resultat).toEqual({
+        ok: false,
+        erreur: { code: 'erreur-systeme', message: 'erreur système inattendue' },
+      });
+      // Console : le seul nom de l'exception, jamais son message
+      expect(console_).toHaveBeenCalledTimes(1);
+      expect(console_.mock.calls[0]).toEqual([expect.stringContaining('[ac056]'), 'TypeError']);
+      console_.mockRestore();
+      expect(lignesJournal).toEqual([
+        ['TITRE', 'Enregistrer'],
+        ['ERREUR', `Fichier ${NOM} non enregistré : erreur système inattendue`],
+      ]);
+      // Le service peut enregistrer à nouveau
+      expect(await service.enregistrer(demande([]))).toMatchObject({ ok: true });
+    });
+
+    it.each([
+      'lecteur-indisponible',
+      'dossier-absent',
+      'acces-refuse',
+      'verrou',
+      'introuvable',
+      'chemin-refuse',
+      'erreur-systeme',
+    ] as const)('cause %s : message fixe, sans chemin ni texte de l’adapter', async (code) => {
+      ecrire.mockResolvedValueOnce({ ok: false, erreur: erreurStockage(code) });
+
+      const resultat = await creerService().enregistrer(demande([correctionNom()]));
+
+      if (resultat.ok) throw new Error('succès inattendu');
+      expect(resultat.erreur.code).toBe(code);
+      expect(resultat.erreur.message).not.toMatch(/[\\/]|[A-Za-z]:/);
+      expect(JSON.stringify([resultat, lignesJournal])).not.toContain('cause sur');
+      expect(JSON.stringify([resultat, lignesJournal])).not.toContain('serveur');
+    });
+  });
+
+  describe('un seul enregistrement à la fois', () => {
+    /** Bloque la prochaine lecture jusqu'à `liberer()`. */
+    function bloquerLecture(): { liberer: () => void } {
+      let liberer = () => {};
+      const barriere = new Promise<void>((resolve) => {
+        liberer = resolve;
+      });
+      const reel = lire.getMockImplementation();
+      lire.mockImplementationOnce(async (emplacement, chemin) => {
+        await barriere;
+        if (!reel) throw new Error('lecture simulée absente');
+        return reel(emplacement, chemin);
+      });
+      return { liberer };
+    }
+
+    it('refuse un appel concurrent sans rien écrire ni tracer', async () => {
+      const service = creerService();
+      const barriere = bloquerLecture();
+
+      const premier = service.enregistrer(demande([correctionNom()]));
+      const second = await service.enregistrer(demande([correctionNom('DURAND')]));
+
+      expect(second).toEqual({
+        ok: false,
+        erreur: {
+          code: 'enregistrement-en-cours',
+          message: 'un enregistrement est déjà en cours',
+        },
+      });
+      expect(lignesJournal).toEqual([['TITRE', 'Enregistrer']]);
+      expect(ecrire).not.toHaveBeenCalled();
+
+      barriere.liberer();
+      expect(await premier).toMatchObject({ ok: true, ecrit: true });
+      // Une fois terminé, le service accepte à nouveau (ici : empreinte périmée, refus normal)
+      expect(await service.enregistrer(demande([]))).toMatchObject({
+        ok: false,
+        erreur: { code: 'fichier-modifie' },
+      });
+    });
+
+    it('attendreEnregistrement se résout tout de suite quand rien n’est en cours', async () => {
+      await expect(creerService().attendreEnregistrement()).resolves.toBeUndefined();
+    });
+
+    it('attendreEnregistrement attend la fin de l’enregistrement', async () => {
+      const service = creerService();
+      const barriere = bloquerLecture();
+      let terminee = false;
+
+      const enregistrement = service.enregistrer(demande([correctionNom()]));
+      const apres = service.attendreEnregistrement().then(() => {
+        terminee = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(terminee).toBe(false);
+
+      barriere.liberer();
+      await apres;
+      // Le fichier est déjà remplacé quand l'attente se résout
+      expect(octetsDe(`in/${NOM}`)).not.toEqual(ORIGINAL);
+      expect(await enregistrement).toMatchObject({ ok: true });
+    });
+
+    it('attendreEnregistrement ne rejette pas quand l’enregistrement échoue', async () => {
+      const service = creerService();
+      const console_ = vi.spyOn(console, 'error').mockImplementation(() => {});
+      lire.mockResolvedValueOnce({ ok: true, valeur: null as never });
+
+      const enregistrement = service.enregistrer(demande([]));
+
+      await expect(service.attendreEnregistrement()).resolves.toBeUndefined();
+      expect(await enregistrement).toMatchObject({ ok: false });
+      console_.mockRestore();
+    });
+  });
+
+  describe('fichier modifié (fermeture)', () => {
+    it('est vide au départ', () => {
+      expect(creerService().fichierModifie()).toBeNull();
+    });
+
+    it('garde le nom du fichier signalé, puis l’oublie sur null', () => {
+      const service = creerService();
+
+      service.signalerModifications({ emplacement: 'in', nom: NOM });
+      expect(service.fichierModifie()).toBe(NOM);
+
+      service.signalerModifications(null);
+      expect(service.fichierModifie()).toBeNull();
+    });
+
+    it('est remis à null par un enregistrement réussi de ce fichier', async () => {
+      const service = creerService();
+      service.signalerModifications({ emplacement: 'in', nom: NOM });
+
+      await service.enregistrer(demande([correctionNom()]));
+
+      expect(service.fichierModifie()).toBeNull();
+    });
+
+    it('est remis à null aussi quand le fichier est déjà à jour (rien à écrire)', async () => {
+      const service = creerService();
+      service.signalerModifications({ emplacement: 'in', nom: NOM });
+
+      const resultat = await service.enregistrer(demande([]));
+
+      expect(resultat).toMatchObject({ ok: true, ecrit: false });
+      expect(service.fichierModifie()).toBeNull();
+    });
+
+    it('reste signalé après un échec', async () => {
+      const service = creerService();
+      service.signalerModifications({ emplacement: 'in', nom: NOM });
+
+      await service.enregistrer(demande([correctionNom()], { empreinte: 'b'.repeat(64) }));
+
+      expect(service.fichierModifie()).toBe(NOM);
+    });
+
+    it('reste signalé quand l’enregistrement concerne le même nom dans l’autre dossier', async () => {
+      const service = creerService();
+      service.signalerModifications({ emplacement: 'out', nom: NOM });
+
+      await service.enregistrer(demande([correctionNom()]));
+
+      expect(service.fichierModifie()).toBe(NOM);
+    });
+  });
+
+  describe('données personnelles', () => {
+    it('aucune valeur AC056 ni chemin dans le journal ni dans les messages d’erreur', async () => {
+      const lignes = lignesCompletes({ dossiers: 1 });
+      lignes[N405 - 1] = ligneSynthetique('405', { nom: SENTINELLE, prenom1: SENTINELLE });
+      const lu = fichierSynthetique(lignes);
+      deposer('in', NOM, lu);
+      const empreinte = sha256(lu);
+      const service = creerService();
+
+      const ecrit = await service.enregistrer(
+        demande([{ ligne: N405, champ: 'nom', texte: `${SENTINELLE}2` }], { empreinte }),
+      );
+      const refusee = await service.enregistrer(
+        demande([{ ligne: N405, champ: 'rang', texte: SENTINELLE }], { empreinte }),
+      );
+      ecrire.mockResolvedValueOnce({ ok: false, erreur: erreurStockage('acces-refuse') });
+      const echecEcriture = await service.enregistrer(
+        demande([{ ligne: N405, champ: 'nom', texte: `${SENTINELLE}3` }], {
+          empreinte: ecrit.ok ? ecrit.empreinte : empreinte,
+        }),
+      );
+
+      expect(ecrit.ok).toBe(true);
+      expect(refusee.ok).toBe(false);
+      expect(echecEcriture.ok).toBe(false);
+      const sortieJournal = JSON.stringify(lignesJournal);
+      expect(sortieJournal).not.toContain(SENTINELLE);
+      expect(sortieJournal).not.toContain('P:');
+      expect(sortieJournal).not.toContain('serveur');
+      // Les messages d'erreur renvoyés à l'écran ne citent aucune valeur non plus
+      expect(JSON.stringify([refusee, echecEcriture])).not.toContain(SENTINELLE);
+      expect(JSON.stringify([refusee, echecEcriture])).not.toContain('serveur');
+    });
   });
 });

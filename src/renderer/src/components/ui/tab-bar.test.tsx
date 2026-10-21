@@ -146,6 +146,23 @@ describe('TabBar — onglets en erreur', () => {
     expect(onglet('100').querySelector('svg')).toBeNull();
   });
 
+  it('rend le contenu transparent au pointeur : la cible est toujours le bouton', async () => {
+    monture = await monter(barre());
+    // Un compteur retiré entre pointerup et click annulerait le clic s'il était la cible
+    for (const id of ['liste', '100', '110']) {
+      const enfants = Array.from(onglet(id).children);
+      expect(enfants.length).toBeGreaterThan(0);
+      for (const enfant of enfants) {
+        expect(enfant.getAttribute('class')?.split(' ')).toContain('pointer-events-none');
+      }
+    }
+    expect(onglet('liste').querySelector('svg')?.getAttribute('class')).toContain(
+      'pointer-events-none',
+    );
+    const compteur = onglet('liste').querySelector('[aria-hidden="true"]:not(svg)')?.parentElement;
+    expect(compteur?.className.split(' ')).toContain('pointer-events-none');
+  });
+
   it('garde le libellé rouge sur l’onglet actif en erreur', async () => {
     monture = await monter(barre({ actif: 'liste' }));
     expect(onglet('liste').className).toContain('text-error-text');

@@ -2,7 +2,8 @@
 // après chaque saisie, l'analyse doit être exactement celle recalculée en entier sur le fichier
 // modifié (lecture d'origine puis contrôle complet, `bilanAnalyse`).
 // - IN\, PIEGES\ (NOM.txt) et MODIFIES\ (NOM.txt) : 50 saisies enchaînées par fichier, sur des
-//   champs modifiables tirés avec une graine fixe, valeurs fictives tirées elles aussi ;
+//   champs modifiables tirés avec une graine fixe (tous marqués comme déjà corrigés, donc
+//   saisissables même sans erreur), valeurs fictives tirées elles aussi ;
 // - PIEGES\ : en plus, chaque champ modifiable en erreur reçoit une valeur corrigée, depuis
 //   l'analyse d'origine ; aucune anomalie ne doit rester sur ce champ.
 // Aucune valeur du corpus ni valeur saisie n'est affichée : un écart est décrit par le fichier, la
@@ -15,6 +16,7 @@ import {
   lireCorpus,
   type SousDossierCorpus,
 } from '@shared/test/corpus';
+import { marquerCorriges } from '@shared/test/controle-ac056';
 import { analyserAc056, bilanAnalyse, type AnalyseAc056 } from './analyse';
 import { controlerAc056 } from './controle';
 import { ENTITES } from './entites';
@@ -123,10 +125,20 @@ interface Charge {
   readonly index: IndexLignesAc056;
 }
 
-function charger(sousDossier: SousDossierCorpus, nom: string): Charge {
+/**
+ * Analyse d'un fichier du corpus. `corriges` : tous les champs modifiables sont marqués comme déjà
+ * corrigés (`marquerCorriges`), pour que `saisirChamp` accepte aussi les champs sans erreur (sinon
+ * refus `champ-verrouille`, item 3 de la v0.3.0) ; l'analyse est alors recalculée sur le fichier
+ * marqué.
+ */
+function charger(sousDossier: SousDossierCorpus, nom: string, corriges = false): Charge {
   const octets = lireCorpus(sousDossier, nom);
-  const analyse = analyserAc056(octets, 'veos');
-  return { analyse, lecture: lireAc056(octets).anomalies, index: indexerLignes(analyse.fichier) };
+  const { fichier, anomalies: lecture } = lireAc056(octets);
+  const marque = corriges ? marquerCorriges(fichier) : fichier;
+  const analyse = corriges
+    ? bilanAnalyse(marque, [...lecture, ...controlerAc056(marque)])
+    : analyserAc056(octets, 'veos');
+  return { analyse, lecture, index: indexerLignes(analyse.fichier) };
 }
 
 /** 50 saisies enchaînées, comparées après chacune ; renvoie les écarts et le nombre de saisies. */
@@ -135,7 +147,7 @@ function saisiesEnchainees(
   nom: string,
   rangFichier: number,
 ): { ecarts: string[]; saisies: number } {
-  const { analyse, lecture, index } = charger(sousDossier, nom);
+  const { analyse, lecture, index } = charger(sousDossier, nom, true);
   const possibles = cibles(analyse);
   // Fichier sans évènement (export vide : 000 et 999 seules) : rien à saisir.
   if (possibles.length === 0) return { ecarts: [], saisies: 0 };
@@ -148,9 +160,10 @@ function saisiesEnchainees(
     const texte = texteFictif(aleatoire, cible.champ, cible.maxLength);
     const r = saisirChamp(courante, index, cible, texte);
     const contexte = `${nom}, saisie ${k} (ligne ${cible.ligne}, champ ${cible.champ})`;
-    // Refus attendu : texte fictif de plus d'octets que le champ (caractères accentués).
+    // Refus attendus : texte fictif de plus d'octets que le champ (caractères accentués), ou rang
+    // incomplet (décision 1 de l'item 3 de la v0.3.0).
     if (!r.ok) {
-      if (r.erreur.code !== 'valeur-trop-longue') {
+      if (r.erreur.code !== 'valeur-trop-longue' && r.erreur.code !== 'valeur-trop-courte') {
         resultat.push(`${contexte} : refusée, ${r.erreur.code}`);
       }
       continue;

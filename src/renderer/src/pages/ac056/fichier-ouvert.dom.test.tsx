@@ -18,18 +18,19 @@ import {
   ouvertureSynthetique,
 } from '@/test/ac056';
 import {
-  annuler,
-  appuyer,
+  annulerPointeur,
+  appuyerPointeur,
   cliquer,
+  fenetreActive,
   monter,
   quitter,
-  relacher,
+  relacherPointeur,
   saisir,
   vider,
   type Monture,
 } from '@/test/dom';
 import { MESSAGE_SAISIE_INATTENDUE } from '@/hooks/use-fichier-ac056';
-import { MESSAGE_AUCUNE_ERREUR } from './textes-ac056';
+import { MESSAGE_PLUS_D_ERREUR } from './textes-ac056';
 import { EcranAc056 } from './ac056';
 
 // Le contrôle réel, sauf quand un test lui fait lever une exception
@@ -42,6 +43,8 @@ vi.mock('@shared/domain/ac056', async (importOriginal) => {
 vi.mock('@/services/ac056', () => ({
   listerFichiersAc056: vi.fn(),
   ouvrirFichierAc056: vi.fn(),
+  enregistrerFichierAc056: vi.fn(),
+  signalerModificationsAc056: vi.fn(),
 }));
 
 import { listerFichiersAc056, ouvrirFichierAc056 } from '@/services/ac056';
@@ -161,6 +164,23 @@ describe('FichierOuvert — colonne des évènements', () => {
     expect(lignesEvenements(c)[2].getAttribute('aria-current')).toBe('true');
     expect(lignesEvenements(c)[0].getAttribute('aria-current')).toBeNull();
     expect(detail(c).textContent).toContain('CTR2');
+  });
+});
+
+describe('FichierOuvert — évènement déjà sélectionné', () => {
+  it('ne change ni l’onglet ni la fiche au clic sur l’évènement déjà sélectionné', async () => {
+    const c = await ouvrir(ouvertureSynthetique(NOM_VEOS, lignesAvecErreurs()));
+    await cliquer(lignesEvenements(c)[1]);
+    const zone = detail(c);
+    // L'utilisateur quitte l'onglet en erreur (120) pour un autre
+    await cliquer(onglets(zone, 'Entités de l’évènement')[1]);
+    expect(ongletSelectionne(zone, 'Entités de l’évènement')).toBe('100');
+
+    await cliquer(lignesEvenements(c)[1]);
+
+    expect(ongletSelectionne(zone, 'Entités de l’évènement')).toBe('100');
+    expect(zone.querySelector('h2')?.textContent).toBe('100 · Identification de l’évènement');
+    expect(lignesEvenements(c)[1].getAttribute('aria-current')).toBe('true');
   });
 });
 
@@ -366,6 +386,11 @@ function champ(zone: HTMLElement, libelle: string): HTMLInputElement {
   return zone.querySelector<HTMLInputElement>(`#${CSS.escape(etiquette.htmlFor)}`)!;
 }
 
+/** Zone d'annonce du refus d'un champ (lecteurs d'écran), toujours présente pour un champ modifiable. */
+function annonceDuChamp(zone: HTMLElement, input: HTMLInputElement): string | null {
+  return zone.querySelector(`#${CSS.escape(input.id)}-annonce`)?.textContent ?? null;
+}
+
 function messageDuChamp(zone: HTMLElement, input: HTMLInputElement): string | null {
   return zone.querySelector(`#${CSS.escape(input.id)}-error`)?.textContent ?? null;
 }
@@ -447,9 +472,7 @@ describe('FichierOuvert — correction des champs à la sortie du champ', () => 
     expect(onglets(zone, 'Entités du bénéficiaire')[2].textContent).not.toContain('erreur');
     expect(lignesEvenements(c)[2].textContent).not.toContain('erreur');
     expect(barre(c)).toContain('Aucune erreur');
-    expect(c.querySelector('[role="status"]')?.textContent).toContain(
-      'Le fichier ne contient aucune erreur.',
-    );
+    expect(c.querySelector('[role="status"]')?.textContent).toBe(MESSAGE_PLUS_D_ERREUR);
     // Pas d’enchaînement automatique vers une autre erreur ou un autre évènement
     expect(lignesEvenements(c)[2].getAttribute('aria-current')).toBe('true');
     expect(ongletSelectionne(zone, 'Entités du bénéficiaire')).toBe('405');
@@ -480,7 +503,7 @@ describe('FichierOuvert — correction des champs à la sortie du champ', () => 
 
     const apres = alerte();
     expect(apres).toBe(avant);
-    expect(apres.textContent).toBe(MESSAGE_AUCUNE_ERREUR);
+    expect(apres.textContent).toBe(MESSAGE_PLUS_D_ERREUR);
     expect(apres.className).toContain('bg-success-bg');
     expect(forme(apres)).toEqual(formeAvant);
     expect(c.querySelectorAll('[role="status"], [role="alert"]')).toHaveLength(nombreAlertes);
@@ -531,6 +554,57 @@ describe('FichierOuvert — correction des champs à la sortie du champ', () => 
     // Le refus n’a rien modifié : pas de confirmation à l’abandon
     await cliquer(boutonChanger(c));
     expect(dialogue()).toBeNull();
+  });
+
+  it('annonce le refus aux lecteurs d’écran, dans une zone présente avant le refus et reliée au champ', async () => {
+    const c = await ouvrir(ouvertureSynthetique(NOM_VEOS, lignesAvecErreurs()));
+    await cliquer(lignesEvenements(c)[1]);
+    const zone = detail(c);
+    const codePostal = champ(zone, 'Code postal');
+    const annonce = zone.querySelector<HTMLElement>(`#${CSS.escape(codePostal.id)}-annonce`)!;
+    expect(annonce.getAttribute('aria-live')).toBe('polite');
+    expect(annonce.textContent).toBe('');
+
+    await saisir(codePostal, '7�001');
+    await quitter(codePostal);
+
+    // Même zone, qui a reçu le texte : c'est ce changement que le lecteur d'écran annonce
+    expect(zone.querySelector(`#${CSS.escape(codePostal.id)}-annonce`)).toBe(annonce);
+    expect(annonce.textContent).toContain('caractère illisible');
+    expect(codePostal.getAttribute('aria-describedby')).toBe(`${codePostal.id}-error`);
+    expect(annonce.textContent).toBe(messageDuChamp(zone, codePostal));
+
+    // Un champ en lecture seule n'a pas de zone d'annonce
+    await cliquer(lignesEvenements(c)[0]);
+    expect(detail(c).querySelector('[id$="-annonce"]')).toBeNull();
+  });
+
+  it('réannonce deux refus de même texte de suite : le contenu de la zone change à chaque refus', async () => {
+    const c = await ouvrir(ouvertureSynthetique(NOM_VEOS, lignesAvecErreurs()));
+    await cliquer(lignesEvenements(c)[1]);
+    const zone = detail(c);
+    const codePostal = champ(zone, 'Code postal');
+    const annonce = zone.querySelector<HTMLElement>(`#${CSS.escape(codePostal.id)}-annonce`)!;
+    const texteVisible = () => messageDuChamp(zone, codePostal);
+
+    await saisir(codePostal, '7�001');
+    await quitter(codePostal);
+    const premiere = annonce.textContent;
+    const message = texteVisible();
+
+    await saisir(codePostal, '7�002');
+    await quitter(codePostal);
+    const seconde = annonce.textContent;
+
+    // Même refus (même texte sous le champ), mais la zone vivante a changé : le lecteur d'écran réannonce
+    expect(texteVisible()).toBe(message);
+    expect(seconde).not.toBe(premiere);
+    expect(seconde?.trim()).toBe(premiere?.trim());
+    expect(seconde?.trim()).toBe(message);
+
+    await saisir(codePostal, '7�003');
+    await quitter(codePostal);
+    expect(annonce.textContent).not.toBe(seconde);
   });
 
   it('retire le refus quand la saisie suivante est acceptée', async () => {
@@ -640,7 +714,7 @@ describe('FichierOuvert — correction des champs à la sortie du champ', () => 
 
     expect(dialogue()?.querySelector('h2')?.textContent).toBe('Abandonner les modifications ?');
     expect(dialogue()?.textContent).toContain(
-      'Les corrections faites dans ce fichier ne sont pas enregistrées. Elles seront perdues.',
+      `Le champ modifié de ${NOM_VEOS} n'est pas enregistré. Il sera perdu si vous ouvrez un autre fichier.`,
     );
     expect(document.activeElement).toBe(boutonDialogue('Annuler'));
     expect(c.querySelector('h1')?.textContent).toBe(NOM_VEOS);
@@ -696,13 +770,13 @@ describe('FichierOuvert — sortie d’un champ à la souris', () => {
   it('applique la saisie au relâchement du bouton, pas à l’appui', async () => {
     const { c, codePostal } = await codePostalFrappe();
 
-    await appuyer(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
     await quitter(codePostal);
     // Le bouton est enfoncé : rien n'est appliqué, la mise en page ne bouge pas
     expect(codePostal.getAttribute('aria-invalid')).toBe('true');
     expect(barre(c)).toContain('2 erreurs');
 
-    await relacher(boutonChanger(c));
+    await relacherPointeur(boutonChanger(c));
     expect(codePostal.getAttribute('aria-invalid')).toBeNull();
     expect(barre(c)).toContain('1 erreur');
     expect(barre(c)).not.toContain('2 erreurs');
@@ -711,9 +785,9 @@ describe('FichierOuvert — sortie d’un champ à la souris', () => {
   it('a appliqué la saisie avant le clic : « Changer de fichier » demande la confirmation', async () => {
     const { c, codePostal } = await codePostalFrappe();
 
-    await appuyer(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
     await quitter(codePostal);
-    await relacher(boutonChanger(c));
+    await relacherPointeur(boutonChanger(c));
     await cliquer(boutonChanger(c));
 
     expect(dialogue()).not.toBeNull();
@@ -722,8 +796,8 @@ describe('FichierOuvert — sortie d’un champ à la souris', () => {
   it('applique la saisie tout de suite à la sortie au clavier', async () => {
     const { c, codePostal } = await codePostalFrappe();
     // Un appui puis un relâchement précédents ne retardent pas la sortie suivante
-    await appuyer(boutonChanger(c));
-    await relacher(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
+    await relacherPointeur(boutonChanger(c));
 
     await quitter(codePostal);
 
@@ -734,55 +808,141 @@ describe('FichierOuvert — sortie d’un champ à la souris', () => {
   it('applique la saisie si le pointeur est annulé', async () => {
     const { c, codePostal } = await codePostalFrappe();
 
-    await appuyer(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
     await quitter(codePostal);
     expect(barre(c)).toContain('2 erreurs');
-    await annuler(boutonChanger(c));
+    await annulerPointeur(boutonChanger(c));
 
     expect(codePostal.getAttribute('aria-invalid')).toBeNull();
     expect(barre(c)).toContain('1 erreur');
   });
 
+  /** Touche pressée sur le document (le relâchement du pointeur, lui, est perdu). */
+  async function presserTouche(touche: string, options: KeyboardEventInit = {}) {
+    await act(async () => {
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: touche, bubbles: true, ...options }),
+      );
+    });
+  }
+
   it('applique la saisie quand une touche est pressée alors que le relâchement est perdu', async () => {
     const { c, codePostal } = await codePostalFrappe();
 
-    await appuyer(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
     await quitter(codePostal);
+    // Précondition : la saisie attend bien le relâchement
+    expect(barre(c)).toContain('2 erreurs');
+    expect(vi.mocked(saisirChamp)).not.toHaveBeenCalled();
+    await presserTouche('a');
+
+    expect(barre(c)).toContain('1 erreur');
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
+  });
+
+  it('n’applique pas la saisie pour une touche de modification ou une touche qui se répète', async () => {
+    const { c, codePostal } = await codePostalFrappe();
+
+    await appuyerPointeur(boutonChanger(c));
+    await quitter(codePostal);
+    await presserTouche('Shift');
+    await presserTouche('a', { repeat: true });
+
+    expect(barre(c)).toContain('2 erreurs');
+    expect(vi.mocked(saisirChamp)).not.toHaveBeenCalled();
+    await relacherPointeur(boutonChanger(c));
+    expect(barre(c)).toContain('1 erreur');
+  });
+
+  it('applique la saisie en attente quand la fenêtre perd le focus avant le relâchement', async () => {
+    const { c, codePostal } = await codePostalFrappe();
+
+    await appuyerPointeur(boutonChanger(c));
+    await quitter(codePostal);
+    expect(barre(c)).toContain('2 erreurs');
     await act(async () => {
-      document.body.dispatchEvent(new Event('keydown', { bubbles: true }));
+      window.dispatchEvent(new Event('blur'));
     });
 
     expect(barre(c)).toContain('1 erreur');
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
+  });
+
+  it('n’applique pas la saisie quand le champ perd le focus avec la fenêtre (Alt+Tab), mais à la vraie sortie', async () => {
+    const { c, codePostal } = await codePostalFrappe();
+
+    fenetreActive(false);
+    await quitter(codePostal);
+    expect(codePostal.getAttribute('aria-invalid')).toBe('true');
+    expect(barre(c)).toContain('2 erreurs');
+    expect(vi.mocked(saisirChamp)).not.toHaveBeenCalled();
+
+    // Retour dans la fenêtre, puis vraie sortie du champ : la frappe est toujours en cours
+    fenetreActive(true);
+    await quitter(codePostal);
+
+    expect(codePostal.getAttribute('aria-invalid')).toBeNull();
+    expect(barre(c)).toContain('1 erreur');
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
   });
 
   it('applique la saisie en attente quand le champ est démonté avant le relâchement', async () => {
     const { c, codePostal } = await codePostalFrappe();
 
-    await appuyer(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
     await quitter(codePostal);
     expect(barre(c)).toContain('2 erreurs');
     // La fiche change (clic programmatique) : le champ disparaît avant que le bouton ne soit relâché
     await cliquer(onglets(detail(c), 'Entités de l’évènement')[0]);
     expect(codePostal.isConnected).toBe(false);
     expect(barre(c)).toContain('1 erreur');
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
 
-    await relacher(boutonChanger(c));
+    await relacherPointeur(boutonChanger(c));
     expect(barre(c)).toContain('1 erreur');
     expect(barre(c)).not.toContain('2 erreurs');
+    // Appliquée au démontage, pas une seconde fois au relâchement
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
   });
 
   it('applique une seule fois la saisie en attente, au premier relâchement', async () => {
     const { c, codePostal } = await codePostalFrappe();
 
-    await appuyer(boutonChanger(c));
+    await appuyerPointeur(boutonChanger(c));
     await quitter(codePostal);
-    await relacher(boutonChanger(c));
+    await relacherPointeur(boutonChanger(c));
     expect(barre(c)).toContain('1 erreur');
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
 
     // Un second relâchement n'applique rien de plus
-    await relacher(boutonChanger(c));
+    await relacherPointeur(boutonChanger(c));
     expect(barre(c)).toContain('1 erreur');
     expect(codePostal.value).toBe('75001');
+    expect(vi.mocked(saisirChamp)).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche le refus d’une saisie appliquée au relâchement, et l’annonce', async () => {
+    const c = await ouvrir(ouvertureSynthetique(NOM_VEOS, lignesAvecErreurs()));
+    await cliquer(lignesEvenements(c)[1]);
+    const zone = detail(c);
+    const codePostal = champ(zone, 'Code postal');
+    await act(async () => {
+      codePostal.focus();
+    });
+    await saisir(codePostal, '7�001');
+
+    await appuyerPointeur(boutonChanger(c));
+    await quitter(codePostal);
+    // Pas de refus tant que le bouton est enfoncé
+    expect(messageDuChamp(zone, codePostal)).toContain('5 chiffres');
+    expect(annonceDuChamp(zone, codePostal)).toBe('');
+    await relacherPointeur(boutonChanger(c));
+
+    expect(messageDuChamp(zone, codePostal)).toContain('caractère illisible');
+    expect(annonceDuChamp(zone, codePostal)).toBe(messageDuChamp(zone, codePostal));
+    expect(codePostal.value).toBe('7�001');
+    expect(codePostal.getAttribute('aria-invalid')).toBe('true');
+    expect(barre(c)).toContain('2 erreurs');
   });
 });
 
@@ -1015,7 +1175,7 @@ describe('FichierOuvert — sortie d’un champ et navigation', () => {
     await saisir(codePostal, '75001');
     expect(barre(c)).toContain('2 erreurs');
 
-    // Comme un clic de souris : le bouton prend le focus (le champ est quitté), puis le clic
+    // Le bouton prend le focus (le champ est quitté, sortie sans pointeur enfoncé), puis le clic
     const autre = lignesEvenements(c)[2];
     await act(async () => {
       autre.focus();

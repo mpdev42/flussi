@@ -50,7 +50,12 @@ const ElementListe = memo(function ElementListe({
         'min-h-8 px-2 py-1 text-sm',
       )}
     >
-      <Icone className="shrink-0" size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Icone
+        className="pointer-events-none shrink-0"
+        size={16}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       {valeurs.map((valeur, colonne) =>
         tronquees[colonne] ? (
           // Colonne modifiable : une seule ligne, sinon la saisie changerait la hauteur de la liste
@@ -63,7 +68,7 @@ const ElementListe = memo(function ElementListe({
           </span>
         ),
       )}
-      <span className="justify-self-end">
+      <span className="pointer-events-none justify-self-end">
         <CountBadge count={compteur} />
       </span>
     </button>

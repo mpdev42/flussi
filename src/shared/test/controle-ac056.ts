@@ -87,3 +87,18 @@ export function sansNumDossier(fichier: FichierAc056, numero: number): FichierAc
   );
   return { ...fichier, lignes };
 }
+
+/**
+ * Fichier dont les champs modifiables des lignes décrites (toutes, ou celles de `numeros`) sont
+ * marqués comme déjà corrigés (`champsModifies`), valeurs inchangées : `saisirChamp` les accepte
+ * alors même sans erreur (décision 2 de l'item 3 de la v0.3.0). Le contrôle juge la valeur lue
+ * (et non plus `origine`) pour ces champs : recalculer l'analyse sur le fichier marqué.
+ */
+export function marquerCorriges(fichier: FichierAc056, numeros?: readonly number[]): FichierAc056 {
+  const lignes = fichier.lignes.map((l) => {
+    if (l.nature !== 'decrite' || (numeros !== undefined && !numeros.includes(l.numero))) return l;
+    const champsModifies = ENTITES[l.code].champs.filter((c) => c.modifiable).map((c) => c.nom);
+    return champsModifies.length === 0 ? l : { ...l, champsModifies };
+  });
+  return { ...fichier, lignes };
+}

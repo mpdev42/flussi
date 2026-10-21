@@ -20,12 +20,15 @@ export type ResolutionCorpus = { dossier: string } | { dossier: null; raison: st
  * fichiers de rejet de OUT, paires `NOM.txt` + `NOM.erreurs.txt` de PIEGES, paires `NOM.txt` +
  * `NOM.modification.txt` de MODIFIES. Un corpus amputé (copie partielle, dossier vidé) fait échouer
  * les tests au lieu de les rendre vides. PIEGES passera à 2 quand le second fichier piégé sera livré.
+ * Pour MODIFIES, le minimum vaut aussi pour les cas comparés par empreinte SHA-256.
  */
 export const MINIMUM_FICHIERS_CORPUS: Readonly<Record<SousDossierCorpus, number>> = Object.freeze({
   IN: 9,
   OUT: 3,
   PIEGES: 1,
-  MODIFIES: 3,
+  // Abaissé à 2 (v0.3.0, item 3) : un cas attend le refus d'un rang sur un chiffre (D1) ; à remonter
+  // à 3 quand un cas ordinaire sera ajouté.
+  MODIFIES: 2,
 });
 
 function estDossier(chemin: string): boolean {

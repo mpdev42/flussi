@@ -170,7 +170,12 @@ describe('choisirEvenement', () => {
     expect(choisirEvenement(contexte, { ...SELECTION, onglet: 'coordonnees' }, 1).onglet).toBe(
       '100',
     );
-    expect(choisirEvenement(contexte, { ...SELECTION, onglet: '120' }, 0).onglet).toBe('120');
+    // Témoin : l'évènement 0 a une 120. La sélection part d'un autre évènement (choisir l'évènement
+    // déjà sélectionné ne change rien, ce qui ne prouverait rien)
+    const depuisLUn = { ...SELECTION, evenement: 1, onglet: '120' as const };
+    const versLeZero = choisirEvenement(contexte, depuisLUn, 0);
+    expect(versLeZero.evenement).toBe(0);
+    expect(versLeZero.onglet).toBe('120');
   });
 
   it('garde le sous-onglet courant du premier bénéficiaire quand rien n’y est en erreur', () => {
@@ -186,6 +191,13 @@ describe('choisirEvenement', () => {
     const { contexte } = avecErreurs();
 
     expect(choisirEvenement(contexte, SELECTION, 99)).toBe(SELECTION);
+  });
+
+  it('ne change rien pour l’évènement déjà sélectionné, même s’il a une erreur dans un autre onglet', () => {
+    const { contexte } = avecErreurs(undefined, [{ evenement: 0, entite: '130' }]);
+    const surLa100 = { ...SELECTION, onglet: '100' as const };
+
+    expect(choisirEvenement(contexte, surLa100, 0)).toBe(surLa100);
   });
 });
 
@@ -256,6 +268,12 @@ describe('choisirBeneficiaire', () => {
     const { contexte } = avecErreurs();
 
     expect(choisirBeneficiaire(contexte, SUR_BENEFICIAIRES, 5)).toBe(SUR_BENEFICIAIRES);
+  });
+
+  it('ne change rien pour le bénéficiaire déjà sélectionné, même s’il a une erreur dans un autre sous-onglet', () => {
+    const { contexte } = avecErreurs(undefined, [{ evenement: 1, beneficiaire: 0, entite: '410' }]);
+
+    expect(choisirBeneficiaire(contexte, SUR_BENEFICIAIRES, 0)).toBe(SUR_BENEFICIAIRES);
   });
 });
 

@@ -90,12 +90,10 @@ function ongletBeneficiaireChoisi(
 }
 
 /**
- * Ouvre l'évènement `evenement` : la première fiche en erreur dans l'ordre des onglets (dans
- * Bénéficiaires : premier bénéficiaire en erreur, premier sous-onglet en erreur, premier élément
- * de liste en erreur) ; sans erreur d'onglet, l'onglet courant s'il existe dans cet évènement,
- * sinon 100.
+ * Applique les règles d'ouverture d'un évènement (voir `choisirEvenement`), même s'il est déjà
+ * l'évènement de `selection` : sert aussi à l'ouverture du fichier.
  */
-export function choisirEvenement(
+function ouvrirEvenement(
   contexte: ContexteNavigation,
   selection: SelectionAc056,
   evenement: number,
@@ -125,9 +123,26 @@ export function choisirEvenement(
   };
 }
 
-/** Sélection à l'ouverture du fichier : le premier évènement, avec les règles de `choisirEvenement`. */
+/**
+ * Ouvre l'évènement `evenement` : la première fiche en erreur dans l'ordre des onglets (dans
+ * Bénéficiaires : premier bénéficiaire en erreur, premier sous-onglet en erreur, premier élément
+ * de liste en erreur) ; sans erreur d'onglet, l'onglet courant s'il existe dans cet évènement,
+ * sinon 100. Un clic sur l'évènement déjà sélectionné ne fait rien : la sélection est rendue
+ * telle quelle (sinon la règle ci-dessus ferait sauter de l'onglet que l'utilisateur a choisi).
+ */
+export function choisirEvenement(
+  contexte: ContexteNavigation,
+  selection: SelectionAc056,
+  evenement: number,
+): SelectionAc056 {
+  return evenement === selection.evenement
+    ? selection
+    : ouvrirEvenement(contexte, selection, evenement);
+}
+
+/** Sélection à l'ouverture du fichier : le premier évènement, avec les règles d'ouverture d'un évènement. */
 export function selectionInitiale(contexte: ContexteNavigation): SelectionAc056 {
-  return choisirEvenement(contexte, SELECTION_PAR_DEFAUT, 0);
+  return ouvrirEvenement(contexte, SELECTION_PAR_DEFAUT, 0);
 }
 
 export function choisirOnglet(
@@ -140,6 +155,7 @@ export function choisirOnglet(
 /**
  * Change de bénéficiaire : le premier sous-onglet en erreur, sinon le sous-onglet courant s'il
  * existe chez ce bénéficiaire, sinon 400 ; listes : premier élément en erreur, sinon le premier.
+ * Un clic sur le bénéficiaire déjà sélectionné ne fait rien (même règle que `choisirEvenement`).
  */
 export function choisirBeneficiaire(
   contexte: ContexteNavigation,
@@ -147,6 +163,7 @@ export function choisirBeneficiaire(
   beneficiaire: number,
 ): SelectionAc056 {
   const { evenement } = selection;
+  if (beneficiaire === selection.beneficiaire) return selection;
   if (!contexte.index.evenements[evenement]?.noeud.beneficiaires[beneficiaire]) return selection;
   const { e485, e490, e700 } = elementsParDefaut(contexte, evenement, beneficiaire);
   return {

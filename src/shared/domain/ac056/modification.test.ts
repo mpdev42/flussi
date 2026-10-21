@@ -12,6 +12,7 @@ import { ecrireAc056 } from './ecrivain';
 import { ENTITES, type CodeEntite } from './entites';
 import { lireAc056 } from './lecteur';
 import type { FichierAc056 } from './modele';
+import { texteDepuisOctets } from './octets';
 import {
   modifierChamp,
   type CodeErreurModification,
@@ -363,12 +364,16 @@ describe('modifierChamp', () => {
         const maximum = champ.maxLength!;
         expect(maximum).toBeLessThanOrEqual(champ.longueur);
         const fichier = fichierDe([ligneSynthetique(code)]);
+        // Un rang n'accepte que des chiffres (précision B3).
+        const caractere = champ.bourrage === '0' ? '1' : 'X';
 
-        const ok = reussir(modifierChamp(fichier, { ligne: 1, champ: nom }, 'X'.repeat(maximum)));
-        expect(sortieDe(ok)).toBe(ligneSynthetique(code, { [nom]: 'X'.repeat(maximum) }));
+        const ok = reussir(
+          modifierChamp(fichier, { ligne: 1, champ: nom }, caractere.repeat(maximum)),
+        );
+        expect(sortieDe(ok)).toBe(ligneSynthetique(code, { [nom]: caractere.repeat(maximum) }));
 
         const erreur = echouer(
-          modifierChamp(fichier, { ligne: 1, champ: nom }, 'X'.repeat(maximum + 1)),
+          modifierChamp(fichier, { ligne: 1, champ: nom }, caractere.repeat(maximum + 1)),
         );
         expect(erreur).toEqual({
           code: 'valeur-trop-longue',
@@ -376,6 +381,97 @@ describe('modifierChamp', () => {
         });
       },
     );
+  });
+
+  describe('valeur trop courte (rangs, décision 1 et précision B3 : chiffres seuls, champ complet)', () => {
+    const RANGS = MODIFIABLES.filter(([, nom]) => nom === 'rang' || nom === 'rangPersonne');
+    const REFUS = { code: 'valeur-trop-courte', message: 'Saisissez 2 chiffres, par exemple 05.' };
+
+    it('concerne exactement les champs modifiables bourrés de zéros : les 9 rangs', () => {
+      const bourresDeZeros = MODIFIABLES.filter(
+        ([code, nom]) => ENTITES[code].champs.find((c) => c.nom === nom)!.bourrage === '0',
+      );
+      expect(bourresDeZeros).toEqual(RANGS);
+      expect(RANGS).toHaveLength(9);
+    });
+
+    it.each(
+      RANGS.flatMap(([code, nom]) =>
+        ['5', '', 'X', 'A5', '5A', '-1', '+5', '1.'].map((v) => [code, nom, v] as const),
+      ),
+    )('%s %s : refuse %j', (code, nom, valeur) => {
+      const erreur = echouer(
+        modifierChamp(fichierDe([ligneSynthetique(code)]), { ligne: 1, champ: nom }, valeur),
+      );
+      expect(erreur).toEqual(REFUS);
+    });
+
+    it.each([' 5', '5 ', 'A5', '5', '', '  '])('400 rang (non trimé) : refuse %j', (valeur) => {
+      const fichier = fichierDe([ligneSynthetique('400')]);
+      expect(echouer(modifierChamp(fichier, { ligne: 1, champ: 'rang' }, valeur))).toEqual(REFUS);
+    });
+
+    it.each([' 5', '5 ', '5\t', 'A5', '5', '', '  ', ' A5 '])(
+      '800 rangPersonne (trimé à la lecture) : refuse %j, relu sur un chiffre ou non numérique',
+      (valeur) => {
+        const fichier = fichierDe([ligneSynthetique('800')]);
+        expect(
+          echouer(modifierChamp(fichier, { ligne: 1, champ: 'rangPersonne' }, valeur)),
+        ).toEqual(REFUS);
+      },
+    );
+
+    it('400 rang (non trimé) : accepte « 05 »', () => {
+      const fichier = fichierDe([ligneSynthetique('400')]);
+      const res = reussir(modifierChamp(fichier, { ligne: 1, champ: 'rang' }, '05'));
+      expect(sortieDe(res)).toBe(ligneSynthetique('400', { rang: '05' }));
+    });
+
+    it.each(['05', ' 05', '05 ', '\t05\t'])(
+      '800 rangPersonne (trimé) : accepte %j, écrit « 05 »',
+      (valeur) => {
+        const fichier = fichierDe([ligneSynthetique('800')]);
+        const res = reussir(modifierChamp(fichier, { ligne: 1, champ: 'rangPersonne' }, valeur));
+        expect(sortieDe(res)).toBe(ligneSynthetique('800', { rangPersonne: '05' }));
+      },
+    );
+
+    it('contrôle la longueur maximale avant la longueur minimale', () => {
+      const fichier = fichierDe([L400]);
+      expect(echouer(modifierChamp(fichier, { ligne: 1, champ: 'rang' }, '123')).code).toBe(
+        'valeur-trop-longue',
+      );
+    });
+
+    it('ne concerne pas un champ alphanumérique : valeur vide acceptée', () => {
+      expect(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, '').ok).toBe(true);
+    });
+  });
+
+  describe('demi-paire de substitution isolée (texte UTF-16 mal formé)', () => {
+    const fichier = fichierDe([L405]);
+
+    it.each([
+      ['demi-paire haute seule', '\uD834'],
+      ['demi-paire haute en fin', 'AB\uD834'],
+      ['demi-paire basse seule', '\uDD1E'],
+      ['demi-paire basse en tête', '\uDD1EAB'],
+      ['paire inversée', '\uDD1E\uD834'],
+    ])('refuse une %s (caractere-illisible)', (_nom, valeur) => {
+      const erreur = echouer(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, valeur));
+      expect(erreur).toEqual({
+        code: 'caractere-illisible',
+        message:
+          'Entité 405 : caractère illisible dans le champ « Nom », à remplacer par le bon caractère.',
+      });
+    });
+
+    it('accepte une paire complète (4 octets UTF-8)', () => {
+      const res = reussir(modifierChamp(fichier, { ligne: 1, champ: 'nom' }, '\uD834\uDD1E'));
+      expect(sortieDe(res)).toBe(
+        ligneSynthetique('405', { nom: '\xF0\x9D\x84\x9E', prenom1: 'TEST' }),
+      );
+    });
   });
 
   describe('les messages ne citent jamais la valeur', () => {
@@ -429,14 +525,43 @@ describe('modifierChamp', () => {
       expect(sortieDe(res)).toBe(ligneSynthetique('405', { prenom1: 'TEST' }));
     });
 
-    it('n applique pas de Trim : les espaces de tête sont écrits tels quels', () => {
-      const res = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, '  X'));
-      expect(sortieDe(res)).toBe(ligneSynthetique('405', { nom: '  X', prenom1: 'TEST' }));
-    });
+    describe('champ trimé à la lecture : valeur rognée, telle qu elle sera relue (précision B2)', () => {
+      const NBSP = String.fromCharCode(0xa0);
+      const valeurNom = (fichier: FichierAc056) => {
+        const ligne = fichier.lignes[0]!;
+        if (ligne.nature !== 'decrite') throw new Error('décrite attendue');
+        return texteDepuisOctets(ligne.valeurs.nom!);
+      };
 
-    it('n applique pas de Trim : les espaces de fin sont conservés dans la longueur', () => {
-      const res = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, 'X  '));
-      expect(sortieDe(res)).toBe(ligneSynthetique('405', { nom: 'X  ', prenom1: 'TEST' }));
+      it.each([
+        ['espaces de tête', '  X', 'X'],
+        ['espaces de fin', 'X  ', 'X'],
+        ['tabulations et contrôles de bord', '\t\x01X\x00 ', 'X'],
+        ['blancs intérieurs conservés', ' DU  PONT ', 'DU  PONT'],
+        ['blancs seuls', '   ', ''],
+        ['U+00A0 conservé (octets C2 A0, au-delà de 0x20)', `${NBSP}X${NBSP}`, `${NBSP}X${NBSP}`],
+      ])('%s', (_cas, saisie, gardee) => {
+        const res = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, saisie));
+        expect(valeurNom(res)).toBe(gardee);
+        const octetsGardes = enChaineBinaire(new TextEncoder().encode(gardee));
+        expect(sortieDe(res)).toBe(ligneSynthetique('405', { nom: octetsGardes, prenom1: 'TEST' }));
+        expect(res.lignes[0]).toMatchObject({ champsModifies: ['nom'] });
+      });
+
+      it('contrôle maxLength sur la valeur rognée : 50 caractères entourés de blancs acceptés', () => {
+        const saisie = ` ${'N'.repeat(50)} `;
+        const res = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, saisie));
+        expect(valeurNom(res)).toBe('N'.repeat(50));
+      });
+
+      it('relit la valeur écrite à l identique : un second enregistrement ne change rien', () => {
+        const res = reussir(
+          modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, ' DUPONT'),
+        );
+        const relu = lireAc056(ecrireAc056(res)).fichier.lignes[0]!;
+        if (relu.nature !== 'decrite') throw new Error('décrite attendue');
+        expect(relu.valeurs.nom).toBe(valeurNom(res));
+      });
     });
 
     it('écrit une valeur de la longueur exacte du champ', () => {
@@ -447,22 +572,27 @@ describe('modifierChamp', () => {
     });
 
     it.each([
-      ['400', 'rang', '1', '10'],
-      ['400', 'rang', '', '00'],
-      ['400', 'rangPersonne', '1', '10'],
-      ['400', 'rangPersonne', '', '00'],
-      ['800', 'rangPersonne', '1', '10'],
-      ['800', 'rangPersonne', '', '00'],
-      ['800', 'rang', '5', '50'],
-    ] as const)(
-      '%s %s « %s » est écrit « %s » (bourrage de zéros à droite)',
-      (code, champ, valeur, attendu) => {
-        const res = reussir(
-          modifierChamp(fichierDe([ligneSynthetique(code)]), { ligne: 1, champ }, valeur),
-        );
-        expect(sortieDe(res)).toBe(ligneSynthetique(code, { [champ]: attendu }));
-      },
-    );
+      ['400', 'rang', '05'],
+      ['400', 'rangPersonne', '05'],
+      ['700', 'rang', '05'],
+      ['800', 'rang', '05'],
+      ['800', 'rangPersonne', '05'],
+      ['800', 'rangPersonne', '00'],
+    ] as const)('%s %s « %s » est écrit tel quel', (code, champ, valeur) => {
+      const res = reussir(
+        modifierChamp(fichierDe([ligneSynthetique(code)]), { ligne: 1, champ }, valeur),
+      );
+      expect(sortieDe(res)).toBe(ligneSynthetique(code, { [champ]: valeur }));
+    });
+
+    it('écrit les octets UTF-8 de la saisie, relus en texte à l identique', () => {
+      for (const valeur of ['MARTIN', 'Éloïse', 'CAFÉ €', '\uD834\uDD1EA', '\uFEFFX', 'X  Y', '']) {
+        const res = reussir(modifierChamp(fichierDe([L405]), { ligne: 1, champ: 'nom' }, valeur));
+        const ligne = res.lignes[0]!;
+        if (ligne.nature !== 'decrite') throw new Error('décrite attendue');
+        expect(texteDepuisOctets(ligne.valeurs.nom!)).toBe(valeur);
+      }
+    });
 
     it('cible la ligne par son numéro d origine malgré une ligne vide supprimée', () => {
       const fichier = fichierDe([L400, '', L405]);
@@ -504,8 +634,10 @@ describe('modifierChamp', () => {
 
     it.each(MODIFIABLES)('%s %s : écrit la valeur au bon endroit', (code, nom) => {
       const fichier = fichierDe([ligneSynthetique(code)]);
-      const res = reussir(modifierChamp(fichier, { ligne: 1, champ: nom }, 'AB'));
-      expect(sortieDe(res)).toBe(ligneSynthetique(code, { [nom]: 'AB' }));
+      const champ = ENTITES[code].champs.find((c) => c.nom === nom)!;
+      const valeur = champ.bourrage === '0' ? '12' : 'AB';
+      const res = reussir(modifierChamp(fichier, { ligne: 1, champ: nom }, valeur));
+      expect(sortieDe(res)).toBe(ligneSynthetique(code, { [nom]: valeur }));
     });
   });
 

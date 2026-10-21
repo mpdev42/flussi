@@ -52,6 +52,30 @@ export interface Stockage {
     chemin: string,
     octets: Uint8Array,
   ): Promise<ResultatStockage<void>>;
+
+  /**
+   * Écriture sûre d'un fichier complet : temporaire dans le même dossier (jamais listé, il ne finit
+   * pas par `.txt`), écriture, `sync`, relecture et comparaison octet par octet, puis renommage
+   * vers la cible. En cas d'échec, le temporaire est supprimé et la cible est intacte.
+   * - `remplacer` : la cible existante est écrasée.
+   * - `creer` : si la cible existe déjà, rien n'est écrit et le résultat est `deja-present`.
+   * Les sous-dossiers intermédiaires sont créés, mais jamais la racine de l'emplacement.
+   */
+  ecrire(
+    emplacement: Emplacement,
+    chemin: string,
+    octets: Uint8Array,
+    mode: ModeEcriture,
+  ): Promise<ResultatStockage<'ecrit' | 'deja-present'>>;
+}
+
+export type ModeEcriture = 'remplacer' | 'creer';
+
+/** Descripteur ouvert en écriture : sous-ensemble de `FileHandle`. */
+export interface FichierOuvert {
+  writeFile(octets: Uint8Array): Promise<void>;
+  sync(): Promise<void>;
+  close(): Promise<void>;
 }
 
 /** Type d'une entrée de dossier (compatible `fs.Dirent` et `fs.Stats`). */
@@ -85,6 +109,10 @@ export interface SystemeFichiers {
   appendFile(chemin: string, octets: Uint8Array): Promise<void>;
   /** Non récursif : un parent manquant donne `ENOENT`, un dossier existant `EEXIST`. */
   mkdir(chemin: string): Promise<void>;
+  /** Création exclusive (`wx`) : un fichier existant donne `EEXIST`. */
+  open(chemin: string, drapeaux: 'wx'): Promise<FichierOuvert>;
+  rename(ancien: string, nouveau: string): Promise<void>;
+  unlink(chemin: string): Promise<void>;
 }
 
 export interface OptionsStockageDisque {

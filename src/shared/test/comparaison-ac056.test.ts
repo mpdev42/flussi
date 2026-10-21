@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { LigneBrute, LigneDecrite } from '@shared/domain/ac056/modele';
 import type { Octets } from '@shared/domain/ac056/octets';
 import { enChaineBinaire, enOctetsBruts, ligneSynthetique } from './ac056-synthetique';
-import { decrireEcartAc056, empreinteSha256, sansCtrlZFinal } from './comparaison-ac056';
+import {
+  decrireEcartAc056,
+  empreinteSha256,
+  sansCtrlZFinal,
+  sansLignesVides,
+} from './comparaison-ac056';
 
 const origine405 = ligneSynthetique('405') as Octets;
 
@@ -89,6 +94,24 @@ describe('decrireEcartAc056', () => {
     expect(decrireEcartAc056('F.txt', { ligne: 1, octet: 2 }, avecBom)).toBe(
       'F.txt : ligne 1, octet 2, entité 405',
     );
+  });
+});
+
+describe('sansLignesVides', () => {
+  const retirer = (chaine: string) => enChaineBinaire(sansLignesVides(enOctetsBruts(chaine)));
+
+  it.each([
+    ['sans ligne vide', 'A\r\nB', 'A\r\nB'],
+    ['une ligne vide au milieu', 'A\r\n\r\nB', 'A\r\nB'],
+    ['des lignes vides en tête', '\r\n\nA\r\nB', 'A\r\nB'],
+    ['une ligne vide finale', 'A\r\nB\r\n\r\n', 'A\r\nB\r\n'],
+    ['avec sa propre fin de ligne', 'A\n\r\nB\r\rC', 'A\nB\rC'],
+    ['LF puis CR : deux fins, la seconde vide', 'A\n\rB', 'A\nB'],
+    ['BOM conservé', '\xEF\xBB\xBF\r\nA\r\n\r\nB', '\xEF\xBB\xBFA\r\nB'],
+    ['seulement des fins de ligne', '\r\n\n\r', ''],
+    ['vide', '', ''],
+  ])('%s', (_cas, entree, attendu) => {
+    expect(retirer(entree)).toBe(attendu);
   });
 });
 

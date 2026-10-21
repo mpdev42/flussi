@@ -26,6 +26,14 @@ _(aucun pour l'instant)_
 - Tracer au journal un échec de la liste `IN`/`OUT` (dossier devenu inaccessible en cours de session) ? Aujourd'hui rien n'est écrit — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
 - Panneau du journal : libellés « Titre, Info, Succès, Erreur » et une icône par niveau, au lieu des majuscules et des deux icônes de la maquette : à confirmer — `src/renderer/src/components/journal-session.tsx` (v0.3.0, item 1)
 - Le service administratif a-t-il des postes tactiles ? Au toucher, la correction d'un champ est appliquée avant le relâchement et un clic de navigation peut être perdu (correctif : écouter aussi `mousedown` et `mouseup`) — `src/renderer/src/pages/ac056/sortie-champ.ts` (v0.3.0, item 2)
+- Frappe en cours à la fermeture (champ jamais quitté) perdue sans confirmation (parité Lazarus) : signaler « modifié » dès la première frappe ? — `src/renderer/src/pages/ac056/champ-ac056.tsx` (v0.3.0, item 3)
+- Saisie refusée au même clic qu'« Enregistrer » : le fichier est enregistré sans elle ; bloquer avec un message ? — `src/renderer/src/hooks/use-fichier-ac056.ts` (v0.3.0, item 3)
+- Zoom clavier (Ctrl+Plus, Ctrl+Moins, Ctrl+0) perdu avec le menu dans l'application installée : garder un menu minimal caché ? — `src/main/index.ts` (v0.3.0, item 3)
+- Le main ne vérifie pas « champ en erreur » à l'enregistrement (conséquence de la décision 2 : un champ corrigé et enregistré reste modifiable) : accepté ? — `src/shared/domain/ac056/enregistrement.ts` (v0.3.0, item 3)
+- Clic sur l'évènement ou le bénéficiaire déjà sélectionné : sans effet (implémenté à l'item 3), au lieu de rouvrir la première fiche en erreur : à valider — `src/renderer/src/pages/ac056/navigation-ac056.ts` (v0.3.0, item 3)
+- Barrière d'erreur de l'écran AC056 : le contenu ne revient qu'au changement de fichier, même après un enregistrement réussi : voulu ? — `src/renderer/src/pages/ac056/barriere-fichier.tsx` (v0.3.0, item 3)
+- 0x1A collé dans une valeur : accepté puis signalé `caractere-interdit` ; Lazarus (solution de repli) tronquerait le fichier à la relecture : refuser à la saisie ? — `src/shared/domain/ac056/modification.ts` (v0.3.0, item 3)
+- `P:` qui ne répond plus pendant un enregistrement : la croix ne réagit pas, sans retour, jusqu'à la fin de l'écriture : acceptable ? — `src/main/fermeture.ts` (v0.3.0, item 3)
 
 ## Points reportés
 
@@ -33,6 +41,10 @@ _(aucun pour l'instant)_
 > Une entrée = l'action, le fichier concerné, l'origine. Le détail reste dans le fichier de
 > version d'origine (`docs/version-{X}.md`, puis `docs/archives/` une fois la version finalisée).
 > Ne pas confondre avec « Items différés » (idées de fonctionnalités écartées par `/backlog-bootstrap`).
+
+### v0.4.0 — IGA
+
+- Fichier retéléchargé sous le même nom après un enregistrement : la copie `IN\Originaux\NOM.txt` (jamais écrasée) n'est plus l'original du nouveau fichier. Avertir, horodater la copie ou la remplacer au téléchargement ? — `src/main/services/ac056/index.ts` (v0.3.0, item 3)
 
 ### v0.5.0 — MSP
 
@@ -72,9 +84,19 @@ _(aucun pour l'instant)_
 - Erreurs : code système perdu pour `erreur-systeme` (journal compris), exception d'analyse sans trace console, exception IPC de `ac056:lister` affichée brute, lecture initiale du journal en direct en échec silencieuse — `src/main/services/ac056/index.ts`, `src/renderer/src/hooks/{use-chargement-stockage,use-journal-session}.ts` (v0.3.0, item 1)
 - Stockage : fichier disparu entre la lecture du dossier et le `stat` gardé dans la liste (l'écarter sur `ENOENT`) ; date hors limites qui lève une `RangeError` (faux système de fichiers seulement) — `src/main/adapters/stockage/disque.ts` (v0.3.0, item 1)
 - Noms réservés Windows (`CON.txt`) listés puis refusés par l'adapter à l'ouverture : les écarter de la liste — `src/main/services/ac056/index.ts` (v0.3.0, item 1)
+- Fermeture juste après « Enregistrer » : verrou main posé dès la confirmation de fermeture (refus « Flussi se ferme »), sinon les lignes du journal d'un enregistrement arrivé pendant « Fin de session » sont perdues — `src/main/fermeture.ts`, `src/main/services/ac056/index.ts` (v0.3.0, item 3)
+- Retour `interrompu` : renvoyer le signal « modifié » au main, `try/finally` autour du verrou d'`enregistrer`, éviter la boucle « Réessayer » sur un rejet zod — `src/renderer/src/hooks/use-fichier-ac056.ts` (v0.3.0, item 3)
+- Messages d'échec d'enregistrement : titre contradictoire avec `fichier-modifie`, consigne « vérifiez le fichier » inapplicable, cause `verrou` sans rejeu, EISDIR/ENOTDIR en « fichier introuvable » — `src/renderer/src/pages/ac056/textes-ac056.ts`, `src/main/services/ac056/index.ts`, `src/main/adapters/stockage/erreurs.ts` (v0.3.0, item 3)
+- `analyseReportee` : vérifier `bom`, `nature` et longueur des lignes, lever `ErreurEcritureAc056('invariant')` — `src/shared/domain/ac056/enregistrement.ts` (v0.3.0, item 3)
+- Rangs : chiffres testés avant la longueur (« é5 »), code `valeur-trop-courte` à renommer — `src/shared/domain/ac056/modification.ts` (v0.3.0, item 3)
+- Écran : focus perdu après « Réessayer » d'un chargement, confirmation générique à compteur 0, ponctuation et espaces insécables des nouveaux textes, `ErreurSaisie` homonyme dans le hook — `src/renderer/src/pages/ac056/`, `src/renderer/src/hooks/use-fichier-ac056.ts` (v0.3.0, item 3)
+- Main : `did-navigate` au lieu de `did-start-navigation`, garde `will-navigate` (fichier déposé sur la fenêtre) — `src/main/index.ts` (v0.3.0, item 3)
+- Déposer dans `MODIFIES` un cas ordinaire (rang sur 2 chiffres), puis remonter `MINIMUM_FICHIERS_CORPUS.MODIFIES` à 3 — `src/shared/test/corpus.ts` (v0.3.0, item 3)
 
 ### Dette technique (sans échéance)
 
+- Enregistrement AC056 : tracer en console `ErreurEcritureAc056.code` et le code d'un refus `correction-refusee` ; `modifierChamp` en O(N·L) près du plafond de 10 000 corrections — `src/main/services/ac056/index.ts`, `src/shared/domain/ac056/enregistrement.ts` (v0.3.0, item 3)
+- Tests de l'enregistrement : test corpus qui régénère chaque ligne de `IN` à la manière de Lazarus (0 ligne différente attendue), `champEnErreur` tautologique, correction sur une ligne CP1252, clé par indice côté DOM, `interrompu` puis `fichier-modifie`, référence du bouton « Réessayer », U+FFFD littéral, faux `setEnabled`, `isEnabled()` après « Annuler », boîte inattendue déléguée à la vraie fonction dans la fixture e2e — `src/shared/domain/ac056/`, `src/renderer/src/`, `src/main/fermeture.test.ts`, `e2e/` (v0.3.0, item 3)
 - Secrets : appeler `abandonnerCle()` au démontage de l'écran Paramètres, sérialiser `preparerCle` avec `enregistrer`, tracer au journal le refus d'une clé trop volumineuse ou illisible — `src/renderer/src/hooks/use-secrets.ts`, `src/main/services/parametres/secrets.ts` (v0.2.0, item 7)
 - Secrets : délai maximal (environ 2 minutes) sur l'attente du Flussi élevé, au lieu d'`INFINITE` — `src/main/adapters/config/api-windows.ts` (v0.2.0, item 7)
 - Regrouper les petites fonctions d'erreur recopiées (`codeErreur`, `messageErreur`, `codeSortieDisque`) — `src/main/adapters/config/{secrets,elevation,ecriture-secrets}.ts` (v0.2.0, item 7)

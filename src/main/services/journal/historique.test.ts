@@ -38,6 +38,7 @@ function creerHistorique(cheminEnCours = '') {
   const stockage: Stockage = {
     verifierAcces: () => Promise.reject(new Error('non utilisé')),
     ajouter: () => Promise.reject(new Error('non utilisé')),
+    ecrire: () => Promise.reject(new Error('non utilisé')),
     lister,
     lire,
   };

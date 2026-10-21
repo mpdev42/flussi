@@ -33,10 +33,16 @@ describe('traduireCodeSysteme', () => {
     expect(erreur.message).toContain('OneDrive');
   });
 
-  it('traduit EBUSY en verrou', () => {
-    const erreur = traduireCodeSysteme('EBUSY', CONTEXTE, LECTEUR);
+  it('traduit EBUSY en verrou, en citant les nouvelles tentatives faites', () => {
+    const erreur = traduireCodeSysteme('EBUSY', CONTEXTE, LECTEUR, 3);
     expect(erreur).toMatchObject({ code: 'verrou', chemin: CONTEXTE.chemin });
     expect(erreur.message).toContain('3 nouvelles tentatives');
+  });
+
+  it('traduit EBUSY sans citer de nouvelles tentatives quand il n’y en a pas eu', () => {
+    const erreur = traduireCodeSysteme('EBUSY', CONTEXTE, LECTEUR);
+    expect(erreur).toMatchObject({ code: 'verrou', chemin: CONTEXTE.chemin });
+    expect(erreur.message).not.toContain('tentatives');
   });
 
   it('traduit ENOTDIR en introuvable', () => {

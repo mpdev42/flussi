@@ -11,7 +11,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-/** Tons des badges de statut (DESIGN.md §2.4, §2.5, §9.4). Autonome : ne dépend pas de ./badge. */
+/**
+ * Tons des badges de statut (DESIGN.md §2.4, §2.5, §9.4). Autonome : ne dépend pas de ./badge.
+ * Les icônes sont en `pointer-events-none` : le survol atteint la racine du badge, qui garde son
+ * infobulle (`title` de ToneBadge).
+ */
 const statusBadge = cva(
   'inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 align-middle font-sans text-xs font-medium',
   {
@@ -80,7 +84,12 @@ export function StatusBadge({ status, label, solid }: StatusBadgeProps) {
   const { tone, label: defaultLabel, Icon } = STATUS[status];
   return (
     <span className={statusBadge({ tone, solid })}>
-      <Icon className="shrink-0" size={14} strokeWidth={1.75} aria-hidden="true" />
+      <Icon
+        className="pointer-events-none shrink-0"
+        size={14}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       {label ?? defaultLabel}
     </span>
   );
@@ -103,7 +112,12 @@ export interface ToneBadgeProps {
 export function ToneBadge({ tone, icon: Icon, children, title }: ToneBadgeProps) {
   return (
     <span className={statusBadge({ tone })} title={title}>
-      <Icon className="shrink-0" size={14} strokeWidth={1.75} aria-hidden="true" />
+      <Icon
+        className="pointer-events-none shrink-0"
+        size={14}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       {children}
     </span>
   );
@@ -113,14 +127,19 @@ export function ToneBadge({ tone, icon: Icon, children, title }: ToneBadgeProps)
 export function EnvironmentBadge() {
   return (
     <span className={statusBadge({ tone: 'testenv' })}>
-      <FlaskConical className="shrink-0" size={14} strokeWidth={1.75} aria-hidden="true" />
+      <FlaskConical
+        className="pointer-events-none shrink-0"
+        size={14}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       Recette
     </span>
   );
 }
 
 const countBadge = cva(
-  'inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums',
+  'pointer-events-none inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums',
   {
     variants: {
       tone: {
@@ -142,7 +161,13 @@ export interface CountBadgeProps {
   max?: number;
 }
 
-/** Nombre d'erreurs des onglets et nœuds d'arbre. Rien n'est rendu quand le nombre vaut 0. */
+/**
+ * Nombre d'erreurs des onglets et nœuds d'arbre. Rien n'est rendu quand le nombre vaut 0.
+ *
+ * Transparent au pointeur (`pointer-events-none`, hérité par son contenu) : rendu dans des boutons
+ * et des lignes cliquables, il peut disparaître entre `pointerup` et `click` (correction appliquée
+ * au relâchement) ; s'il était la cible du pointeur, le navigateur n'enverrait pas le clic.
+ */
 export function CountBadge({
   count,
   noun = ['erreur', 'erreurs'],

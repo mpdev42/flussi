@@ -4,6 +4,7 @@ import type {
   DossierTravail,
   DemandeEnregistrementSecrets,
   EmplacementAc056,
+  EnregistrementAc056,
   EtatJournal,
   EtatSecrets,
   LigneJournal,
@@ -16,6 +17,7 @@ import type {
   ResultatStockage,
   SessionJournal,
 } from '@shared/types';
+import type { DemandeEnregistrementAc056 } from '@shared/schemas/ac056';
 
 const api = {
   ping: (): Promise<string> => ipcRenderer.invoke('app:ping'),
@@ -40,6 +42,12 @@ const api = {
     /** Un emplacement logique et un nom de fichier : jamais un chemin. */
     ouvrir: (fichier: { emplacement: EmplacementAc056; nom: string }): Promise<OuvertureAc056> =>
       ipcRenderer.invoke('ac056:ouvrir', fichier),
+    /** Corrections saisies : le main relit, applique, vérifie puis écrit le fichier. */
+    enregistrer: (demande: DemandeEnregistrementAc056): Promise<EnregistrementAc056> =>
+      ipcRenderer.invoke('ac056:enregistrer', demande),
+    /** Fichier aux corrections non enregistrées (`null` : aucun), pour la confirmation à la fermeture. */
+    signalerModifications: (fichier: { emplacement: EmplacementAc056; nom: string } | null): void =>
+      ipcRenderer.send('ac056:modifications', { fichier }),
   },
   journal: {
     annees: (): Promise<ResultatStockage<string[]>> => ipcRenderer.invoke('journal:annees'),
