@@ -2,13 +2,13 @@
 // seule), écriture, modification d'un champ et contrôle, index des lignes, compteurs d'erreurs,
 // saisie d'un champ à l'écran, texte affiché et préparation de l'enregistrement.
 export * from './entites';
-export { entreeListe, texteEntree, valeurAffichee } from './affichage';
+export { entreeListe, texteEntree, texteValeur, valeurAffichee } from './affichage';
 export type { EtatValeurAffichee, ValeurAffichee } from './affichage';
 export { analyserAc056, bilanAnalyse } from './analyse';
 export type { AnalyseAc056 } from './analyse';
 export { CODES_REJET, MESSAGE_REJET_INCONNU, REJETS, identifierRejet } from './codes-rejet';
 export type { CodeRejet, DescriptionRejet, ModeRecherche, RechercheRejet } from './codes-rejet';
-export { compterAnomalies, compterParLigne } from './compteurs';
+export { compterAnomalies, compterLignesRejetees, compterParLigne } from './compteurs';
 export type {
   CodeEntiteBeneficiaire,
   CodeEntiteEvenement,

@@ -17,6 +17,7 @@ import type { ErreurSaisie } from '@/hooks/use-fichier-ac056';
 import type { ActionsNavigationAc056 } from '@/hooks/use-navigation-ac056';
 import { pluralize } from '@/lib/pluralize';
 
+import { EncadreRejet } from './encadre-rejet';
 import { FicheEntite } from './fiche-entite';
 import { ListeElements } from './liste-elements';
 import { ficheCourante, type SelectionAc056 } from './navigation-ac056';
@@ -33,7 +34,12 @@ import {
   type DefListe,
 } from './organisation-ecran';
 import { texteAnomalie } from './presentation-champ';
-import { nomComplet, resumeBeneficiaire, resumeEvenement } from './resumes-ac056';
+import { libelleBeneficiaire, resumeBeneficiaire, resumeEvenement } from './resumes-ac056';
+import {
+  LIBELLE_BENEFICIAIRE_ABSENT,
+  MENTION_ENTITE_ABSENTE_REJET,
+  TITRE_ENTITE_ABSENTE_REJET,
+} from './textes-ac056';
 
 const AUCUNE_ANOMALIE: readonly AnomalieAc056[] = [];
 
@@ -59,22 +65,27 @@ export interface ColonneDetailProps {
   analyse: AnalyseAc056;
   index: IndexLignesAc056;
   compteurs: CompteursAc056;
+  /** Nom accessible des compteurs : « erreur » pour un fichier VEOS, « ligne rejetée » pour un rejet. */
+  noun: [string, string];
   selection: SelectionAc056;
-  /** Anomalies bloquantes par numéro de ligne d'origine. */
+  /** Anomalies bloquantes par numéro de ligne d'origine (vide pour un rejet : elles sont masquées). */
   anomaliesParLigne: ReadonlyMap<number, readonly AnomalieAc056[]>;
   actions: ActionsNavigationAc056;
   onSaisir: (cible: CibleChamp, texte: string) => ErreurSaisie | null;
 }
 
 /**
- * Colonne centrale : fil d'Ariane, erreurs de la 990, onglets de l'évènement puis du bénéficiaire
- * (compteurs d'erreurs), et dans le panneau la liste des éléments (onglets à liste) et la fiche de
- * l'entité (champs en erreur modifiables, sauf anomalie de structure du fichier).
+ * Colonne centrale : fil d'Ariane, erreurs de la 990 (fichier VEOS) ou message de MSP de la 990
+ * (rejet), onglets de l'évènement puis du bénéficiaire (compteurs d'erreurs ou de lignes rejetées),
+ * et dans le panneau la liste des éléments (onglets à liste) et la fiche de l'entité (champs en
+ * erreur modifiables d'un fichier VEOS, sauf anomalie de structure ; tout en lecture seule pour un
+ * rejet).
  */
 export function ColonneDetail({
   analyse,
   index,
   compteurs,
+  noun,
   selection,
   anomaliesParLigne,
   actions,
@@ -83,6 +94,7 @@ export function ColonneDetail({
   const idPanneau = useId();
   const idPanneauBeneficiaire = useId();
   const { fichier } = analyse;
+  const rejet = fichier.provenance === 'rejet';
   const { evenement, onglet, beneficiaire: positionBeneficiaire, ongletBeneficiaire } = selection;
   const noeud = index.evenements[evenement]?.noeud;
   const beneficiaire = noeud?.beneficiaires[positionBeneficiaire];
@@ -124,6 +136,7 @@ export function ColonneDetail({
 
   const ligne990 = noeud.e990 === null ? undefined : fichier.lignes[noeud.e990];
   const erreurs990 = ligne990 ? (anomaliesParLigne.get(ligne990.numero) ?? AUCUNE_ANOMALIE) : [];
+  const rejet990 = ligne990?.rejet;
 
   const defOnglet = surBeneficiaires
     ? definitionOngletBeneficiaire(ongletBeneficiaire)
@@ -140,6 +153,7 @@ export function ColonneDetail({
           fichier={fichier}
           indices={indicesListe(noeud, beneficiaire, liste.cle)}
           compteurs={compteursListe(compteurs, evenement, positionBeneficiaire, liste.cle)}
+          noun={noun}
           selection={selection.elements[liste.cle]}
           onChoisir={actions.choisirElement}
         />
@@ -149,8 +163,9 @@ export function ColonneDetail({
           code={fiche.code}
           ligne={ligneFiche}
           indice={fiche.indice}
+          provenance={fichier.provenance}
           anomalies={anomaliesParLigne.get(ligneFiche.numero) ?? AUCUNE_ANOMALIE}
-          fichierModifiable={analyse.structure === 0}
+          fichierModifiable={!rejet && analyse.structure === 0}
           onSaisir={onSaisir}
         />
       )}
@@ -178,13 +193,31 @@ export function ColonneDetail({
           {resumeDuBeneficiaire && (
             <span
               className="min-w-0 truncate"
-              title={`Bénéficiaire ${resumeDuBeneficiaire.lien} ${nomComplet(resumeDuBeneficiaire)}`}
+              title={
+                resumeDuBeneficiaire.implicite
+                  ? LIBELLE_BENEFICIAIRE_ABSENT
+                  : `Bénéficiaire ${resumeDuBeneficiaire.lien} ${libelleBeneficiaire(resumeDuBeneficiaire)}`
+              }
             >
-              Bénéficiaire <Valeur>{resumeDuBeneficiaire.lien}</Valeur>{' '}
-              <Valeur>{nomComplet(resumeDuBeneficiaire)}</Valeur>
+              {resumeDuBeneficiaire.implicite ? (
+                LIBELLE_BENEFICIAIRE_ABSENT
+              ) : (
+                <>
+                  Bénéficiaire <Valeur>{resumeDuBeneficiaire.lien}</Valeur>{' '}
+                  <Valeur>{libelleBeneficiaire(resumeDuBeneficiaire)}</Valeur>
+                </>
+              )}
             </span>
           )}
         </p>
+        {rejet990 && ligne990 && (
+          <EncadreRejet
+            rejet={rejet990}
+            niveau="h2"
+            sujet={`Ligne ${ligne990.numero} (990) de l’évènement`}
+            className="mb-3"
+          />
+        )}
         {erreurs990.length > 0 && (
           <Alert variant="error" role="note" className="mb-3">
             <CircleAlert className="size-4" aria-hidden="true" />
@@ -207,6 +240,9 @@ export function ColonneDetail({
           onglets={onglets}
           actif={onglet}
           onChange={(id) => actions.choisirOnglet(id as typeof onglet)}
+          noun={noun}
+          titreDesactive={rejet ? TITRE_ENTITE_ABSENTE_REJET : undefined}
+          mentionDesactive={rejet ? MENTION_ENTITE_ABSENTE_REJET : undefined}
           // Filet sous les onglets (ils le recouvrent de leur soulignement) : celui du conteneur
           // quand cette barre est la dernière, le sien quand la barre du bénéficiaire suit
           className={surBeneficiaires ? 'border-b border-border' : undefined}
@@ -218,7 +254,11 @@ export function ColonneDetail({
             onglets={ongletsBeneficiaire}
             actif={ongletBeneficiaire}
             onChange={(id) => actions.choisirOngletBeneficiaire(id as typeof ongletBeneficiaire)}
-            titreDesactive="Entité absente de ce bénéficiaire"
+            noun={noun}
+            titreDesactive={
+              rejet ? TITRE_ENTITE_ABSENTE_REJET : 'Entité absente de ce bénéficiaire'
+            }
+            mentionDesactive={rejet ? MENTION_ENTITE_ABSENTE_REJET : undefined}
             className="pt-1"
           />
         )}

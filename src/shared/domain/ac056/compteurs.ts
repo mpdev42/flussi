@@ -5,7 +5,7 @@
 // Tableaux indexés par position (évènement de `IndexLignesAc056.evenements`, bénéficiaire de
 // `noeud.beneficiaires`, rang dans la liste) : simples, rapides, clonables.
 import type { IndexLignesAc056 } from './index-lignes';
-import type { AnomalieAc056 } from './modele';
+import type { AnomalieAc056, FichierAc056 } from './modele';
 
 /** Entités comptées au niveau de l'évènement (onglets et encadré de la 990). */
 export type CodeEntiteEvenement =
@@ -152,5 +152,19 @@ export function compterAnomalies(
 ): CompteursAc056 {
   const numeros: (number | null)[] = [];
   for (const anomalie of anomalies) if (anomalie.bloquante) numeros.push(anomalie.ligne);
+  return compterParLigne(index, numeros);
+}
+
+/**
+ * Compteurs des lignes rejetées d'un fichier de rejet MSP : une par ligne qui porte un message
+ * (`rejet`). Une 995 ou une 001 rejetée compte hors évènement ; une 700 sous un bénéficiaire
+ * implicite compte dans ce bénéficiaire. Fichier VEOS : tout à 0 (aucune ligne ne porte `rejet`).
+ */
+export function compterLignesRejetees(
+  index: IndexLignesAc056,
+  fichier: FichierAc056,
+): CompteursAc056 {
+  const numeros: number[] = [];
+  for (const ligne of fichier.lignes) if (ligne.rejet !== undefined) numeros.push(ligne.numero);
   return compterParLigne(index, numeros);
 }

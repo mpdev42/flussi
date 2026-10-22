@@ -1,5 +1,5 @@
 import { memo, useId, useState } from 'react';
-import { CircleAlert, FileText, User } from 'lucide-react';
+import { CircleAlert, FileText, User, UserX } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { CountBadge } from '@/components/ui/status-badge';
@@ -7,8 +7,13 @@ import { pluralize } from '@/lib/pluralize';
 import { cn } from '@/lib/utils';
 
 import { TAILLE_TRANCHE } from './format-ac056';
-import { nomComplet, type ResumeBeneficiaire, type ResumeEvenement } from './resumes-ac056';
+import {
+  libelleBeneficiaire,
+  type ResumeBeneficiaire,
+  type ResumeEvenement,
+} from './resumes-ac056';
 import { LIGNE_SELECTIONNABLE, etatLigne } from './styles-navigation';
+import { LIBELLE_BENEFICIAIRE_ABSENT } from './textes-ac056';
 
 /** Icône, N° dossier, N° évènement, N° contrat (passe à la ligne), code évènement, compteur. */
 const GRILLE_EVENEMENT =
@@ -24,6 +29,7 @@ interface LigneEvenementProps {
   position: number;
   resume: ResumeEvenement;
   compteur: number;
+  noun: [string, string];
   selectionne: boolean;
   onChoisir: (position: number) => void;
 }
@@ -33,6 +39,7 @@ const LigneEvenement = memo(function LigneEvenement({
   position,
   resume,
   compteur,
+  noun,
   selectionne,
   onChoisir,
 }: LigneEvenementProps) {
@@ -73,7 +80,7 @@ const LigneEvenement = memo(function LigneEvenement({
         {resume.codeEvt}
       </span>
       <span className="pointer-events-none justify-self-end">
-        <CountBadge count={compteur} />
+        <CountBadge count={compteur} noun={noun} />
       </span>
     </button>
   );
@@ -83,6 +90,7 @@ interface LigneBeneficiaireProps {
   position: number;
   resume: ResumeBeneficiaire;
   compteur: number;
+  noun: [string, string];
   selectionne: boolean;
   onChoisir: (position: number) => void;
 }
@@ -91,9 +99,38 @@ const LigneBeneficiaire = memo(function LigneBeneficiaire({
   position,
   resume,
   compteur,
+  noun,
   selectionne,
   onChoisir,
 }: LigneBeneficiaireProps) {
+  if (resume.implicite) {
+    // Bénéficiaire implicite d'un rejet : atténué même avec des lignes rejetées (le compteur, lui,
+    // reste rouge), sélectionnable pour atteindre ses garanties
+    return (
+      <button
+        type="button"
+        aria-current={selectionne || undefined}
+        onClick={() => onChoisir(position)}
+        className={cn(
+          LIGNE_SELECTIONNABLE,
+          etatLigne(selectionne, false),
+          GRILLE_BENEFICIAIRE,
+          'min-h-8 py-1 text-sm text-neutral-600',
+        )}
+      >
+        <UserX
+          className="pointer-events-none shrink-0"
+          size={16}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+        <span className="col-span-3 min-w-0 truncate">{LIBELLE_BENEFICIAIRE_ABSENT}</span>
+        <span className="pointer-events-none justify-self-end">
+          <CountBadge count={compteur} noun={noun} />
+        </span>
+      </button>
+    );
+  }
   const enErreur = compteur > 0;
   const Icone = enErreur ? CircleAlert : User;
   return (
@@ -117,11 +154,11 @@ const LigneBeneficiaire = memo(function LigneBeneficiaire({
       <span className="font-mono text-data">{resume.lien}</span>
       <span className="font-mono text-data tabular-nums">{resume.rang}</span>
       {/* Une seule ligne, tronquée : le nom est modifiable, sa longueur ne doit pas changer la hauteur de la liste */}
-      <span className="min-w-0 truncate" title={nomComplet(resume)}>
-        {nomComplet(resume)}
+      <span className="min-w-0 truncate" title={libelleBeneficiaire(resume)}>
+        {libelleBeneficiaire(resume)}
       </span>
       <span className="pointer-events-none justify-self-end">
-        <CountBadge count={compteur} />
+        <CountBadge count={compteur} noun={noun} />
       </span>
     </button>
   );
@@ -130,14 +167,16 @@ const LigneBeneficiaire = memo(function LigneBeneficiaire({
 export interface ColonneEvenementsProps {
   /** Un résumé par évènement, dans l'ordre du fichier. */
   evenements: readonly ResumeEvenement[];
-  /** Erreurs bloquantes de chaque évènement (`CompteursAc056.parEvenement`). */
+  /** Erreurs bloquantes (ou lignes rejetées) de chaque évènement (`CompteursAc056.parEvenement`). */
   compteurs: readonly number[];
+  /** Nom accessible des compteurs : « erreur » pour un fichier VEOS, « ligne rejetée » pour un rejet. */
+  noun: [string, string];
   selection: number;
   onChoisir: (evenement: number) => void;
   /** Bénéficiaires de l'évènement sélectionné, sous sa ligne ; null : liste masquée. */
   beneficiaires: {
     resumes: readonly ResumeBeneficiaire[];
-    /** Erreurs bloquantes de chaque bénéficiaire. */
+    /** Erreurs bloquantes (ou lignes rejetées) de chaque bénéficiaire. */
     compteurs: readonly number[];
     selection: number;
     onChoisir: (beneficiaire: number) => void;
@@ -152,6 +191,7 @@ export interface ColonneEvenementsProps {
 export function ColonneEvenements({
   evenements,
   compteurs,
+  noun,
   selection,
   onChoisir,
   beneficiaires,
@@ -197,10 +237,13 @@ export function ColonneEvenements({
                 position={position}
                 resume={resume}
                 compteur={compteurs[position] ?? 0}
+                noun={noun}
                 selectionne={position === selection}
                 onChoisir={onChoisir}
               />
-              {position === selection && beneficiaires && <ListeBeneficiaires {...beneficiaires} />}
+              {position === selection && beneficiaires && (
+                <ListeBeneficiaires {...beneficiaires} noun={noun} />
+              )}
             </li>
           ))}
         </ul>
@@ -227,9 +270,10 @@ export function ColonneEvenements({
 function ListeBeneficiaires({
   resumes,
   compteurs,
+  noun,
   selection,
   onChoisir,
-}: NonNullable<ColonneEvenementsProps['beneficiaires']>) {
+}: NonNullable<ColonneEvenementsProps['beneficiaires']> & Pick<ColonneEvenementsProps, 'noun'>) {
   const titreId = useId();
   return (
     <div className="pb-2 pl-4 pt-1">
@@ -253,6 +297,7 @@ function ListeBeneficiaires({
               position={position}
               resume={resume}
               compteur={compteurs[position] ?? 0}
+              noun={noun}
               selectionne={position === selection}
               onChoisir={onChoisir}
             />

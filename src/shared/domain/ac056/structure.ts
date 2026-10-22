@@ -17,6 +17,10 @@
 //   occurrence est un doublon (la hiérarchie garde la dernière).
 // - 001 : place non contrôlée (MSP la place après la 995), absence normale, doublon signalé dans le
 //   dossier ; elle ne ferme et n'ouvre rien.
+// - 700 sans bénéficiaire dans un évènement ouvert : elle ouvre le bénéficiaire implicite (comme
+//   `construireHierarchie`, parité `AjouterEntite700`, `uac056.pas:736-757`), sans anomalie. Une
+//   405, 410, 411, 485, 490 ou 800 placée avant toute 400 ou 700 de l'évènement reste mal placée
+//   (Lazarus la perd).
 import {
   LONGUEUR_CODE_ENTITE,
   LONGUEUR_LIGNE,
@@ -305,7 +309,10 @@ export function controlerStructure(
       return;
     }
 
-    if (!estOuvert(parent)) malPlacee(detailParent);
+    if (!estOuvert(parent)) {
+      if (rejet && code === '700' && estOuvert('evenement')) benef = { uniques: new Map() };
+      else malPlacee(detailParent);
+    }
 
     if (role === 'ouvre') {
       if (parent === 'dossier') {

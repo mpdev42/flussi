@@ -1,5 +1,11 @@
 import { useRef, useState, type ChangeEvent, type FocusEvent } from 'react';
-import type { AnomalieAc056, CibleChamp, DescriptionChamp, Octets } from '@shared/domain/ac056';
+import type {
+  AnomalieAc056,
+  CibleChamp,
+  DescriptionChamp,
+  Octets,
+  Provenance,
+} from '@shared/domain/ac056';
 
 import { Field } from '@/components/ui/field';
 import { TextInput } from '@/components/ui/text-input';
@@ -21,6 +27,8 @@ export interface ChampAc056Props {
   ligne: number;
   /** Valeur de la ligne, en octets. */
   valeur: Octets;
+  /** Provenance du fichier : fixe le décodage de la valeur (UTF-8 ou Windows-1252). */
+  provenance: Provenance;
   /** Anomalies bloquantes de ce champ (celles de la ligne dont `champ` est le nom du champ). */
   anomalies: readonly AnomalieAc056[];
   /** Champ déjà corrigé pendant la session : il reste modifiable (décision 3). */
@@ -43,13 +51,14 @@ export function ChampAc056({
   champ,
   ligne,
   valeur,
+  provenance,
   anomalies,
   corrige,
   fichierModifiable,
   onSaisir,
 }: ChampAc056Props) {
   const { mono, largeurCaracteres } = presentationChamp(champ);
-  const affiche = texteChampAffiche(champ, valeur);
+  const affiche = texteChampAffiche(champ, valeur, provenance);
   const modifiable = champModifiable(champ, anomalies, corrige, fichierModifiable);
 
   const [texte, setTexte] = useState(affiche);

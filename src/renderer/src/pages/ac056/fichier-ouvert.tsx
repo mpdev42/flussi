@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type {
   AnalyseAc056,
+  AnomalieAc056,
   CibleChamp,
   CompteursAc056,
   IndexLignesAc056,
@@ -14,10 +15,20 @@ import { ColonneEvenements } from './colonne-evenements';
 import { anomaliesBloquantesParLigne } from './presentation-champ';
 import { resumeBeneficiaire, resumeEvenement } from './resumes-ac056';
 
+/** Mot du compteur d'un fichier VEOS (nom accessible du `CountBadge`, singulier puis pluriel). */
+const MOTS_ERREUR: [string, string] = ['erreur', 'erreurs'];
+/** Mot du compteur d'un fichier de rejet. */
+const MOTS_LIGNE_REJETEE: [string, string] = ['ligne rejetée', 'lignes rejetées'];
+/** Pas d'anomalie par ligne pour un rejet : ses anomalies de structure sont masquées (item 1). */
+const AUCUNE_ANOMALIE_PAR_LIGNE: ReadonlyMap<number, readonly AnomalieAc056[]> = new Map();
+
 export interface FichierOuvertProps {
   analyse: AnalyseAc056;
   index: IndexLignesAc056;
-  /** Compteurs d'erreurs de l'analyse, calculés une fois par l'écran. */
+  /**
+   * Compteurs de l'analyse, calculés une fois par l'écran : erreurs bloquantes d'un fichier VEOS,
+   * lignes rejetées d'un rejet.
+   */
   compteurs: CompteursAc056;
   /** Applique la saisie d'un champ à la sortie du champ (voir `useFichierAc056`). */
   onSaisir: (cible: CibleChamp, texte: string, index: IndexLignesAc056) => ErreurSaisie | null;
@@ -29,10 +40,12 @@ export interface FichierOuvertProps {
 }
 
 /**
- * Contenu d'un fichier VEOS ouvert : colonne des évènements à gauche, détail de l'évènement à
- * droite (onglets, liste, fiche dont les champs en erreur se corrigent). Chaque colonne défile seule ; la barre du fichier
- * et les alertes, au-dessus, restent en place. Monté avec le fichier : la sélection repart du
- * premier évènement pour chaque fichier ouvert.
+ * Contenu d'un fichier ouvert, VEOS ou rejet : colonne des évènements à gauche, détail de
+ * l'évènement à droite (onglets, liste, fiche). Dans un fichier VEOS, les champs en erreur se
+ * corrigent ; un rejet est en lecture seule, ses compteurs comptent les lignes rejetées et chaque
+ * ligne rejetée montre le message de MSP. Chaque colonne défile seule ; la barre du fichier et les
+ * alertes, au-dessus, restent en place. Monté avec le fichier : la sélection repart du premier
+ * évènement pour chaque fichier ouvert.
  */
 export function FichierOuvert({
   analyse,
@@ -42,10 +55,12 @@ export function FichierOuvert({
   inactif = false,
 }: FichierOuvertProps) {
   const { fichier } = analyse;
+  const rejet = fichier.provenance === 'rejet';
+  const noun = rejet ? MOTS_LIGNE_REJETEE : MOTS_ERREUR;
   const { selection, actions } = useNavigationAc056(index, compteurs);
   const anomaliesParLigne = useMemo(
-    () => anomaliesBloquantesParLigne(analyse.anomalies),
-    [analyse.anomalies],
+    () => (rejet ? AUCUNE_ANOMALIE_PAR_LIGNE : anomaliesBloquantesParLigne(analyse.anomalies)),
+    [rejet, analyse.anomalies],
   );
   // Les résumés des évènements ne lisent que des champs non modifiables de la 100 : calculés sur le
   // fichier tel qu'ouvert, une fois, pour que les lignes ne se re-rendent pas à chaque saisie.
@@ -87,6 +102,7 @@ export function FichierOuvert({
       <ColonneEvenements
         evenements={resumes}
         compteurs={compteurs.parEvenement}
+        noun={noun}
         selection={selection.evenement}
         onChoisir={actions.choisirEvenement}
         beneficiaires={
@@ -104,6 +120,7 @@ export function FichierOuvert({
         analyse={analyse}
         index={index}
         compteurs={compteurs}
+        noun={noun}
         selection={selection}
         anomaliesParLigne={anomaliesParLigne}
         actions={actions}

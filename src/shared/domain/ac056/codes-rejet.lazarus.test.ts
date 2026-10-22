@@ -2,11 +2,20 @@
 // - `urejetsdescription.pas` : les appels `ajouter_rejet_description(...)` de
 //   `charger_rejets_description` (code, recherches et modes) ;
 // - `Rejets - Explications.txt` : l'algorithme de `ajouter_rejet_explication` (la ligne qui suit
-//   `[ERRxxx]` est sautée, les suivantes forment l'explication).
+//   `[ERRxxx]` est sautée, les suivantes forment l'explication). Divergence 12 : ces textes ne sont
+//   que des « Aide ERRxxx » provisoires, non repris ; les explications de Flussi sont rédigées et
+//   validées par l'utilisateur (`docs/bilan-rejets-2026.md`), figées à l'identique par
+//   `codes-rejet.test.ts`.
+// La parité porte sur les 27 premiers codes ; `ERR028` et suivants sont propres à Flussi (écart 4
+// de la v0.3.0), placés après ceux de Lazarus.
 // Ces fichiers ne contiennent que des textes de référence, aucune donnée personnelle.
 import { describe, expect, it } from 'vitest';
 import { lireSourceLazarus, valeurLitteral } from '@shared/test/source-lazarus';
 import { REJETS, type ModeRecherche, type RechercheRejet } from './codes-rejet';
+
+/** Codes repris de Lazarus (les 27 premiers), puis codes propres à Flussi. */
+const REJETS_LAZARUS = REJETS.slice(0, 27);
+const REJETS_FLUSSI = REJETS.slice(27);
 
 const MODES: Readonly<Record<string, ModeRecherche | null>> = {
   REJET_START: 'debut',
@@ -112,14 +121,21 @@ describe('Parseur des sources Lazarus des rejets', () => {
 });
 
 describe('Parité de la table REJETS avec urejetsdescription.pas', () => {
-  it('contient les mêmes codes, dans le même ordre', () => {
-    expect(REJETS.map((d) => d.code)).toEqual(appels.map((appel) => appel.code));
+  it('contient les mêmes codes, dans le même ordre, en tête de table', () => {
+    expect(REJETS_LAZARUS.map((d) => d.code)).toEqual(appels.map((appel) => appel.code));
+  });
+
+  it('ajoute les codes propres à Flussi après, à partir d ERR028 et sans trou (écart 4)', () => {
+    expect(REJETS_FLUSSI.length).toBeGreaterThan(0);
+    expect(REJETS_FLUSSI.map((d) => d.code)).toEqual(
+      REJETS_FLUSSI.map((_, i) => `ERR${String(28 + i).padStart(3, '0')}`),
+    );
   });
 
   it('contient les mêmes recherches et les mêmes modes, mot pour mot', () => {
     const ecarts: string[] = [];
     appels.forEach((appel, i) => {
-      const obtenu = REJETS[i]!;
+      const obtenu = REJETS_LAZARUS[i]!;
       const attendu = appel.recherches.filter((r): r is RechercheRejet => r !== null);
       if (obtenu.code !== appel.code) {
         ecarts.push(`rang ${i + 1} : code attendu ${appel.code}, obtenu ${obtenu.code}`);
@@ -155,16 +171,13 @@ describe('Parité de la table REJETS avec urejetsdescription.pas', () => {
   });
 });
 
-describe('Parité des explications avec Rejets - Explications.txt', () => {
-  it('reprend les lignes d’explication de chaque code, jointes par un saut de ligne', () => {
+describe('Explications : divergence 12 avec Rejets - Explications.txt', () => {
+  it('constate que Lazarus n a que des textes provisoires « Aide ERRxxx »', () => {
     const ecarts: string[] = [];
-    for (const description of REJETS) {
-      const attendu = (explicationsLazarus.get(description.code) ?? []).join('\n');
-      if (description.explication !== attendu) {
-        ecarts.push(
-          `${description.code} : explication attendue « ${attendu} », obtenue « ${description.explication} »`,
-        );
-      }
+    for (const [code, lignes] of explicationsLazarus) {
+      const texte = lignes.join('\n');
+      if (texte !== `Aide ${code}`)
+        ecarts.push(`${code} : « ${texte} » au lieu de « Aide ${code} »`);
     }
     expect(ecarts).toEqual([]);
   });

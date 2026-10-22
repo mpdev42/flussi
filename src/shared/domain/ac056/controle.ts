@@ -447,7 +447,9 @@ export function controlerAc056(fichier: FichierAc056): AnomalieAc056[] {
       for (const e125 of evenement.e125) controlerRegles(e125, '');
 
       for (const beneficiaire of evenement.beneficiaires) {
-        const typeAssure = valeursDe(lignes[beneficiaire.e400])?.typeAssure ?? '';
+        // Bénéficiaire implicite (e400 null) : propre aux rejets, jamais contrôlés (garde de typage).
+        const e400 = beneficiaire.e400;
+        const typeAssure = e400 === null ? '' : (valeursDe(lignes[e400])?.typeAssure ?? '');
         controlerRegles(beneficiaire.e400, typeAssure);
         controlerRegles(beneficiaire.e405, typeAssure);
         controlerRegles(beneficiaire.e410, typeAssure);

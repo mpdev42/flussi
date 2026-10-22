@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CODES_REJET,
@@ -6,6 +7,25 @@ import {
   identifierRejet,
   type DescriptionRejet,
 } from './codes-rejet';
+
+/**
+ * Explications du tableau « Explications validées » de `docs/bilan-rejets-2026.md` (colonnes Code
+ * et Explication), par code. Une explication qui commence par « Aucune explication » vaut null.
+ */
+function explicationsValidees(): Map<string, string | null> {
+  const chemin = new URL('../../../../docs/bilan-rejets-2026.md', import.meta.url);
+  const texte = readFileSync(chemin, 'utf8');
+  const debut = texte.indexOf('## Explications validées');
+  if (debut < 0) throw new Error('Section « Explications validées » absente');
+  const fin = texte.indexOf('\n## ', debut + 1);
+  const section = texte.slice(debut, fin < 0 ? undefined : fin);
+  const explications = new Map<string, string | null>();
+  for (const [, code, explication] of section.matchAll(/^\| `(ERR\d{3})` \| (.*) \|\r?$/gmu)) {
+    if (explications.has(code!)) throw new Error(`${code} en double dans le tableau`);
+    explications.set(code!, explication!.startsWith('Aucune explication') ? null : explication!);
+  }
+  return explications;
+}
 
 const RANG_MODE = { debut: 0, egalite: 0, contenu: 1, fin: 2 } as const;
 
@@ -24,14 +44,15 @@ function description(code: string): DescriptionRejet {
 }
 
 describe('Table des codes de rejet', () => {
-  it('contient les 27 codes ERR001 à ERR027, uniques et dans l’ordre', () => {
-    expect(CODES_REJET).toHaveLength(27);
-    expect(new Set(CODES_REJET).size).toBe(27);
+  it('contient les 34 codes ERR001 à ERR034, uniques, dans l’ordre et sans trou', () => {
+    expect(CODES_REJET).toHaveLength(34);
+    expect(new Set(CODES_REJET).size).toBe(34);
     expect(CODES_REJET[0]).toBe('ERR001');
     expect(CODES_REJET[26]).toBe('ERR027');
+    expect(CODES_REJET[33]).toBe('ERR034');
     expect(REJETS.map((d) => d.code)).toEqual([...CODES_REJET]);
     expect(CODES_REJET).toEqual(
-      Array.from({ length: 27 }, (_, i) => `ERR${String(i + 1).padStart(3, '0')}`),
+      Array.from({ length: 34 }, (_, i) => `ERR${String(i + 1).padStart(3, '0')}`),
     );
   });
 
@@ -43,8 +64,30 @@ describe('Table des codes de rejet', () => {
     }
   });
 
-  it('reprend les explications provisoires du fichier d’origine', () => {
-    for (const d of REJETS) expect(d.explication).toBe(`Aide ${d.code}`);
+  it('reprend à l identique les 33 explications validées de docs/bilan-rejets-2026.md', () => {
+    const validees = explicationsValidees();
+    expect([...validees.keys()]).toEqual([...CODES_REJET]);
+    expect([...validees.values()].filter((e) => e !== null)).toHaveLength(33);
+    const ecarts = REJETS.filter((d) => d.explication !== validees.get(d.code)).map((d) => d.code);
+    expect(ecarts).toEqual([]);
+  });
+
+  it('n a aucune explication pour ERR030 (décision de l utilisateur)', () => {
+    expect(description('ERR030').explication).toBeNull();
+  });
+
+  it('donne à tout autre code une explication rédigée pour Flussi (divergence 12)', () => {
+    const ecarts = REJETS.filter((d) => d.code !== 'ERR030').flatMap((d) => {
+      if (d.explication === null) return [`${d.code} : sans explication`];
+      if (d.explication.trim() === '') return [`${d.code} : explication vide`];
+      if (d.explication === `Aide ${d.code}`) return [`${d.code} : texte provisoire de Lazarus`];
+      return [];
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it('donne à ERR029 la même explication qu ERR015 (variante accentuée)', () => {
+    expect(description('ERR029').explication).toBe(description('ERR015').explication);
   });
 
   describe('gel en profondeur', () => {
@@ -69,15 +112,16 @@ describe('Table des codes de rejet', () => {
 
     it('refuse en mode strict la modification d’une description, d’une liste et d’une recherche', () => {
       const d = REJETS[0]!;
+      const explication = d.explication;
       expect(() => {
-        (d as { explication: string }).explication = 'autre';
+        (d as { explication: string | null }).explication = 'autre';
       }).toThrow(TypeError);
       expect(() => (d.recherches as unknown[]).push({})).toThrow(TypeError);
       expect(() => {
         (d.recherches[0] as { texte: string }).texte = 'autre';
       }).toThrow(TypeError);
       expect(() => (REJETS as unknown[]).push({})).toThrow(TypeError);
-      expect(d.explication).toBe('Aide ERR001');
+      expect(d.explication).toBe(explication);
     });
   });
 });
@@ -86,10 +130,7 @@ describe('Identification d’un rejet', () => {
   it.each(REJETS.map((d) => [d.code, d] as const))(
     'reconnaît %s par un message construit à partir de ses recherches',
     (code, d) => {
-      expect(identifierRejet(messageDepuis(d))).toEqual({
-        code,
-        explication: `Aide ${code}`,
-      });
+      expect(identifierRejet(messageDepuis(d))).toEqual({ code, explication: d.explication });
     },
   );
 
@@ -202,6 +243,94 @@ describe('Identification d’un rejet', () => {
     it('ERR014 est reconnu dès que le message ne se termine pas comme ERR013', () => {
       const e14 = description('ERR014').recherches.map((r) => r.texte);
       expect(identifierRejet(`${e14[0]} 1 ${e14[1]} 2 ${e14[2]}`).code).toBe('ERR014');
+    });
+  });
+
+  // Messages fictifs, calqués sur les formes relevées dans `docs/bilan-rejets-2026.md` (aucune
+  // valeur réelle : dates, contrats et rangs inventés).
+  describe('codes propres à Flussi (ERR028 à ERR034)', () => {
+    const traversabilite = (acte: string): string =>
+      `L'acte de gestion ${acte} en date d'effet 01/01/2000 n'est pas autorisé (traversabilité) pour le contrat 0000001`;
+
+    it.each(['ACRE', 'ACRC', 'ACMC', 'XXXX'])(
+      'reconnaît ERR028 pour l acte de gestion %s non autorisé (traversabilité)',
+      (acte) => {
+        expect(identifierRejet(traversabilite(acte)).code).toBe('ERR028');
+      },
+    );
+
+    it('garde ERR011 prioritaire pour l acte de gestion ACMA, qui satisfait aussi ERR028', () => {
+      const message = traversabilite('ACMA');
+      const e28 = description('ERR028').recherches;
+      expect(e28.map((r) => r.mode)).toEqual(['debut', 'contenu', 'contenu']);
+      expect(message.startsWith(e28[0]!.texte)).toBe(true);
+      expect(e28.slice(1).every((r) => message.includes(r.texte))).toBe(true);
+      expect(identifierRejet(message)).toEqual({
+        code: 'ERR011',
+        explication: description('ERR011').explication,
+      });
+    });
+
+    it('distingue ERR015 (« a la date d effet ») et ERR029 (« à la date d effet »)', () => {
+      const debutMessage = "Le contrat 0000001 n'existe pas, ou bien n'est pas valide";
+      const suite = " la date d'effet de l'opération 01/01/2000";
+      expect(identifierRejet(`${debutMessage} a${suite}`).code).toBe('ERR015');
+      expect(identifierRejet(`${debutMessage} à${suite}`).code).toBe('ERR029');
+    });
+
+    it('distingue ERR022 (« assuré », radiation de garantie) et ERR030 (« assure », seul assuré)', () => {
+      expect(
+        identifierRejet(
+          "Pour l'assuré 01 du contrat 0000001 radiation de garantie impossible, un assuré doit avoir au moins une garantie valide a la date d'effet de l'operation",
+        ).code,
+      ).toBe('ERR022');
+      expect(
+        identifierRejet(
+          "Pour l'assure 01 du contrat 0000001 radiation impossible, c'est le seul assure valide a la date d'effet de l'operation",
+        ),
+      ).toEqual({ code: 'ERR030', explication: null });
+    });
+
+    it('reconnaît ERR031 (changement de couverture), sans le confondre avec ERR001 à ERR003', () => {
+      expect(
+        identifierRejet(
+          "Acte de gestion Changement de couverture non traversable pour l'assuré de rang : 01 ,contrat : 0000001",
+        ).code,
+      ).toBe('ERR031');
+      expect(
+        identifierRejet(
+          "Acte de gestion  Changement de couverture non traversable pour l'assuré de rang : 01 ,contrat : 0000001",
+        ).code,
+      ).toBe('ERR031');
+      // Même début « Acte de gestion » : ERR002 exige la double espace de Lazarus, ERR031 ne prend
+      // que le changement de couverture. La variante à une espace d'ERR002 n'a aucun code.
+      expect(
+        identifierRejet(
+          "Acte de gestion Radiation d assure non traversable pour l'assuré de rang : 01 ,contrat : 0000001",
+        ).code,
+      ).toBeNull();
+    });
+
+    it('reconnaît ERR032 (doublon du rôle assuré)', () => {
+      expect(
+        identifierRejet(
+          'Doublon role ASSURE (ENTITE 400) pour la personne de rang evt 01 du contrat 0000001',
+        ).code,
+      ).toBe('ERR032');
+    });
+
+    it('distingue ERR004 et ERR033 (deux échecs de réactivation du contrat)', () => {
+      const e04 = description('ERR004').recherches.map((r) => r.texte);
+      expect(identifierRejet(`${e04[0]} 0000001 , ${e04[1]} 99`).code).toBe('ERR004');
+      expect(
+        identifierRejet(
+          'Contrat 0000001 , échec de la réactivation du contrat. Valeur du code retour du SAD de réactivation contrat 99',
+        ).code,
+      ).toBe('ERR033');
+    });
+
+    it('reconnaît ERR034 (sélection de la personne interdite)', () => {
+      expect(identifierRejet('Sélection de la personne interdite 0000001').code).toBe('ERR034');
     });
   });
 

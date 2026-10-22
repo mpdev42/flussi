@@ -18,7 +18,12 @@ export interface MessageRejet {
   readonly message: string;
   /** null : message non reconnu (divergence 10). */
   readonly code: CodeRejet | null;
-  readonly explication: string;
+  /**
+   * Explication du code (`DescriptionRejet.explication`), rédigée pour Flussi (divergence 12) ; null
+   * pour un code sans explication (`ERR030`). Message non reconnu : `MESSAGE_REJET_INCONNU`
+   * (divergence 10).
+   */
+  readonly explication: string | null;
 }
 
 interface LigneCommune {
@@ -65,7 +70,13 @@ export type LigneAc056 = LigneDecrite | LigneBrute;
 // Hiérarchie : indices dans `FichierAc056.lignes` (pas les numéros d'origine).
 
 export interface BeneficiaireAc056 {
-  readonly e400: number;
+  /**
+   * null : bénéficiaire implicite d'un rejet, ouvert par une 700 sans 400 dans son évènement (MSP
+   * n'a pas renvoyé la 400). Lazarus fabrique une ligne 400 (`AjouterEntite700`,
+   * `uac056.pas:736-757`) ; Flussi ne fabrique aucune ligne (divergence 7) : le bénéficiaire existe
+   * sans 400, et ses filles qui suivent s'y rattachent comme dans Lazarus.
+   */
+  readonly e400: number | null;
   readonly e405: number | null;
   readonly e410: number | null;
   readonly e411: number | null;

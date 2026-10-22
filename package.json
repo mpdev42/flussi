@@ -10,6 +10,7 @@
     "test": "node scripts/test.mjs run",
     "test:corpus": "node scripts/test.mjs run --mode corpus",
     "test:e2e": "node scripts/e2e.mjs",
+    "bilan:rejets": "node scripts/test.mjs run --mode bilan",
     "build": "electron-vite build",
     "package": "electron-vite build && electron-builder --win nsis",
     "typecheck": "tsc --noEmit",

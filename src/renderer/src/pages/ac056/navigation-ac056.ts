@@ -73,7 +73,8 @@ function elementsParDefaut(
 
 /**
  * Sous-onglet à ouvrir pour le bénéficiaire : le premier en erreur, sinon `courant` s'il existe
- * chez ce bénéficiaire, sinon 400.
+ * chez ce bénéficiaire, sinon 400 si elle existe, sinon le premier sous-onglet présent (Garanties
+ * pour le bénéficiaire implicite d'un rejet, qui n'a pas de 400).
  */
 function ongletBeneficiaireChoisi(
   contexte: ContexteNavigation,
@@ -86,7 +87,12 @@ function ongletBeneficiaireChoisi(
   );
   if (enErreur) return enErreur.id;
   const noeud = contexte.index.evenements[evenement]?.noeud.beneficiaires[beneficiaire];
-  return noeud && ongletBeneficiairePresent(noeud, courant) ? courant : '400';
+  if (!noeud) return '400';
+  if (ongletBeneficiairePresent(noeud, courant)) return courant;
+  if (ongletBeneficiairePresent(noeud, '400')) return '400';
+  return (
+    ONGLETS_BENEFICIAIRE.find((onglet) => ongletBeneficiairePresent(noeud, onglet.id))?.id ?? '400'
+  );
 }
 
 /**
@@ -154,8 +160,9 @@ export function choisirOnglet(
 
 /**
  * Change de bénéficiaire : le premier sous-onglet en erreur, sinon le sous-onglet courant s'il
- * existe chez ce bénéficiaire, sinon 400 ; listes : premier élément en erreur, sinon le premier.
- * Un clic sur le bénéficiaire déjà sélectionné ne fait rien (même règle que `choisirEvenement`).
+ * existe chez ce bénéficiaire, sinon 400, sinon le premier présent ; listes : premier élément en
+ * erreur, sinon le premier. Un clic sur le bénéficiaire déjà sélectionné ne fait rien (même règle
+ * que `choisirEvenement`).
  */
 export function choisirBeneficiaire(
   contexte: ContexteNavigation,

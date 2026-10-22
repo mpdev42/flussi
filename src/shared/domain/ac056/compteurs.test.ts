@@ -1,10 +1,17 @@
 // Compteurs d'erreurs à chaque niveau : anomalies bloquantes seulement, un ancêtre agrège ses
-// descendants, lignes hors évènement et niveau fichier comptés à part.
+// descendants, lignes hors évènement et niveau fichier comptés à part. Lignes rejetées d'un rejet
+// MSP comptées de la même façon (`compterLignesRejetees`).
 import { describe, expect, it } from 'vitest';
-import { lignesCompletes } from '@shared/test/ac056-synthetique';
+import {
+  fichierSynthetique,
+  lignesCompletes,
+  lignesRejetVarie,
+  REPERES_REJET_VARIE,
+} from '@shared/test/ac056-synthetique';
 import { lire } from '@shared/test/controle-ac056';
-import { compterAnomalies, compterParLigne } from './compteurs';
+import { compterAnomalies, compterLignesRejetees, compterParLigne } from './compteurs';
 import { indexerLignes } from './index-lignes';
+import { lireAc056 } from './lecteur';
 import type { AnomalieAc056 } from './modele';
 
 const lignes = lignesCompletes({ dossiers: 2 });
@@ -123,6 +130,47 @@ describe('compterAnomalies', () => {
     ]);
     expect(c.parEvenement).toEqual([0, 0, 0, 0]);
     expect(c.horsEvenement).toBe(0);
+  });
+});
+
+describe('compterLignesRejetees', () => {
+  const lecture = lireAc056(fichierSynthetique(lignesRejetVarie()), 'rejet');
+  const rejet = lecture.fichier;
+  const indexRejet = indexerLignes(rejet);
+  const c = compterLignesRejetees(indexRejet, rejet);
+  const total = (valeurs: readonly number[]) => valeurs.reduce((a, b) => a + b, 0);
+
+  it('compte chaque ligne rejetée une fois : évènements et hors évènement', () => {
+    expect(lecture.anomalies).toEqual([]);
+    const lignesRejetees = rejet.lignes.filter((ligne) => ligne.rejet !== undefined).length;
+    expect(lignesRejetees).toBe(REPERES_REJET_VARIE.lignesRejetees.length);
+    expect(total(c.parEvenement) + c.horsEvenement).toBe(lignesRejetees);
+    expect(total(c.parIndice)).toBe(lignesRejetees);
+  });
+
+  it('compte la 995 rejetée hors évènement', () => {
+    expect(c.horsEvenement).toBe(1);
+    expect(c.parIndice[indexRejet.indices.get(REPERES_REJET_VARIE.ligne995)!]).toBe(1);
+  });
+
+  it('compte la 400, la 700 et la 990 rejetées dans le premier évènement', () => {
+    expect(c.parEvenement).toEqual([3, 1]);
+    expect(c.parBeneficiaire[0]).toEqual([2, 0]);
+    expect(c.parEntiteBeneficiaire[0]![0]!['400']).toBe(1);
+    expect(c.parEntiteBeneficiaire[0]![0]!['700']).toBe(1);
+    expect(c.parEntiteEvenement[0]!['990']).toBe(1);
+  });
+
+  it('compte la 700 rejetée sous le bénéficiaire implicite', () => {
+    expect(indexRejet.evenements[1]?.noeud.beneficiaires[0]?.e400).toBeNull();
+    expect(c.parBeneficiaire[1]).toEqual([1]);
+    expect(c.parEntiteBeneficiaire[1]![0]!['700']).toBe(1);
+    expect(c.parElement[1]!.beneficiaires[0]!.e700).toEqual([1]);
+  });
+
+  it('donne des compteurs à 0 pour un fichier VEOS', () => {
+    const veos = compterLignesRejetees(index, fichier);
+    expect(total(veos.parEvenement) + veos.horsEvenement).toBe(0);
   });
 });
 

@@ -4,8 +4,10 @@
 // (`modifierChamp` ne touche ni au code d'entité ni à l'ordre des lignes).
 //
 // Ne sont rattachées à aucun évènement : 000, 001, 995, 999, les lignes perdues par « le dernier
-// gagne » de `AjouterEntite` (`uac056.pas`), les filles d'un bénéficiaire sans 400, les lignes
-// hors d'un dossier et les lignes de code inconnu.
+// gagne » de `AjouterEntite` (`uac056.pas`), les filles d'un bénéficiaire placées avant toute 400
+// (et, dans un rejet, avant toute 700) de leur évènement, les lignes hors d'un dossier et les
+// lignes de code inconnu. Dans un rejet, une 700 sans 400 ouvre un bénéficiaire implicite
+// (`e400: null`) : ses lignes sont rattachées à ce bénéficiaire, qui n'a pas de ligne 400.
 import type { CodeEntite } from './entites';
 import type { BeneficiaireAc056, EvenementAc056, FichierAc056 } from './modele';
 

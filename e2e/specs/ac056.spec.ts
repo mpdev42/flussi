@@ -7,6 +7,9 @@ import {
   fichierSynthetique,
   lignesCompletes,
   lignesRejet,
+  lignesRejetVarie,
+  MESSAGES_REJET_VARIE,
+  REPERES_REJET_VARIE,
 } from '../../src/shared/test/ac056-synthetique';
 import { avecChamp } from '../../src/shared/test/controle-ac056';
 import {
@@ -27,6 +30,7 @@ import {
   detailEvenement,
   echapper,
   ecrire,
+  encadreRejet,
   evenements,
   fixerFenetre,
   ligne,
@@ -561,6 +565,173 @@ test('fichier AC056 — navigation : évènements, onglets, bénéficiaires et e
     await expect(champFiche(page, 'Code produit')).toHaveValue('PRODUIT2');
 
     await sansDefilementHorizontal(page);
+  } finally {
+    await fermer();
+  }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Item 4 de la v0.3.0 : consultation d'un fichier de rejet (message MSP, lecture seule)
+// ---------------------------------------------------------------------------------------------
+
+const REJET_VARIE = 'AC056COUR_REJ_20261020.txt';
+
+test('fichier AC056 — rejet : navigation, encadré MSP, lecture seule', async () => {
+  const m = MESSAGES_REJET_VARIE;
+  const repere = REPERES_REJET_VARIE;
+  const octets = fichierSynthetique(lignesRejetVarie());
+  const { app, page, racineTravail, fermer } = await launchApp({
+    preparerTravail: (racine) => {
+      ecrire(path.join(racine, 'OUT'), REJET_VARIE, octets, DATE_REJET_OUT);
+    },
+  });
+  try {
+    await allerAuFichierAc056(page);
+    await ouvrir(page, 'OUT', REJET_VARIE);
+    const detail = detailEvenement(page);
+
+    // Compteurs : barre du fichier, évènements, bénéficiaires, sans alerte d'erreur ni « Enregistrer »
+    await expect(compteurBarre(page, REJET_VARIE)).toContainText(
+      `${repere.lignesRejetees.length} lignes rejetées`,
+    );
+    await expect(compteurBarre(page, REJET_VARIE)).toContainText('Rejet');
+    await expect(compteurBarre(page, REJET_VARIE)).not.toContainText('erreur');
+    await expect(evenements(page)).toHaveCount(2);
+    await expect(evenements(page).first()).toContainText('3 lignes rejetées');
+    await expect(evenements(page).last()).toContainText('1 ligne rejetée');
+    await expect(beneficiaires(page)).toHaveCount(2);
+    await expect(beneficiaires(page).nth(0)).toContainText('2 lignes rejetées');
+    await expect(beneficiaires(page).nth(1)).not.toContainText('rejetée');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Enregistrer' })).toHaveCount(0);
+
+    // Note des lignes rejetées hors des évènements (995), seule alerte de la page
+    const horsEvenement = encadreRejet(page, '1 ligne rejetée hors des évènements');
+    await expect(horsEvenement).toHaveCount(1);
+    await expect(horsEvenement).toContainText(`Ligne ${repere.ligne995} (995) · code inconnu`);
+    await expect(horsEvenement).toContainText(m.dossier);
+    // Le bandeau Recette est aussi un role="note" : on ne compte que les encadrés de message MSP
+    await expect(page.getByRole('note').filter({ hasText: 'Message MSP' })).toHaveCount(3);
+
+    // Ouverture sur la première ligne rejetée : la 700, message inconnu
+    await expect(ongletEvenement(page, /^Bénéficiaires/)).toHaveAttribute('aria-selected', 'true');
+    await expect(ongletEvenement(page, /^Bénéficiaires/)).toContainText('2 lignes rejetées');
+    await expect(ongletBeneficiaire(page, /^Garanties/)).toHaveAttribute('aria-selected', 'true');
+    await expect(detail.getByRole('heading', { level: 2, name: /^700 · / })).toBeVisible();
+    const inconnu = encadreRejet(page, 'Ligne rejetée par MSP · code inconnu', detail);
+    await expect(inconnu.getByRole('heading', { level: 3 })).toBeVisible();
+    await expect(inconnu).toContainText(m.inconnu);
+    await expect(inconnu).toContainText(
+      'Explication : Erreur inconnue. Contactez le service informatique.',
+    );
+
+    // Code reconnu : encadré sous le h2 de la fiche 400 ; la ligne « Explication » n'apparaît que
+    // si le domaine a un texte validé pour ce code
+    await ongletBeneficiaire(page, /^400/).click();
+    await expect(detail.getByRole('heading', { level: 2, name: /^400 · / })).toBeVisible();
+    const err009 = encadreRejet(page, 'Ligne rejetée par MSP · ERR009', detail);
+    await expect(err009.getByRole('heading', { level: 3 })).toBeVisible();
+    await expect(err009).toHaveAttribute('role', 'note');
+    await expect(err009).toContainText(m.err009);
+    await expect(inconnu).toHaveCount(0);
+    const explication009 = analyserAc056(octets, 'rejet').fichier.lignes.find(
+      (l) => l.numero === repere.ligne400Err009,
+    )?.rejet?.explication;
+    if (explication009 === null) {
+      await expect(err009).not.toContainText('Explication');
+    } else {
+      await expect(err009).toContainText(explication009 as string);
+    }
+
+    // Accents Windows-1252 : liste des bénéficiaires et fiche 405, en lecture seule
+    await expect(beneficiaires(page).nth(1)).toContainText(`${repere.nom405} ${repere.prenom405}`);
+    await beneficiaires(page).nth(1).click();
+    await ongletBeneficiaire(page, /^405$/).click();
+    await expect(champFiche(page, 'Nom')).toHaveValue(repere.nom405);
+    await expect(champFiche(page, 'Prénom')).toHaveValue(repere.prenom405);
+    await expect(champFiche(page, 'Nom')).not.toBeEditable();
+    await expect(detail).not.toContainText('�');
+    await expect(detail.getByRole('note')).toHaveCount(1); // celui de la 990, au-dessus des onglets
+
+    // 990 de l'évènement : encadré h2 au-dessus des onglets
+    const encadre990 = encadreRejet(
+      page,
+      `Ligne ${repere.ligne990Err021} (990) de l’évènement rejetée par MSP · ERR021`,
+    );
+    await expect(encadre990.getByRole('heading', { level: 2 })).toBeVisible();
+    await expect(encadre990).toContainText(m.err021);
+
+    // Évènement 2 : bénéficiaire implicite, Garanties seules, encadré de la 700 sans 400
+    await evenements(page).nth(1).click();
+    await expect(evenements(page).nth(1)).toHaveAttribute('aria-current', 'true');
+    await expect(beneficiaires(page)).toHaveCount(1);
+    await expect(beneficiaires(page).first()).toContainText('Bénéficiaire absent du rejet');
+    await expect(beneficiaires(page).first()).toContainText('1 ligne rejetée');
+    await expect(beneficiaires(page).first()).toHaveAttribute('aria-current', 'true');
+    await beneficiaires(page).first().click();
+    await expect(detail).toContainText('Bénéficiaire absent du rejet');
+    await expect(ongletBeneficiaire(page, /^Garanties/)).toBeEnabled();
+    await expect(ongletBeneficiaire(page, /^Garanties/)).toHaveAttribute('aria-selected', 'true');
+    for (const code of ['400', '405', '410', '411']) {
+      const onglet = ongletBeneficiaire(page, new RegExp(`^${code}`));
+      await expect(onglet, `onglet ${code}`).toBeDisabled();
+      await expect(onglet.locator('xpath=..')).toHaveAttribute('title', 'Entité absente du rejet');
+    }
+    const err027 = encadreRejet(page, 'Ligne rejetée par MSP · ERR027', detail);
+    await expect(err027.getByRole('heading', { level: 3 })).toBeVisible();
+    await expect(err027).toContainText(m.err027);
+    // La 990 de l'évènement 2 n'a pas de message : plus d'encadré de 990
+    await expect(encadre990).toHaveCount(0);
+
+    // Lecture seule partout : aucun champ modifiable ni marqué en erreur, dans chaque onglet
+    await evenements(page).first().click();
+    const onglets = page.getByRole('tablist', { name: 'Entités de l’évènement' }).getByRole('tab');
+    const nombre = await onglets.count();
+    expect(nombre).toBe(10);
+    for (let rang = 0; rang < nombre; rang++) {
+      const onglet = onglets.nth(rang);
+      if (await onglet.isDisabled()) continue;
+      await onglet.click();
+      await expect(onglet).toHaveAttribute('aria-selected', 'true');
+      await expect(detail.locator('input:not([readonly]):not([disabled])')).toHaveCount(0);
+      await expect(detail.locator('[aria-invalid="true"]')).toHaveCount(0);
+      await expect(detail).not.toContainText(/Erreurs? de la ligne/);
+    }
+    await expect(page.getByRole('button', { name: 'Enregistrer' })).toHaveCount(0);
+    await sansDefilementHorizontal(page);
+
+    // Journal : le rejet est tracé sans valeur ni message de MSP (écran et fichier)
+    const interdits = [
+      ...Object.values(m),
+      repere.nom405,
+      repere.prenom405,
+      'DUPONT',
+      'TESTVILLE',
+      'ERR009',
+      'ERR021',
+      'ERR027',
+    ];
+    const panneau = panneauJournal(page);
+    await expect(panneau).toContainText(
+      `Fichier ${REJET_VARIE} chargé : ${repere.lignesRejetees.length} lignes rejetées`,
+    );
+    const texteJournal = (await panneau.textContent()) ?? '';
+    for (const interdit of interdits) expect(texteJournal).not.toContain(interdit);
+
+    await app.close();
+    const lignes = lireJournalSession(racineTravail);
+    const contenu = lignes.join('\n');
+    expect(lignes).toContainEqual(
+      expect.stringMatching(
+        new RegExp(
+          `\\tSUCCES\\tFichier ${echapper(REJET_VARIE)} chargé : ${repere.lignesRejetees.length} lignes rejetées$`,
+        ),
+      ),
+    );
+    for (const interdit of interdits) expect(contenu).not.toContain(interdit);
+    expect(contenu).not.toContain('�');
+    expect(contenu).not.toContain('Enregistrer');
   } finally {
     await fermer();
   }

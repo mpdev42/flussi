@@ -23,6 +23,7 @@ interface ElementListeProps {
   tronquees: readonly boolean[];
   grille: string;
   compteur: number;
+  noun: [string, string];
   selectionne: boolean;
   onChoisir: (rang: number) => void;
 }
@@ -33,6 +34,7 @@ const ElementListe = memo(function ElementListe({
   tronquees,
   grille,
   compteur,
+  noun,
   selectionne,
   onChoisir,
 }: ElementListeProps) {
@@ -69,7 +71,7 @@ const ElementListe = memo(function ElementListe({
         ),
       )}
       <span className="pointer-events-none justify-self-end">
-        <CountBadge count={compteur} />
+        <CountBadge count={compteur} noun={noun} />
       </span>
     </button>
   );
@@ -82,6 +84,8 @@ export interface ListeElementsProps {
   indices: readonly number[];
   /** Erreurs bloquantes de chaque élément (`CompteursAc056.parElement`). */
   compteurs: readonly number[];
+  /** Nom accessible du compteur (« erreur » ou « ligne rejetée »), singulier puis pluriel. */
+  noun: [string, string];
   selection: number;
   /** Stable d'un rendu à l'autre (`ActionsNavigationAc056.choisirElement`) : les lignes sont mémorisées. */
   onChoisir: (liste: CleListe, rang: number) => void;
@@ -89,14 +93,15 @@ export interface ListeElementsProps {
 
 /**
  * Liste compacte des éléments d'un onglet à liste (Coordonnées, Garanties, Critères, Variables) :
- * les colonnes de Lazarus, un compteur d'erreurs par élément, sélection par clic. Hauteur bornée, la
- * liste défile seule pour ne pas repousser la fiche.
+ * les colonnes de Lazarus, un compteur par élément (erreurs, ou lignes rejetées d'un rejet),
+ * sélection par clic. Hauteur bornée, la liste défile seule pour ne pas repousser la fiche.
  */
 export function ListeElements({
   definition,
   fichier,
   indices,
   compteurs,
+  noun,
   selection,
   onChoisir,
 }: ListeElementsProps) {
@@ -122,7 +127,9 @@ export function ListeElements({
         return colonnes.map(({ champ, description }) => {
           if (ligne?.nature !== 'decrite') return '';
           const valeur = ligne.valeurs[champ];
-          return valeur === undefined ? '' : texteChampAffiche(description, valeur);
+          return valeur === undefined
+            ? ''
+            : texteChampAffiche(description, valeur, fichier.provenance);
         });
       }),
     [fichier, indices, colonnes],
@@ -155,6 +162,7 @@ export function ListeElements({
               tronquees={tronquees}
               grille={grille}
               compteur={compteurs[rang] ?? 0}
+              noun={noun}
               selectionne={rang === selection}
               onChoisir={choisir}
             />

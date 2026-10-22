@@ -169,13 +169,14 @@ describe('lireAc056 en provenance rejet', () => {
     });
 
     it('rattache le code ERRxxx et son explication à un message reconnu, accents compris', () => {
-      const texte = REJETS.find((d) => d.code === 'ERR001')!.recherches[0]!.texte;
+      const description = REJETS.find((d) => d.code === 'ERR001')!;
+      const texte = description.recherches[0]!.texte;
       expect(texte).toContain('é');
       const { fichier } = lireRejet([ligneRejet(ligneSynthetique('411'), enWindows1252(texte))]);
       expect(fichier.lignes[0]?.rejet).toEqual({
         message: texte,
         code: 'ERR001',
-        explication: 'Aide ERR001',
+        explication: description.explication,
       });
     });
 

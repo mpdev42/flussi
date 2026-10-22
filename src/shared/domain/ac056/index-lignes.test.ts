@@ -3,12 +3,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   fichierSynthetique,
+  ligneRejetSynthetique,
   ligneSynthetique,
   lignesCompletes,
   lignesRejet,
 } from '@shared/test/ac056-synthetique';
 import { dansBeneficiaire, dansEvenement, lire } from '@shared/test/controle-ac056';
 import { compterRattachements } from '@shared/test/rattachements-ac056';
+import type { CodeEntite } from './entites';
 import { indexerLignes } from './index-lignes';
 import { lireAc056 } from './lecteur';
 
@@ -123,6 +125,27 @@ describe('indexerLignes', () => {
     const r = indexerLignes(rejet);
     expect(r.evenements.map((e) => e.dossier)).toEqual([0, 0, 1, 1]);
     expect(r.rattachements.filter((x) => x !== null)).toHaveLength(4 * 33);
+  });
+
+  it('rattache au bénéficiaire implicite d un rejet la 700 sans 400 et les filles qui suivent', () => {
+    const lignesRejetees = ['100', '405', '700', '700', '410', '400', '700', '990', '995'].map(
+      (code) => ligneRejetSynthetique(code as CodeEntite, 1),
+    );
+    const rejet = lireAc056(fichierSynthetique(lignesRejetees), 'rejet');
+    expect(rejet.anomalies.map((a) => [a.code, a.ligne])).toEqual([['entite-mal-placee', 2]]);
+    const r = indexerLignes(rejet.fichier);
+    expect(r.rattachements.map((x) => x && [x.beneficiaire, x.entite, x.rang])).toEqual([
+      [null, '100', 0],
+      null,
+      [0, '700', 0],
+      [0, '700', 1],
+      [0, '410', 0],
+      [1, '400', 0],
+      [1, '700', 0],
+      [null, '990', 0],
+      null,
+    ]);
+    expect(r.evenements[0]?.noeud.beneficiaires.map((b) => b.e400)).toEqual([null, 5]);
   });
 
   it('renvoie un index figé', () => {

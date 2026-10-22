@@ -30,7 +30,7 @@ import {
 } from '@/test/dom';
 import { EcranAc056 } from './ac056';
 import { BarriereFichier } from './barriere-fichier';
-import { messageEnregistreAvecErreurs } from './textes-ac056';
+import { MESSAGE_AFFICHAGE_REJET_IMPOSSIBLE, messageEnregistreAvecErreurs } from './textes-ac056';
 
 // Un test fait échouer l'affichage de la colonne des évènements pour éprouver la barrière d'erreur
 const colonne = vi.hoisted(() => ({ planter: false }));
@@ -543,6 +543,26 @@ describe('BarriereFichier', () => {
     const siens = erreurs.mock.calls.filter(([message]) => String(message).startsWith('[ac056]'));
     expect(siens).toHaveLength(1);
     expect(siens.flat().join(' ')).not.toContain('75001');
+  });
+
+  it('affiche le message propre au rejet, sans parler de corrections', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    monture = await monter(
+      <BarriereFichier
+        action={<button type="button">Changer de fichier</button>}
+        message={MESSAGE_AFFICHAGE_REJET_IMPOSSIBLE}
+      >
+        <Plante />
+      </BarriereFichier>,
+    );
+    const c = monture.conteneur;
+
+    expect(c.querySelector('h2')?.textContent).toBe('Affichage du fichier impossible');
+    expect(c.textContent).toContain(
+      "Une erreur inattendue empêche d'afficher ce fichier de rejet.",
+    );
+    expect(c.textContent).not.toContain('corrections');
+    expect(libellesBoutons(c)).toEqual(['Changer de fichier']);
   });
 
   it('repart de zéro quand la clé change (autre fichier)', async () => {

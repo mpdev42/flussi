@@ -352,6 +352,72 @@ describe('structure et hiérarchie d un rejet MSP', () => {
     });
   });
 
+  describe('bénéficiaire implicite : 700 sans 400 (parité AjouterEntite700, uac056.pas:736-757)', () => {
+    it('accepte une 700 sans 400 : 100 700 990 995, sans anomalie', () => {
+      const lecture = lire('100', '700', '990', '995');
+      expect(lecture.anomalies).toEqual([]);
+      expect(lecture.fichier.dossiers[0]?.evenements[0]?.beneficiaires).toEqual([
+        {
+          e400: null,
+          e405: null,
+          e410: null,
+          e411: null,
+          e485: [],
+          e490: [],
+          e700: [1],
+          e800: null,
+        },
+      ]);
+      expect(compterRattachements(lecture.fichier).every((compte) => compte === 1)).toBe(true);
+    });
+
+    it('accepte les filles qui suivent la 700 : 100 700 700 405 410 411 485 490 800 990 995', () => {
+      const lecture = lire(
+        '100',
+        '700',
+        '700',
+        '405',
+        '410',
+        '411',
+        '485',
+        '490',
+        '800',
+        '990',
+        '995',
+      );
+      expect(lecture.anomalies).toEqual([]);
+      expect(compterRattachements(lecture.fichier).every((compte) => compte === 1)).toBe(true);
+    });
+
+    it('signale seule la 405 placée avant la 700 : 100 405 700 990 995', () => {
+      const lecture = lire('100', '405', '700', '990', '995');
+      expect(couples(lecture)).toEqual([['entite-mal-placee', 2]]);
+      expect(messages(lecture)).toEqual([messageMalPlacee(2, '405', HORS_BENEFICIAIRE)]);
+    });
+
+    it('signale en double une 405 répétée sous le bénéficiaire implicite', () => {
+      const lecture = lire('100', '700', '405', '405', '990', '995');
+      expect(couples(lecture)).toEqual([['entite-en-double', 4]]);
+    });
+
+    it('accepte une 400 après le bénéficiaire implicite : 100 700 400 700 990 995', () => {
+      const lecture = lire('100', '700', '400', '700', '990', '995');
+      expect(lecture.anomalies).toEqual([]);
+      expect(lecture.fichier.dossiers[0]?.evenements[0]?.beneficiaires).toHaveLength(2);
+    });
+
+    it('signale une 700 après la 990 de son évènement', () => {
+      const lecture = lire('100', '990', '700', '995');
+      expect(couples(lecture)).toEqual([['entite-mal-placee', 3]]);
+    });
+
+    it('signale en VEOS une 700 sans 400', () => {
+      const lignes = ['001', '100', '700', '990', '995'].map((spec) => ligneDe(spec).slice(0, 700));
+      const veos = controlerStructure(lireAc056(fichierSynthetique(lignes)).fichier.lignes);
+      expect(veos.map((a) => [a.code, a.ligne])).toContainEqual(['entite-mal-placee', 3]);
+    });
+  });
+
   describe('autres anomalies', () => {
     it('signale une ligne de code inconnu sans rien changer à la suite', () => {
       const lecture = lire('100', 'inconnu', '990', '995', '001');
@@ -432,11 +498,13 @@ function ligneAvecCle([code, cle]: Symbole, numero: number): LigneAc056 {
 
 function verifierGarantie(suite: readonly Symbole[]): {
   sansAnomalie: boolean;
+  /** Vrai si la hiérarchie compte un bénéficiaire implicite (700 sans 400). */
+  implicite: boolean;
   violation: string | null;
 } {
   const lignes = suite.map((symbole, i) => ligneAvecCle(symbole, i + 1));
   if (controlerStructure(lignes, 'rejet').length > 0)
-    return { sansAnomalie: false, violation: null };
+    return { sansAnomalie: false, implicite: false, violation: null };
 
   const fichier: FichierAc056 = {
     provenance: 'rejet',
@@ -450,6 +518,9 @@ function verifierGarantie(suite: readonly Symbole[]): {
   });
   return {
     sansAnomalie: true,
+    implicite: fichier.dossiers.some((d) =>
+      d.evenements.some((e) => e.beneficiaires.some((b) => b.e400 === null)),
+    ),
     violation:
       defauts.length === 0
         ? null
@@ -457,16 +528,21 @@ function verifierGarantie(suite: readonly Symbole[]): {
   };
 }
 
-/** Accumule les violations et compte les suites sans anomalie (pour exclure un test vide). */
+/**
+ * Accumule les violations et compte les suites sans anomalie (pour exclure un test vide), dont
+ * celles qui ouvrent un bénéficiaire implicite.
+ */
 class Compteur {
   suites = 0;
   sansAnomalie = 0;
+  implicites = 0;
   readonly violations: string[] = [];
 
   verifier(suite: readonly Symbole[]): void {
     const bilan = verifierGarantie(suite);
     this.suites++;
     if (bilan.sansAnomalie) this.sansAnomalie++;
+    if (bilan.implicite) this.implicites++;
     if (bilan.violation !== null && this.violations.length < 10)
       this.violations.push(bilan.violation);
   }
@@ -492,7 +568,7 @@ function pourToutesLesSuites(
 }
 
 describe('garantie en rejet : sans anomalie bloquante, chaque ligne est rattachée exactement une fois', () => {
-  const COMMUNS: readonly Code[] = ['001', '100', '110', '400', '405', '990', '995'];
+  const COMMUNS: readonly Code[] = ['001', '100', '110', '400', '405', '700', '990', '995'];
   const ALPHABET: readonly Symbole[] = [
     ['000', 0],
     ['999', 0],
@@ -516,10 +592,11 @@ describe('garantie en rejet : sans anomalie bloquante, chaque ligne est rattach�
       ),
     );
     expect(compteur.sansAnomalie).toBeGreaterThan(200);
+    expect(compteur.implicites).toBeGreaterThan(0);
     expect(compteur.violations).toEqual([]);
   });
 
-  it('vaut pour toutes les suites jusqu à 5 lignes sur 12 symboles (alphabet réduit)', () => {
+  it('vaut pour toutes les suites jusqu à 5 lignes sur 13 symboles (alphabet réduit)', () => {
     const reduit: readonly Symbole[] = [
       ['000', 0],
       ['999', 0],
@@ -528,11 +605,13 @@ describe('garantie en rejet : sans anomalie bloquante, chaque ligne est rattach�
       ),
       ['400', 1],
       ['405', 1],
+      ['700', 1],
     ];
     const compteur = new Compteur();
     pourToutesLesSuites(reduit, 5, (suite) => compteur.verifier(suite));
-    expect(compteur.suites).toBe(12 + 12 ** 2 + 12 ** 3 + 12 ** 4 + 12 ** 5);
+    expect(compteur.suites).toBe(13 + 13 ** 2 + 13 ** 3 + 13 ** 4 + 13 ** 5);
     expect(compteur.sansAnomalie).toBeGreaterThan(500);
+    expect(compteur.implicites).toBeGreaterThan(0);
     expect(compteur.violations).toEqual([]);
   });
 
@@ -578,6 +657,7 @@ describe('garantie en rejet : sans anomalie bloquante, chaque ligne est rattach�
     }
     expect(compteur.suites).toBeGreaterThan(5500);
     expect(compteur.sansAnomalie).toBeGreaterThan(1000);
+    expect(compteur.implicites).toBeGreaterThan(0);
     expect(compteur.violations).toEqual([]);
   });
 
@@ -617,6 +697,8 @@ describe('garantie en rejet : sans anomalie bloquante, chaque ligne est rattach�
       ['110', 1],
       ['400', 2],
       ['405', 3],
+      ['700', 1],
+      ['700', 2],
       ['990', 1],
       ['995', 2],
       [null, 1],
@@ -638,8 +720,8 @@ describe('garantie en rejet : sans anomalie bloquante, chaque ligne est rattach�
       }
     }
 
-    // 138 suppressions, 138 duplications, 46 x 137 déplacements, 139 x 12 insertions, 1 base.
-    expect(compteur.suites).toBe(1 + 138 + 138 + 46 * 137 + 139 * 12);
+    // 138 suppressions, 138 duplications, 46 x 137 déplacements, 139 x 14 insertions, 1 base.
+    expect(compteur.suites).toBe(1 + 138 + 138 + 46 * 137 + 139 * 14);
     expect(compteur.sansAnomalie).toBeGreaterThan(1);
     expect(compteur.violations).toEqual([]);
   });

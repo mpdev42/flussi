@@ -11,6 +11,7 @@ import {
 import {
   fichierSynthetique,
   lignesCompletes,
+  lignesRejetVarie,
   ligneSynthetique,
 } from '@shared/test/ac056-synthetique';
 import type {
@@ -79,6 +80,14 @@ export function ouvertureSynthetique(
     analyse: analyseSynthetique(lignes, provenance),
     empreinte: EMPREINTE_FICTIVE,
   };
+}
+
+/**
+ * Rejet fictif varié (`lignesRejetVarie` : 2 évènements, un bénéficiaire implicite, accents en
+ * Windows-1252, 5 lignes rejetées dont 1 hors évènement), ouvert depuis `OUT`. Analyse réelle.
+ */
+export function ouvertureRejet(): OuvertureAc056 {
+  return ouvertureSynthetique(NOM_REJET, lignesRejetVarie(), 'out');
 }
 
 export function anomalieFichierVide(): AnomalieAc056 {

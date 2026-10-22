@@ -7,6 +7,7 @@ import {
   type AnomalieAc056,
   type DescriptionChamp,
   type Octets,
+  type Provenance,
 } from '@shared/domain/ac056';
 
 /** Largeur maximale (en caractères) au-delà de laquelle un champ prend toute la largeur. */
@@ -38,10 +39,15 @@ export const SUFFIXE_DATE_INVALIDE = '(date invalide)';
  * Texte affiché dans le champ : valeur lisible (« CODE - Libellé », JJ/MM/AAAA), ou valeur brute
  * suivie de « (absent de la liste) » pour un code inconnu et de « (date invalide) » pour une date
  * illisible. Le suffixe est dans la valeur : visible, lu par les lecteurs d'écran, jamais masqué
- * par un message d'erreur.
+ * par un message d'erreur. Décodage selon la provenance : UTF-8 pour un fichier VEOS, Windows-1252
+ * pour un rejet.
  */
-export function texteChampAffiche(champ: DescriptionChamp, valeur: Octets): string {
-  const { texte, etat } = valeurAffichee(champ, valeur);
+export function texteChampAffiche(
+  champ: DescriptionChamp,
+  valeur: Octets,
+  provenance: Provenance,
+): string {
+  const { texte, etat } = valeurAffichee(champ, valeur, provenance);
   if (etat === 'inconnue') return `${texte.trimEnd()} ${SUFFIXE_ABSENT_DE_LA_LISTE}`;
   if (etat === 'invalide') return `${texte.trimEnd()} ${SUFFIXE_DATE_INVALIDE}`;
   return texte;

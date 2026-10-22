@@ -6,15 +6,21 @@ import {
   saisirChamp,
   type AnalyseAc056,
   type AnomalieAc056,
+  type MessageRejet,
 } from '@shared/domain/ac056';
 import type { ListeAc056, OuvertureAc056 } from '@shared/types';
-import { lignesCompletes } from '@shared/test/ac056-synthetique';
+import {
+  MESSAGES_REJET_VARIE,
+  REPERES_REJET_VARIE,
+  lignesCompletes,
+} from '@shared/test/ac056-synthetique';
 import { avecChamp } from '@shared/test/controle-ac056';
 import {
   NOM_VEOS,
   fichierListe,
   lignesAvecErreurs,
   ouvertureAvecAnomalies,
+  ouvertureRejet,
   ouvertureSynthetique,
 } from '@/test/ac056';
 import {
@@ -305,6 +311,7 @@ describe('FichierOuvert — onglets et fiche', () => {
     const onglet155 = onglets(detail(c), 'Entités de l’évènement')[8];
     expect(onglet155.textContent).toContain('155');
     expect(onglet155.disabled).toBe(true);
+    expect(onglet155.textContent).toContain('(entité absente)');
     expect(onglet155.closest('[title]')?.getAttribute('title')).toBe(
       'Entité absente de cet évènement',
     );
@@ -368,13 +375,200 @@ describe('FichierOuvert — alertes du fichier', () => {
 
     expect(c.querySelector('[role="alert"] h2')?.textContent).toBe('1 erreur hors des évènements');
   });
+});
 
-  it('n’affiche pas la navigation pour un fichier de rejet', async () => {
-    const c = await ouvrir(
-      ouvertureSynthetique('AC056COUR_REJ_20261017.txt', lignesCompletes(), 'out'),
+describe('fichier de rejet', () => {
+  const NB = '\u00a0';
+  const M = MESSAGES_REJET_VARIE;
+
+  /** Texte accessible du compteur d'une ligne ou d'un onglet (le chiffre visible est `aria-hidden`). */
+  function compteur(element: Element): string | null {
+    const textes = Array.from(element.querySelectorAll('.sr-only')).map((e) => e.textContent ?? '');
+    return textes.find((texte) => /^\d+ /.test(texte)) ?? null;
+  }
+
+  /** Évènements du premier niveau de la liste (sans les bénéficiaires dépliés sous l'évènement choisi). */
+  function evenements(c: HTMLElement): HTMLButtonElement[] {
+    return lignesEvenements(c).filter((b) => !b.closest('ul[aria-labelledby]'));
+  }
+
+  function beneficiaires(c: HTMLElement): HTMLButtonElement[] {
+    return Array.from(
+      colonneEvenements(c).querySelectorAll<HTMLButtonElement>('ul[aria-labelledby] button'),
     );
+  }
 
-    expect(c.querySelector('section')).toBeNull();
+  /** Message MSP de la ligne `numero` du rejet fictif, tel que l'analyse l'a lu. */
+  function rejetDeLaLigne(numero: number): MessageRejet {
+    const ouverture = ouvertureRejet();
+    if (!ouverture.ok) throw new Error('Ouverture du rejet fictif impossible');
+    return ouverture.analyse.fichier.lignes.find((l) => l.numero === numero)!.rejet!;
+  }
+
+  function texteMessage(message: string): string {
+    return `Message MSP${NB}: «${NB}${message}${NB}»`;
+  }
+
+  /** Encadré du message de MSP dans le panneau de la fiche (pas celui de la 990, au-dessus des onglets). */
+  function encadreFiche(zone: HTMLElement): HTMLElement {
+    return zone.querySelector<HTMLElement>('[role="tabpanel"] [role="note"]')!;
+  }
+
+  it('affiche la navigation d’un rejet, sans enregistrement ni alerte d’erreur', async () => {
+    const c = await ouvrir(ouvertureRejet());
+
+    expect(colonneEvenements(c).textContent).toContain('2 évènements');
+    expect(evenements(c)).toHaveLength(2);
+    expect(barre(c)).toContain('5 lignes rejetées');
+    expect(c.querySelector('[role="status"]')).toBeNull();
+    expect(c.querySelector('[role="alert"]')).toBeNull();
+    expect(Array.from(c.querySelectorAll('button')).map((b) => b.textContent)).not.toContain(
+      'Enregistrer',
+    );
+  });
+
+  it('compte les lignes rejetées à chaque niveau : évènement, bénéficiaire, onglet et élément de liste', async () => {
+    const c = await ouvrir(ouvertureRejet());
+    const zone = detail(c);
+
+    // Évènement 1 : 400, 700 et 990 rejetées ; évènement 2 : la 700 du bénéficiaire implicite
+    expect(compteur(evenements(c)[0])).toBe('3 lignes rejetées');
+    expect(compteur(evenements(c)[1])).toBe('1 ligne rejetée');
+    // Bénéficiaires de l'évènement 1 : 400 et 700 du premier, rien pour le conjoint
+    expect(beneficiaires(c)).toHaveLength(2);
+    expect(compteur(beneficiaires(c)[0])).toBe('2 lignes rejetées');
+    expect(compteur(beneficiaires(c)[1])).toBeNull();
+    // Onglet Bénéficiaires (400 et 700), puis Garanties et 400 du premier bénéficiaire
+    expect(compteur(onglets(zone, 'Entités de l’évènement')[0])).toBe('2 lignes rejetées');
+    const ongletsBeneficiaire = onglets(zone, 'Entités du bénéficiaire');
+    expect(compteur(ongletsBeneficiaire[0])).toBe('1 ligne rejetée');
+    expect(compteur(ongletsBeneficiaire[1])).toBe('1 ligne rejetée');
+    expect(compteur(ongletsBeneficiaire[2])).toBeNull();
+    // Élément de liste : la garantie rejetée
+    const garanties = zone.querySelectorAll<HTMLButtonElement>('ul[aria-label="Garanties"] button');
+    expect(garanties).toHaveLength(1);
+    expect(compteur(garanties[0])).toBe('1 ligne rejetée');
+    // Jamais le mot « erreur » d'un fichier VEOS dans les compteurs
+    expect(c.querySelector('[role="status"], [role="alert"]')).toBeNull();
+    expect(Array.from(c.querySelectorAll('.sr-only')).map((e) => e.textContent)).not.toContainEqual(
+      expect.stringMatching(/^\d+ erreurs?$/),
+    );
+  });
+
+  it('ouvre la première ligne rejetée, un message inconnu : « code inconnu » et « Erreur inconnue »', async () => {
+    const c = await ouvrir(ouvertureRejet());
+    const zone = detail(c);
+
+    expect(ongletSelectionne(zone, 'Entités de l’évènement')).toBe('Bénéficiaires');
+    expect(ongletSelectionne(zone, 'Entités du bénéficiaire')).toBe('Garanties');
+    const note = encadreFiche(zone);
+    expect(note.getAttribute('role')).toBe('note');
+    expect(note.querySelector('h3')?.textContent).toBe(`Ligne rejetée par MSP${NB}· code inconnu`);
+    expect(note.textContent).toContain(texteMessage(M.inconnu));
+    expect(note.textContent).toContain(
+      `Explication${NB}: Erreur inconnue. Contactez le service informatique.`,
+    );
+    expect(zone.querySelector('[role="tabpanel"] h2')?.textContent).toContain('700');
+  });
+
+  it('montre un code reconnu en police mono, sous le h2 de la fiche, sans « Explication » tant qu’aucun texte n’est validé', async () => {
+    const c = await ouvrir(ouvertureRejet());
+    const zone = detail(c);
+
+    await cliquer(onglets(zone, 'Entités du bénéficiaire')[1]);
+
+    expect(zone.querySelector('[role="tabpanel"] h2')?.textContent).toContain('400');
+    const note = encadreFiche(zone);
+    expect(note.querySelector('h3')?.textContent).toBe(`Ligne rejetée par MSP${NB}· ERR009`);
+    expect(note.querySelector('h3 .font-mono')?.textContent).toBe('ERR009');
+    expect(note.textContent).toContain(texteMessage(M.err009));
+    const { explication } = rejetDeLaLigne(REPERES_REJET_VARIE.ligne400Err009);
+    expect(note.textContent?.includes(`Explication${NB}:`)).toBe(explication !== null);
+    if (explication !== null) expect(note.textContent).toContain(explication);
+    // Le h2 de la fiche précède l'encadré : l'ordre des titres est h2 puis h3
+    const titreFiche = zone.querySelector('[role="tabpanel"] h2')!;
+    expect(titreFiche.compareDocumentPosition(note)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('encadre le message de la 990 au-dessus des onglets, avec un titre h2 propre à la ligne', async () => {
+    const c = await ouvrir(ouvertureRejet());
+    const zone = detail(c);
+
+    const encadre990 = zone.querySelector<HTMLElement>('[role="note"]')!;
+    expect(encadre990.querySelector('h2')?.textContent).toBe(
+      `Ligne ${REPERES_REJET_VARIE.ligne990Err021} (990) de l’évènement rejetée par MSP${NB}· ERR021`,
+    );
+    expect(encadre990.textContent).toContain(texteMessage(M.err021));
+    expect(encadre990.compareDocumentPosition(zone.querySelector('[role="tablist"]')!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(encadre990.closest('[role="tabpanel"]')).toBeNull();
+    // La 990 de l'évènement 2 ne porte pas de message : pas d'encadré
+    await cliquer(evenements(c)[1]);
+    expect(detail(c).querySelector('[role="note"] h2')).toBeNull();
+  });
+
+  it('permet de choisir « Bénéficiaire absent du rejet » : Garanties actives, 400 à 411 désactivés, encadré de la 700', async () => {
+    const c = await ouvrir(ouvertureRejet());
+
+    await cliquer(evenements(c)[1]);
+
+    const zone = detail(c);
+    expect(beneficiaires(c)).toHaveLength(1);
+    const implicite = beneficiaires(c)[0];
+    expect(implicite.textContent).toContain('Bénéficiaire absent du rejet');
+    expect(compteur(implicite)).toBe('1 ligne rejetée');
+    expect(implicite.getAttribute('aria-current')).toBe('true');
+    await cliquer(implicite);
+    expect(implicite.getAttribute('aria-current')).toBe('true');
+    // Fil d'Ariane
+    expect(zone.querySelector('p')?.textContent).toContain('Bénéficiaire absent du rejet');
+    // Onglets : seules les Garanties existent
+    const ongletsBeneficiaire = onglets(zone, 'Entités du bénéficiaire');
+    expect(ongletSelectionne(zone, 'Entités du bénéficiaire')).toBe('Garanties');
+    expect(ongletsBeneficiaire[0].disabled).toBe(false);
+    for (const absent of ongletsBeneficiaire.slice(1, 5)) {
+      expect(absent.disabled).toBe(true);
+      expect(absent.closest('[title]')?.getAttribute('title')).toBe('Entité absente du rejet');
+      // Même mention que l'infobulle pour les lecteurs d'écran (nom accessible de l'onglet)
+      expect(absent.textContent).toContain('(entité absente du rejet)');
+      expect(absent.textContent).not.toContain('(entité absente)');
+    }
+    const note = encadreFiche(zone);
+    expect(note.querySelector('h3')?.textContent).toBe(`Ligne rejetée par MSP${NB}· ERR027`);
+    expect(note.textContent).toContain(texteMessage(M.err027));
+  });
+
+  it('affiche les accents d’un rejet en Windows-1252, en lecture seule, sans erreur de ligne', async () => {
+    const c = await ouvrir(ouvertureRejet());
+    await cliquer(beneficiaires(c)[1]);
+    expect(beneficiaires(c)[1].textContent).toContain(
+      `${REPERES_REJET_VARIE.nom405} ${REPERES_REJET_VARIE.prenom405}`,
+    );
+    const zone = detail(c);
+
+    await cliquer(onglets(zone, 'Entités du bénéficiaire')[2]);
+
+    expect(valeursChamps(zone)['Nom']).toBe(REPERES_REJET_VARIE.nom405);
+    expect(valeursChamps(zone)['Prénom']).toBe(REPERES_REJET_VARIE.prenom405);
+    expect(zone.textContent).not.toContain('�');
+    expect(zone.querySelector('[role="note"] h3')).toBeNull();
+  });
+
+  it('met tous les champs en lecture seule, sans marquage d’erreur, dans tous les onglets', async () => {
+    const c = await ouvrir(ouvertureRejet());
+    const zone = detail(c);
+
+    const nombre = onglets(zone, 'Entités de l’évènement').length;
+    for (let rang = 0; rang < nombre; rang++) {
+      const onglet = onglets(zone, 'Entités de l’évènement')[rang];
+      if (onglet.disabled) continue;
+      await cliquer(onglet);
+      expect(Array.from(zone.querySelectorAll('input')).every((i) => i.readOnly)).toBe(true);
+      expect(zone.querySelectorAll('[aria-invalid="true"]')).toHaveLength(0);
+      expect(zone.textContent).not.toMatch(/Erreurs? de la ligne/);
+    }
+    expect(zone.querySelectorAll('[id$="-annonce"]')).toHaveLength(0);
   });
 });
 

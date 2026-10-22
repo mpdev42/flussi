@@ -14,11 +14,12 @@
 | 4 | Rang non numérique : erreur « Entité NNN : rang non numérique » (Lazarus plante) | 5 |
 | 5 | Octet non ASCII ou caractère de contrôle signalé dans tout champ (Lazarus ne contrôle que certains champs) | 5 |
 | 6 | Aucune ligne perdue : une ligne en anomalie est conservée et réécrite à l'identique (Lazarus la perd) | 4 |
-| 7 | Rejets : pas de lignes 000/001 fabriquées | 6 |
+| 7 | Rejets : pas de lignes 000/001 fabriquées ; une 700 sans 400 ne fait pas fabriquer de 400 (bénéficiaire implicite sans ligne, v0.3.0, item 4) | 6 |
 | 8 | Format d'origine conservé : fins de ligne (CRLF, LF, CR), BOM, saut de ligne final (Lazarus réécrit tout en CRLF, sans BOM, avec un CRLF après la dernière ligne) | 3 |
 | 9 | Zone non décrite (fin de ligne non lue par Lazarus) réécrite telle quelle (Lazarus la réécrit en espaces) | 3 |
 | 10 | Rejet non reconnu : explication « Erreur inconnue. Contactez le service informatique. » (Lazarus affiche une explication vide, par bug) | 5 |
-| 11 | Rejets : message conservé sur toutes les lignes (Lazarus perd celui des 411, 990 et 995, et celui d'une fille de 400 sans 400) | 6 |
+| 11 | Rejets : message conservé sur toutes les lignes (Lazarus perd celui des 000, 001, 999, 411, 990 et 995, et celui d'une fille de bénéficiaire placée avant toute 400 ou 700 de son évènement). Une 700 sans 400 garde son message dans les deux : Lazarus fabrique une 400, Flussi crée un bénéficiaire implicite sans ligne (texte corrigé en v0.3.0, item 4) | 6 |
+| 12 | Rejets : explications `ERRxxx` rédigées pour Flussi et validées par l'utilisateur (Lazarus : textes provisoires « Aide ERRxxx ») ; tant qu'un code n'a pas d'explication validée, l'écran n'affiche que le code et le message (v0.3.0, item 4) | — |
 
 ---
 
