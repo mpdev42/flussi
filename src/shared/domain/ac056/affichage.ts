@@ -4,11 +4,22 @@
 //   « CODE - Libellé » ; code absent de la liste : code brut, état `inconnue` (Lazarus : vide) ;
 // - date AAAAMMJJ : JJ/MM/AAAA d'après `GetDateFromAc056` (`fmain.pas:3676`) ; vide : rien
 //   (Lazarus : 30/12/1899) ; invalide : valeur brute, état `invalide` ;
-// - autre champ : texte décodé en UTF-8.
-// Fichier VEOS seulement : le décodage Windows-1252 des rejets viendra avec l'item 4.
+// - autre champ : texte décodé.
+// Décodage selon la provenance (`texteValeur`) : UTF-8 pour un fichier VEOS, Windows-1252 pour un
+// rejet MSP (sinon un accent d'un rejet s'afficherait U+FFFD). Provenance toujours exigée : aucun
+// appel ne peut l'oublier.
 import type { DescriptionChamp, ValeurAutorisee } from './entites';
 import { trimFpc } from './fpc';
-import { texteDepuisOctets, type Octets } from './octets';
+import type { Provenance } from './modele';
+import { texteDepuisOctets, texteWindows1252, type Octets } from './octets';
+
+/**
+ * Texte d'une valeur lue, décodé selon la provenance du fichier : Windows-1252 pour un rejet (jamais
+ * U+FFFD), UTF-8 non fatal pour un fichier VEOS (U+FFFD sur un octet invalide).
+ */
+export function texteValeur(valeur: Octets, provenance: Provenance): string {
+  return provenance === 'rejet' ? texteWindows1252(valeur) : texteDepuisOctets(valeur);
+}
 
 /** `inconnue` : code absent de la liste ; `invalide` : date illisible. */
 export type EtatValeurAffichee = 'normal' | 'vide' | 'inconnue' | 'invalide';
@@ -34,10 +45,14 @@ const majusculesAscii = (texte: string): string =>
  * absent (Lazarus : `ItemIndex := -1`). Une valeur vide ne trouve jamais l'entrée vide de
  * `situationFamille` (' - ' n'est le début d'aucune entrée).
  */
-export function entreeListe(champ: DescriptionChamp, valeur: Octets): ValeurAutorisee | null {
+export function entreeListe(
+  champ: DescriptionChamp,
+  valeur: Octets,
+  provenance: Provenance,
+): ValeurAutorisee | null {
   const liste = champ.valeursAutorisees;
   if (liste === undefined) return null;
-  const recherche = majusculesAscii(`${texteDepuisOctets(valeur)} - `);
+  const recherche = majusculesAscii(`${texteValeur(valeur, provenance)} - `);
   return liste.find((entree) => majusculesAscii(texteEntree(entree)).startsWith(recherche)) ?? null;
 }
 
@@ -66,8 +81,12 @@ function dateAffichee(valeur: Octets): string | null {
   return `${valeur.slice(6, 8)}/${valeur.slice(4, 6)}/${valeur.slice(0, 4)}`;
 }
 
-export function valeurAffichee(champ: DescriptionChamp, valeur: Octets): ValeurAffichee {
-  const texte = texteDepuisOctets(valeur);
+export function valeurAffichee(
+  champ: DescriptionChamp,
+  valeur: Octets,
+  provenance: Provenance,
+): ValeurAffichee {
+  const texte = texteValeur(valeur, provenance);
 
   if (champ.type === 'date') {
     const rognee = trimFpc(valeur);
@@ -83,7 +102,7 @@ export function valeurAffichee(champ: DescriptionChamp, valeur: Octets): ValeurA
   if (texte === '') return Object.freeze({ texte: '', etat: 'vide' });
 
   if (champ.valeursAutorisees !== undefined) {
-    const entree = entreeListe(champ, valeur);
+    const entree = entreeListe(champ, valeur, provenance);
     return Object.freeze(
       entree === null
         ? { texte, etat: 'inconnue' as const }

@@ -9,6 +9,11 @@ export interface BarriereFichierProps {
   children: ReactNode;
   /** Action proposée à la place du fichier (« Changer de fichier »). */
   action: ReactNode;
+  /**
+   * Message affiché à la place du fichier ; par défaut celui d'un fichier VEOS, qui rassure sur les
+   * corrections en mémoire (un rejet n'en a pas : message propre).
+   */
+  message?: string;
 }
 
 interface EtatBarriere {
@@ -16,11 +21,11 @@ interface EtatBarriere {
 }
 
 /**
- * Barrière d'erreur autour du contenu du fichier ouvert seulement : si son affichage lève une
- * exception, un message et `action` remplacent les colonnes, au lieu d'un écran blanc. Le hook du
- * fichier et la barre sont au-dessus : les corrections restent en mémoire et « Enregistrer » reste
- * disponible. À remonter avec une `key` propre au fichier pour repartir à zéro au changement de
- * fichier.
+ * Barrière d'erreur autour du contenu du fichier ouvert (VEOS ou rejet) seulement : si son
+ * affichage lève une exception, un message et `action` remplacent les colonnes, au lieu d'un écran
+ * blanc. Le hook du fichier et la barre sont au-dessus : les corrections restent en mémoire et
+ * « Enregistrer » reste disponible. À remonter avec une `key` propre au fichier pour repartir à
+ * zéro au changement de fichier.
  */
 export class BarriereFichier extends Component<BarriereFichierProps, EtatBarriere> {
   state: EtatBarriere = { erreur: false };
@@ -39,12 +44,13 @@ export class BarriereFichier extends Component<BarriereFichierProps, EtatBarrier
 
   render(): ReactNode {
     if (!this.state.erreur) return this.props.children;
+    const { message = MESSAGE_AFFICHAGE_IMPOSSIBLE } = this.props;
     return (
       <div className="mx-auto w-full max-w-content py-4 pl-10 pr-0">
         <Alert variant="error">
           <CircleAlert className="size-4" aria-hidden="true" />
           <AlertTitle as="h2">{TITRE_AFFICHAGE_IMPOSSIBLE}</AlertTitle>
-          <AlertDescription>{MESSAGE_AFFICHAGE_IMPOSSIBLE}</AlertDescription>
+          <AlertDescription>{message}</AlertDescription>
           <div className="mt-3">{this.props.action}</div>
         </Alert>
       </div>

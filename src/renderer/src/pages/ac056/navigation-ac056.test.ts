@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compterLignesRejetees,
   compterParLigne,
   indexerLignes,
   type CodeEntite,
   type FichierAc056,
 } from '@shared/domain/ac056';
-import { lignesCompletes } from '@shared/test/ac056-synthetique';
+import {
+  REPERES_REJET_VARIE,
+  lignesCompletes,
+  lignesRejetVarie,
+} from '@shared/test/ac056-synthetique';
 import { analyseSynthetique } from '@/test/ac056';
 
 import {
@@ -338,5 +343,73 @@ describe('ficheCourante', () => {
     const { contexte } = avecErreurs(sans((l) => l.code === '155'));
 
     expect(ficheCourante(contexte.index, { ...SELECTION, onglet: '155' })).toBeNull();
+  });
+});
+
+describe('fichier de rejet — lignes rejetées et bénéficiaire implicite', () => {
+  // Évènement 0 : 400 et 700 rejetées du premier bénéficiaire, 990 rejetée. Évènement 1 : 700 d'un
+  // bénéficiaire implicite (sans 400), rejetée.
+  const { fichier } = analyseSynthetique(lignesRejetVarie(), 'rejet');
+  const index = indexerLignes(fichier);
+  const avecRejets: ContexteNavigation = {
+    index,
+    compteurs: compterLignesRejetees(index, fichier),
+  };
+  const sansRejet: ContexteNavigation = { index, compteurs: compterParLigne(index, []) };
+
+  it('ouvre la première fiche rejetée : Bénéficiaires, Garanties, première garantie rejetée', () => {
+    const selection = selectionInitiale(avecRejets);
+
+    expect(selection.evenement).toBe(0);
+    expect(selection.onglet).toBe('beneficiaires');
+    expect(selection.beneficiaire).toBe(0);
+    // Garanties avant 400 dans l'ordre de Lazarus : la 700 rejetée l'emporte sur la 400 rejetée
+    expect(selection.ongletBeneficiaire).toBe('garanties');
+  });
+
+  it('ouvre les Garanties du bénéficiaire implicite d’un évènement rejeté', () => {
+    const selection = choisirEvenement(avecRejets, SELECTION, 1);
+
+    expect(selection.onglet).toBe('beneficiaires');
+    expect(selection.beneficiaire).toBe(0);
+    expect(index.evenements[1]!.noeud.beneficiaires[0]!.e400).toBeNull();
+    expect(selection.ongletBeneficiaire).toBe('garanties');
+  });
+
+  it('retombe sur le premier onglet présent du bénéficiaire implicite quand la 400 manque', () => {
+    // Aucune ligne rejetée : ni onglet en erreur, ni 400 (courant : 400 puis 405 absents)
+    const depuis400 = choisirEvenement(sansRejet, SELECTION, 1);
+    expect(depuis400.ongletBeneficiaire).toBe('garanties');
+
+    const depuis405 = choisirEvenement(
+      sansRejet,
+      { ...SELECTION, onglet: 'beneficiaires', ongletBeneficiaire: '405' },
+      1,
+    );
+    expect(depuis405.ongletBeneficiaire).toBe('garanties');
+  });
+
+  it('garde le sous-onglet courant s’il existe chez le bénéficiaire implicite', () => {
+    const selection = choisirEvenement(
+      sansRejet,
+      { ...SELECTION, ongletBeneficiaire: 'garanties' },
+      1,
+    );
+
+    expect(selection.ongletBeneficiaire).toBe('garanties');
+  });
+
+  it('désigne la 700 du bénéficiaire implicite, et aucune fiche sur sa 400', () => {
+    const surGaranties: SelectionAc056 = {
+      ...SELECTION,
+      evenement: 1,
+      onglet: 'beneficiaires',
+      ongletBeneficiaire: 'garanties',
+    };
+    const fiche = ficheCourante(index, surGaranties);
+
+    expect(fiche?.code).toBe('700');
+    expect(fichier.lignes[fiche!.indice]!.numero).toBe(REPERES_REJET_VARIE.ligne700Implicite);
+    expect(ficheCourante(index, { ...surGaranties, ongletBeneficiaire: '400' })).toBeNull();
   });
 });

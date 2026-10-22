@@ -272,3 +272,117 @@ export function lignesRejet({ dossiers = 2, message }: OptionsLignesRejet = {}):
     ligneRejet(ligne, message?.(ligne.slice(22, 25) as CodeEntite, indice)),
   );
 }
+
+/** Messages MSP fictifs de `lignesRejetVarie` (texte Unicode, écrit en Windows-1252). */
+export const MESSAGES_REJET_VARIE = Object.freeze({
+  /** ERR009 : texte exact de sa recherche de début. */
+  err009: 'Incohérence du centre de paiement',
+  /** Aucun code : « Erreur inconnue » (divergence 10). */
+  inconnu: 'Garantie absente du référentiel de test',
+  /** ERR021 : égalité stricte. */
+  err021: "Pas d'enregistrement de fin d'évènement",
+  /** ERR027 : début, puis deux contenus (et non ERR010, dont le second contenu diffère). */
+  err027:
+    "La garantie TEST01 de l'assuré de rang 01 ne peut etre radiée car elle n'existe pas pour le contrat CTR1",
+  /** Aucun code, sur la 995 (hors évènement). */
+  dossier: 'Dossier rejeté par le contrôle de test',
+});
+
+/**
+ * Repères de `lignesRejetVarie` : numéros de ligne (base 1) et contenu attendu, pour les tests du
+ * domaine, de l'écran (DOM) et e2e.
+ */
+export const REPERES_REJET_VARIE = Object.freeze({
+  /** Nombre de lignes du fichier. */
+  lignes: 17,
+  /** Lignes qui portent un message, dans l'ordre. */
+  lignesRejetees: Object.freeze([5, 6, 10, 12, 14]),
+  /** 400 de l'assuré principal (évènement 1, bénéficiaire 1) : message ERR009. */
+  ligne400Err009: 5,
+  /** 700 de l'assuré principal : message inconnu. */
+  ligne700Inconnu: 6,
+  /** 405 du conjoint (évènement 1, bénéficiaire 2), sans message : nom et prénom accentués. */
+  ligne405Accent: 8,
+  /** Nom et prénom de la 405, octets Windows-1252 0xC9 (« É »). */
+  nom405: 'BÉGUIN',
+  prenom405: 'ÉLODIE',
+  /** 990 de l'évènement 1 : message ERR021. */
+  ligne990Err021: 10,
+  /** 700 sans 400 de l'évènement 2 : bénéficiaire implicite, message ERR027. */
+  ligne700Implicite: 12,
+  /** 995 du dossier : message inconnu, hors évènement. */
+  ligne995: 14,
+});
+
+/**
+ * Fichier de rejet fictif varié, dans l'ordre de MSP (un dossier, 001 après la 995, 000 et 999 à
+ * la fin), données manifestement fictives (émetteur TEST, dossier 1) :
+ *
+ * | Ligne | Entité | Contenu                                              | Message MSP              |
+ * | ----- | ------ | ---------------------------------------------------- | ------------------------ |
+ * | 1     | 100    | évènement 001, contrat CTR1                          |                          |
+ * | 2     | 110    |                                                      |                          |
+ * | 3     | 115    | DUPONT TEST                                          |                          |
+ * | 4     | 120    |                                                      |                          |
+ * | 5     | 400    | rang 01, ASSPRI                                      | ERR009                   |
+ * | 6     | 700    | rang 01                                              | inconnu                  |
+ * | 7     | 400    | rang 02, CONJOI                                      |                          |
+ * | 8     | 405    | rang 02, BÉGUIN ÉLODIE (0xC9 en Windows-1252)        |                          |
+ * | 9     | 700    | rang 02                                              |                          |
+ * | 10    | 990    |                                                      | ERR021                   |
+ * | 11    | 100    | évènement 002                                        |                          |
+ * | 12    | 700    | rang 01, sans 400 : bénéficiaire implicite           | ERR027                   |
+ * | 13    | 990    |                                                      |                          |
+ * | 14    | 995    |                                                      | inconnu (hors évènement) |
+ * | 15    | 001    |                                                      |                          |
+ * | 16    | 000    | dossier 0                                            |                          |
+ * | 17    | 999    | dossier 0                                            |                          |
+ *
+ * Messages : `MESSAGES_REJET_VARIE` ; repères : `REPERES_REJET_VARIE`. Lecture sans anomalie
+ * (`lireAc056(fichierSynthetique(lignesRejetVarie()), 'rejet')`) : 2 évènements, 2 bénéficiaires
+ * dans le premier, 1 bénéficiaire implicite (`e400: null`) dans le second, 5 lignes rejetées dont
+ * 1 hors évènement.
+ */
+export function lignesRejetVarie(): string[] {
+  const m = MESSAGES_REJET_VARIE;
+  const evt1 = entete(1, 1, '00');
+  const evt2 = entete(1, 2, '00');
+  const rang = (evenement: Record<string, string>, r: string) => ({ ...evenement, rang: r });
+  const lignes: [string, string?][] = [
+    [ligneSynthetique('100', { ...evt1, numContratIndiv: 'CTR1', echPrinc: '0101' })],
+    [ligneSynthetique('110', evt1)],
+    [ligneSynthetique('115', { ...evt1, nom: 'DUPONT', prenom1: 'TEST' })],
+    [
+      ligneSynthetique('120', {
+        ...evt1,
+        codePostalLocalite: '99999',
+        libelleLocalite: 'TESTVILLE',
+      }),
+    ],
+    [
+      ligneSynthetique('400', { ...rang(evt1, '01'), rangPersonne: '01', typeAssure: 'ASSPRI' }),
+      m.err009,
+    ],
+    [ligneSynthetique('700', { ...rang(evt1, '01'), codeAssureur: 'TEST' }), m.inconnu],
+    [ligneSynthetique('400', { ...rang(evt1, '02'), rangPersonne: '02', typeAssure: 'CONJOI' })],
+    [
+      ligneSynthetique('405', {
+        ...rang(evt1, '02'),
+        nom: enWindows1252(REPERES_REJET_VARIE.nom405),
+        prenom1: enWindows1252(REPERES_REJET_VARIE.prenom405),
+      }),
+    ],
+    [ligneSynthetique('700', { ...rang(evt1, '02'), codeAssureur: 'TEST' })],
+    [ligneSynthetique('990', evt1), m.err021],
+    [ligneSynthetique('100', { ...evt2, numContratIndiv: 'CTR1', echPrinc: '0101' })],
+    [ligneSynthetique('700', { ...rang(evt2, '01'), codeAssureur: 'TEST' }), m.err027],
+    [ligneSynthetique('990', evt2)],
+    [ligneSynthetique('995', entete(1, 0, '00')), m.dossier],
+    [ligneSynthetique('001', entete(1, 0, '00'))],
+    [ligneSynthetique('000', entete(0, 0, '00'))],
+    [ligneSynthetique('999', entete(0, 0, '00'))],
+  ];
+  return lignes.map(([ligne, message]) =>
+    ligneRejet(ligne, message === undefined ? '' : enWindows1252(message)),
+  );
+}

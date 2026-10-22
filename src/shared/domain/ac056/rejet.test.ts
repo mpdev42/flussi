@@ -129,7 +129,7 @@ describe('messageRejet', () => {
         const texte = messageDepuis(d);
         const lu = messageRejet(avecMessage(enWindows1252(texte)));
         expect(lu?.code).toBe(code);
-        expect(lu?.explication).toBe(`Aide ${code}`);
+        expect(lu?.explication).toBe(d.explication);
         expect(lu?.message).toBe(texte);
       },
     );

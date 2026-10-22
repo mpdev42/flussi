@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONSIGNE_VEOS, ENTITES, octetsDepuisTexte } from '@shared/domain/ac056';
+import { octetsDepuisTableau } from '@shared/domain/ac056/octets';
+import { enOctetsBruts, enWindows1252 } from '@shared/test/ac056-synthetique';
 
 import {
   anomaliesBloquantesParLigne,
@@ -31,26 +33,53 @@ describe('presentationChamp', () => {
 
 describe('texteChampAffiche', () => {
   it('affiche « CODE - Libellé » et la date en JJ/MM/AAAA', () => {
-    expect(texteChampAffiche(champ('400', 'typeAssure'), octetsDepuisTexte('ASSPRI'))).toBe(
+    expect(texteChampAffiche(champ('400', 'typeAssure'), octetsDepuisTexte('ASSPRI'), 'veos')).toBe(
       'ASSPRI - Assuré principal',
     );
-    expect(texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('19850215'))).toBe(
-      '15/02/1985',
-    );
+    expect(
+      texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('19850215'), 'veos'),
+    ).toBe('15/02/1985');
   });
 
   it('ajoute « (absent de la liste) » à un code inconnu', () => {
-    expect(texteChampAffiche(champ('400', 'typeAssure'), octetsDepuisTexte('ZZZ'))).toBe(
+    expect(texteChampAffiche(champ('400', 'typeAssure'), octetsDepuisTexte('ZZZ'), 'veos')).toBe(
       'ZZZ (absent de la liste)',
     );
   });
 
   it('ajoute « (date invalide) » à une date illisible et laisse vide une date vide', () => {
-    expect(texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('19850231'))).toBe(
-      '19850231 (date invalide)',
-    );
-    expect(texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('        '))).toBe(
-      '',
+    expect(
+      texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('19850231'), 'veos'),
+    ).toBe('19850231 (date invalide)');
+    expect(
+      texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('        '), 'veos'),
+    ).toBe('');
+  });
+});
+
+/** Octets Windows-1252 d'un texte (« É » vaut l'octet 0xC9 seul). */
+const octetsWindows1252 = (texte: string) =>
+  octetsDepuisTableau(enOctetsBruts(enWindows1252(texte)));
+
+describe('texteChampAffiche — provenance', () => {
+  it('décode un accent Windows-1252 d’un rejet, et l’UTF-8 d’un fichier VEOS', () => {
+    const nom = champ('405', 'nom');
+
+    // Octet 0xC9 seul : « É » en Windows-1252, octet invalide en UTF-8
+    expect(texteChampAffiche(nom, octetsWindows1252('BÉGUIN'), 'rejet')).toBe('BÉGUIN');
+    expect(texteChampAffiche(nom, octetsWindows1252('BÉGUIN'), 'veos')).toContain('�');
+    expect(texteChampAffiche(nom, octetsDepuisTexte('BÉGUIN'), 'veos')).toBe('BÉGUIN');
+  });
+
+  it('garde les listes et les dates d’un rejet lisibles', () => {
+    expect(
+      texteChampAffiche(champ('400', 'typeAssure'), octetsDepuisTexte('ASSPRI'), 'rejet'),
+    ).toBe('ASSPRI - Assuré principal');
+    expect(
+      texteChampAffiche(champ('400', 'dateNaissance'), octetsDepuisTexte('19850215'), 'rejet'),
+    ).toBe('15/02/1985');
+    expect(texteChampAffiche(champ('400', 'typeAssure'), octetsDepuisTexte('ZZZ'), 'rejet')).toBe(
+      'ZZZ (absent de la liste)',
     );
   });
 });

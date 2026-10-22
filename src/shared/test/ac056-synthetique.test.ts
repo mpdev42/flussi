@@ -15,6 +15,9 @@ import {
   lignesCompletes,
   lignesDepuisCodes,
   lignesRejet,
+  lignesRejetVarie,
+  MESSAGES_REJET_VARIE,
+  REPERES_REJET_VARIE,
 } from './ac056-synthetique';
 
 /** Code d'entité (octets 23 à 25) d'une ligne. */
@@ -423,5 +426,87 @@ describe('lignesRejet', () => {
   it('accepte un message en octets Windows-1252', () => {
     const avec = lignesRejet({ message: (code) => (code === '999' ? 'caf\xE9' : undefined) });
     expect(avec.at(-1)?.slice(718)).toBe('caf\xE9');
+  });
+});
+
+describe('lignesRejetVarie', () => {
+  const lignes = lignesRejetVarie();
+  const lecture = lireAc056(fichierSynthetique(lignes), 'rejet');
+  const ligneLue = (numero: number) => lecture.fichier.lignes[numero - 1];
+
+  it('produit 17 lignes de rejet d au moins 718 octets, identification MSP comprise', () => {
+    expect(lignes).toHaveLength(REPERES_REJET_VARIE.lignes);
+    for (const ligne of lignes) {
+      expect(ligne.length).toBeGreaterThanOrEqual(718);
+      expect(ligne.slice(700, 718)).toBe(IDENTIFICATION_MSP_FICTIVE);
+    }
+  });
+
+  it('suit l ordre de MSP : 001 après la 995, 000 et 999 à la fin', () => {
+    expect(lignes.map(codeDe)).toEqual([
+      '100',
+      '110',
+      '115',
+      '120',
+      '400',
+      '700',
+      '400',
+      '405',
+      '700',
+      '990',
+      '100',
+      '700',
+      '990',
+      '995',
+      '001',
+      '000',
+      '999',
+    ]);
+  });
+
+  it('se lit sans aucune anomalie', () => {
+    expect(lecture.anomalies).toEqual([]);
+  });
+
+  it('porte un message sur les seules lignes annoncées, avec les codes attendus', () => {
+    const portees = lecture.fichier.lignes.flatMap((ligne) =>
+      ligne.rejet ? [[ligne.numero, ligne.rejet.message, ligne.rejet.code]] : [],
+    );
+    expect(portees).toEqual([
+      [REPERES_REJET_VARIE.ligne400Err009, MESSAGES_REJET_VARIE.err009, 'ERR009'],
+      [REPERES_REJET_VARIE.ligne700Inconnu, MESSAGES_REJET_VARIE.inconnu, null],
+      [REPERES_REJET_VARIE.ligne990Err021, MESSAGES_REJET_VARIE.err021, 'ERR021'],
+      [REPERES_REJET_VARIE.ligne700Implicite, MESSAGES_REJET_VARIE.err027, 'ERR027'],
+      [REPERES_REJET_VARIE.ligne995, MESSAGES_REJET_VARIE.dossier, null],
+    ]);
+    expect(portees.map(([numero]) => numero)).toEqual([...REPERES_REJET_VARIE.lignesRejetees]);
+  });
+
+  it('écrit les messages en Windows-1252 (un octet par lettre accentuée)', () => {
+    const ligne = lignes[REPERES_REJET_VARIE.ligne990Err021 - 1]!;
+    expect(ligne.slice(718)).toBe("Pas d'enregistrement de fin d'\xE9v\xE8nement");
+  });
+
+  it('écrit en Windows-1252 le nom et le prénom accentués de la 405', () => {
+    const ligne = lignes[REPERES_REJET_VARIE.ligne405Accent - 1]!;
+    expect(codeDe(ligne)).toBe('405');
+    expect(extraireChamp(ligne, '405', 'nom').trimEnd()).toBe('B\xC9GUIN');
+    expect(extraireChamp(ligne, '405', 'prenom1').trimEnd()).toBe('\xC9LODIE');
+    expect(ligneLue(REPERES_REJET_VARIE.ligne405Accent)).not.toHaveProperty('rejet');
+  });
+
+  it('range un bénéficiaire implicite (700 sans 400) dans le second évènement', () => {
+    const [premier, second] = lecture.fichier.dossiers[0]!.evenements;
+    expect(premier?.beneficiaires.map((b) => b.e400)).toEqual([4, 6]);
+    expect(second?.beneficiaires).toHaveLength(1);
+    expect(second?.beneficiaires[0]?.e400).toBeNull();
+    expect(second?.beneficiaires[0]?.e700).toEqual([REPERES_REJET_VARIE.ligne700Implicite - 1]);
+  });
+
+  it('n utilise que des valeurs fictives : émetteur TEST, dossier 1 ou 0', () => {
+    for (const ligne of lignes) {
+      expect(ligne.slice(0, 9).trimEnd()).toBe('TEST');
+      expect(['00000000', '00000001']).toContain(ligne.slice(9, 17));
+    }
   });
 });

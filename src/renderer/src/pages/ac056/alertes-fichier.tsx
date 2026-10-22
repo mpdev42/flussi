@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from 'lucide-react';
+import type { FichierAc056, IndexLignesAc056 } from '@shared/domain/ac056';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { OperationProgress } from '@/components/ui/operation-progress';
@@ -6,7 +8,9 @@ import type { EtatFichierAc056, RetourEnregistrement } from '@/hooks/use-fichier
 import { pluralize } from '@/lib/pluralize';
 
 import { AlerteReessayer } from './alerte-reessayer';
+import { CodeMsp, DetailRejet } from './encadre-rejet';
 import { anomalieFichierVide } from './format-ac056';
+import { lignesRejeteesHorsEvenement } from './rejets-ac056';
 import {
   MESSAGE_A_JOUR,
   MESSAGE_AUCUNE_ERREUR,
@@ -14,6 +18,7 @@ import {
   MESSAGE_HORS_EVENEMENT,
   MESSAGE_PLUS_D_ERREUR,
   MESSAGE_STRUCTURE,
+  NB,
   messageEnregistreAvecErreurs,
   messageErreursFichier,
   TITRE_ECHEC_CHARGEMENT,
@@ -21,11 +26,16 @@ import {
   TITRE_ENREGISTREMENT_INTERROMPU,
   TITRE_FICHIER_ILLISIBLE,
   TITRE_STRUCTURE,
+  designationLigneRejetee,
+  titreRejetsHorsEvenement,
 } from './textes-ac056';
 
 export interface AlertesFichierProps {
   fichier: EtatFichierAc056;
-  /** Erreurs rattachées à aucun évènement (000, 001, 995, 999, lignes perdues) : sans détail. */
+  /**
+   * Erreurs (fichier VEOS, sans détail) ou lignes rejetées (rejet, avec détail) rattachées à aucun
+   * évènement : 000, 001, 995, 999, lignes perdues.
+   */
   horsEvenement: number;
   /** Résultat du dernier enregistrement, sinon `null`. */
   retour: RetourEnregistrement | null;
@@ -80,11 +90,49 @@ function alerteDuFichier(
 }
 
 /**
+ * Lignes rejetées par MSP que l'écran range hors des évènements (000, 001, 995, 999, lignes
+ * perdues) : chacune avec son message, son code et son explication. Seule alerte d'un rejet
+ * (`role="note"` : le fichier se consulte, il n'y a rien à corriger).
+ */
+function AlerteRejetsHorsEvenement({
+  fichier,
+  index,
+  n,
+}: {
+  fichier: FichierAc056;
+  index: IndexLignesAc056;
+  n: number;
+}) {
+  const lignes = useMemo(() => lignesRejeteesHorsEvenement(fichier, index), [fichier, index]);
+  return (
+    <Alert variant="error" role="note">
+      <CircleAlert className="size-4" aria-hidden="true" />
+      <AlertTitle as="h2">{titreRejetsHorsEvenement(n)}</AlertTitle>
+      <AlertDescription>
+        <ul className="m-0 mt-2 list-none space-y-3 p-0">
+          {lignes.map((ligne) => (
+            <li key={ligne.numero}>
+              <p className="m-0 font-medium">
+                {designationLigneRejetee(ligne.numero, ligne.code)}
+                {NB}· <CodeMsp code={ligne.rejet.code} />
+              </p>
+              <DetailRejet rejet={ligne.rejet} />
+            </li>
+          ))}
+        </ul>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/**
  * Alertes d'écran, entre la barre du fichier et le contenu : chargement en cours, échec de
  * chargement, fichier illisible (vide) et, pour un fichier VEOS lisible, l'alerte du fichier (nombre
  * d'erreurs à corriger, succès à 0, résultat de l'enregistrement), l'échec de l'enregistrement,
- * structure incorrecte, erreurs hors des évènements. Les messages d'anomalie du domaine ne citent
- * aucune valeur lue : ils sont affichables.
+ * structure incorrecte, erreurs hors des évènements. Pour un rejet lisible, la seule alerte est celle
+ * des lignes rejetées hors des évènements (aucune alerte de page sinon, comme la maquette). Les
+ * messages d'anomalie du domaine ne citent aucune valeur lue : ils sont affichables. Les messages
+ * de MSP sont affichés tels que lus, à l'écran seulement (jamais au journal).
  */
 export function AlertesFichier({
   fichier,
@@ -118,7 +166,15 @@ export function AlertesFichier({
           </Alert>
         );
       }
-      if (provenance !== 'veos') return null;
+      if (provenance !== 'veos') {
+        return horsEvenement > 0 ? (
+          <AlerteRejetsHorsEvenement
+            fichier={analyse.fichier}
+            index={fichier.index}
+            n={horsEvenement}
+          />
+        ) : null;
+      }
       const { variant, Icone, texte } = alerteDuFichier(analyse, fichier.modifie, retour);
       return (
         <>

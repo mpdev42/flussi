@@ -167,6 +167,20 @@ export function ongletBeneficiaire(page: Page, nom: string | RegExp): Locator {
     .getByRole('tab', { name: nom });
 }
 
+/**
+ * Encadré `role="note"` d'une ligne rejetée par MSP, repéré par le titre de son encadré (« Ligne
+ * rejetée par MSP · ERR009 », « Ligne 10 (990) de l’évènement rejetée par MSP · ERR021 », ou la
+ * note des lignes hors évènement).
+ */
+export function encadreRejet(
+  page: Page,
+  titre: string | RegExp,
+  zone: Page | Locator = page,
+): Locator {
+  // `has` se résout depuis chaque encadré : le titre se désigne depuis la page, jamais depuis la zone
+  return zone.getByRole('note').filter({ has: page.getByRole('heading', { name: titre }) });
+}
+
 /** Champ de la fiche par son libellé exact (« Nom » n'est pas « Nom de jeune fille »). */
 export function champFiche(page: Page, libelle: string): Locator {
   return detailEvenement(page).getByLabel(libelle, { exact: true });

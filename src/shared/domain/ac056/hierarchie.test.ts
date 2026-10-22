@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   fichierSynthetique,
+  ligneRejetSynthetique,
   ligneSynthetique,
   lignesCompletes,
 } from '@shared/test/ac056-synthetique';
@@ -313,6 +314,101 @@ describe('construireHierarchie', () => {
     it('ne rattache pas une fille de bénéficiaire sans évènement', () => {
       const h = hierarchie('001', '405', '485');
       expect(indicesRattaches(h)).toEqual([0]);
+    });
+  });
+
+  describe('bénéficiaire implicite d un rejet (parité AjouterEntite700, uac056.pas:736-757)', () => {
+    /** Hiérarchie d'un rejet : lignes de même clé de dossier (origine vide), donc un seul dossier. */
+    const rejet = (...codes: (CodeEntite | null)[]) =>
+      construireHierarchie(depuisCodes(codes), 'rejet');
+    const beneficiaires = (h: Hierarchie, evenement = 0) =>
+      h.dossiers[0]?.evenements[evenement]?.beneficiaires;
+    const implicite = (e700: number[], autres: Partial<Record<string, unknown>> = {}) => ({
+      e400: null,
+      e405: null,
+      e410: null,
+      e411: null,
+      e485: [],
+      e490: [],
+      e700,
+      e800: null,
+      ...autres,
+    });
+
+    it('ouvre un bénéficiaire sans 400 pour une 700 sans 400 : 100 700', () => {
+      expect(beneficiaires(rejet('100', '700'))).toEqual([implicite([1])]);
+    });
+
+    it('rattache les 700 suivantes au même bénéficiaire implicite : 100 700 700', () => {
+      expect(beneficiaires(rejet('100', '700', '700'))).toEqual([implicite([1, 2])]);
+    });
+
+    it('rattache la 700 à la 400 qui la précède : 100 400 700', () => {
+      const benefs = beneficiaires(rejet('100', '400', '700'));
+      expect(benefs).toHaveLength(1);
+      expect(benefs?.[0]).toMatchObject({ e400: 1, e700: [2] });
+    });
+
+    it('rattache les filles qui suivent au bénéficiaire implicite : 100 700 405', () => {
+      expect(beneficiaires(rejet('100', '700', '405'))).toEqual([implicite([1], { e405: 2 })]);
+    });
+
+    it('rattache toutes les filles suivantes (410, 411, 485, 490, 800)', () => {
+      const h = rejet('100', '700', '410', '411', '485', '490', '800');
+      expect(beneficiaires(h)).toEqual([
+        implicite([1], { e410: 2, e411: 3, e485: [4], e490: [5], e800: 6 }),
+      ]);
+    });
+
+    it('ne rattache pas une fille placée avant la 700 : 100 405 700', () => {
+      const h = rejet('100', '405', '700');
+      expect(beneficiaires(h)).toEqual([implicite([2])]);
+      expect(indicesRattaches(h)).not.toContain(1);
+    });
+
+    it('ouvre un nouveau bénéficiaire à la 400 suivante : 100 700 400 700', () => {
+      const benefs = beneficiaires(rejet('100', '700', '400', '700'));
+      expect(benefs).toEqual([implicite([1]), expect.objectContaining({ e400: 2, e700: [3] })]);
+    });
+
+    it('ouvre un bénéficiaire implicite par évènement : 100 700 990 100 700', () => {
+      const h = rejet('100', '700', '990', '100', '700');
+      expect(beneficiaires(h, 0)).toEqual([implicite([1])]);
+      expect(beneficiaires(h, 1)).toEqual([implicite([4])]);
+    });
+
+    it('n ouvre rien sans évènement : 700 seule', () => {
+      const h = rejet('700');
+      expect(h.dossiers[0]?.evenements).toEqual([]);
+      expect(indicesRattaches(h)).toEqual([]);
+    });
+
+    it('remet le curseur à zéro au changement de clé de dossier', () => {
+      const lignes = [
+        ligneRejetSynthetique('100', 1),
+        ligneRejetSynthetique('700', 1),
+        ligneRejetSynthetique('100', 2),
+        ligneRejetSynthetique('700', 2),
+        ligneRejetSynthetique('405', 3),
+      ];
+      const { fichier } = lireAc056(fichierSynthetique(lignes), 'rejet');
+      expect(fichier.dossiers).toHaveLength(3);
+      expect(fichier.dossiers[0]?.evenements[0]?.beneficiaires).toEqual([implicite([1])]);
+      expect(fichier.dossiers[1]?.evenements[0]?.beneficiaires).toEqual([implicite([3])]);
+      expect(fichier.dossiers[2]?.evenements).toEqual([]);
+      expect(indicesRattaches(fichier)).not.toContain(4);
+    });
+
+    it('garde en VEOS une 700 sans 400 non rattachée', () => {
+      const h = hierarchie('001', '100', '700');
+      expect(h.dossiers[0]?.evenements[0]?.beneficiaires).toEqual([]);
+      expect(indicesRattaches(h)).toEqual([0, 1]);
+    });
+
+    it('gèle le bénéficiaire implicite et ses listes', () => {
+      const benef = beneficiaires(rejet('100', '700'))?.[0];
+      expect(Object.isFrozen(benef)).toBe(true);
+      expect(Object.isFrozen(benef?.e700)).toBe(true);
     });
   });
 

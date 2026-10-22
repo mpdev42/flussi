@@ -2,11 +2,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ListeAc056, OuvertureAc056 } from '@shared/types';
 import {
+  MESSAGES_REJET_VARIE,
+  REPERES_REJET_VARIE,
+  enWindows1252,
+  lignesRejet,
+} from '@shared/test/ac056-synthetique';
+import {
   NOM_REJET,
   NOM_VEOS,
   anomalieFichierVide,
   fichierListe,
+  ouvertureRejet,
   ouvertureReussie,
+  ouvertureSynthetique,
 } from '@/test/ac056';
 import { cliquer, differe, monter, vider, type Monture } from '@/test/dom';
 import { EcranAc056 } from './ac056';
@@ -301,18 +309,79 @@ describe('EcranAc056 — fichier ouvert', () => {
     );
   });
 
-  it('affiche les lignes rejetées d’un rejet, sans contrôle ni alerte', async () => {
+  it('affiche les lignes rejetées d’un rejet, sans contrôle ni alerte d’état', async () => {
     const c = await afficher();
 
-    await ouvrirFichier(c, ouvertureReussie(NOM_REJET, { lignesRejetees: 2 }, 'out'), NOM_REJET);
+    await ouvrirFichier(c, ouvertureRejet(), NOM_REJET);
 
     expect(titres(c, 'h1')).toEqual([NOM_REJET]);
     expect(c.textContent).toContain('OUT');
     expect(c.textContent).toContain('Rejet');
-    expect(c.textContent).toContain('2 lignes rejetées');
-    expect(c.textContent).not.toContain('erreur');
+    expect(c.textContent).toContain('5 lignes rejetées');
+    expect(c.textContent).not.toMatch(/\d erreurs?\b/);
     expect(c.querySelector('[role="alert"]')).toBeNull();
     expect(c.querySelector('[role="status"]')).toBeNull();
+    expect(boutons(c).map((b) => b.textContent?.trim())).not.toContain('Enregistrer');
+  });
+
+  /** Notes de page d'un rejet : celles qui ne sont dans aucune colonne (alertes, au-dessus). */
+  function notesDePage(conteneur: HTMLElement): HTMLElement[] {
+    return Array.from(conteneur.querySelectorAll<HTMLElement>('[role="note"]')).filter(
+      (note) => note.closest('section') === null,
+    );
+  }
+
+  it('liste dans une seule note les lignes rejetées hors des évènements, avec leur détail', async () => {
+    const c = await afficher();
+
+    await ouvrirFichier(c, ouvertureRejet(), NOM_REJET);
+
+    const notes = notesDePage(c);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].querySelector('h2')?.textContent).toBe('1 ligne rejetée hors des évènements');
+    const lignes = notes[0].querySelectorAll('li');
+    expect(lignes).toHaveLength(1);
+    expect(lignes[0].querySelector('p')?.textContent).toBe(
+      `Ligne${NB}${REPERES_REJET_VARIE.ligne995} (995)${NB}· code inconnu`,
+    );
+    expect(lignes[0].textContent).toContain(
+      `Message MSP${NB}: «${NB}${MESSAGES_REJET_VARIE.dossier}${NB}»`,
+    );
+    expect(lignes[0].textContent).toContain(
+      `Explication${NB}: Erreur inconnue. Contactez le service informatique.`,
+    );
+  });
+
+  it('met le pluriel et le code des lignes rejetées hors des évènements', async () => {
+    const c = await afficher();
+    const message = enWindows1252(MESSAGES_REJET_VARIE.err021);
+    const lignes = lignesRejet({
+      message: (code) => (code === '000' || code === '999' ? message : undefined),
+    });
+
+    await ouvrirFichier(c, ouvertureSynthetique(NOM_REJET, lignes, 'out'), NOM_REJET);
+
+    const notes = notesDePage(c);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].querySelector('h2')?.textContent).toBe('2 lignes rejetées hors des évènements');
+    const designations = Array.from(notes[0].querySelectorAll('li > p:first-child')).map(
+      (p) => p.textContent,
+    );
+    expect(designations).toHaveLength(2);
+    expect(designations[0]).toMatch(new RegExp(`^Ligne${NB}\\d+ \\(000\\)${NB}· ERR021$`));
+    expect(designations[1]).toMatch(new RegExp(`^Ligne${NB}\\d+ \\(999\\)${NB}· ERR021$`));
+  });
+
+  it('n’affiche aucune alerte de page pour un rejet dont toutes les lignes rejetées sont dans des évènements', async () => {
+    const c = await afficher();
+    const message = enWindows1252(MESSAGES_REJET_VARIE.err021);
+    const lignes = lignesRejet({ message: (code) => (code === '110' ? message : undefined) });
+
+    await ouvrirFichier(c, ouvertureSynthetique(NOM_REJET, lignes, 'out'), NOM_REJET);
+
+    expect(notesDePage(c)).toHaveLength(0);
+    expect(c.querySelector('[role="alert"], [role="status"]')).toBeNull();
+    expect(titres(c, 'h2')).not.toContain('hors des évènements');
   });
 
   it('met « ligne rejetée » au singulier pour une seule ligne', async () => {

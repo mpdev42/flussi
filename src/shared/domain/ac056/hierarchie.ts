@@ -7,6 +7,12 @@
 // de mêmes 17 premiers octets (émetteur et numéro de dossier) : un changement de clé ouvre un
 // dossier, la 001 s'y rattache sans toucher aux curseurs, la 000 et la 999 restent hors dossier
 // (divergence 7 : pas de lignes fabriquées comme dans Lazarus).
+// MSP peut aussi renvoyer une 700 sans la 400 de son bénéficiaire : comme `AjouterEntite700`
+// (`uac056.pas:736-757`), une 700 sans bénéficiaire courant dans un évènement ouvre un bénéficiaire
+// implicite (`e400: null`, aucune ligne fabriquée), qui reste le bénéficiaire courant : les 700 et
+// les autres filles qui suivent s'y rattachent, jusqu'à la prochaine 400 ou 100, ou jusqu'au
+// changement de clé de dossier, qui remet aussi l'évènement et le bénéficiaire courants (implicite
+// compris) à zéro : une 700 du dossier suivant ne s'y rattache jamais.
 import type { BeneficiaireAc056, DossierAc056, EvenementAc056, FichierAc056 } from './modele';
 import type { LigneAc056, Provenance } from './modele';
 import type { Octets } from './octets';
@@ -35,6 +41,19 @@ function figerEvenement(noeud: Modifiable<EvenementAc056>): EvenementAc056 {
 function figerDossier(noeud: Modifiable<DossierAc056>): DossierAc056 {
   const evenements = Object.freeze(noeud.evenements.map(figerEvenement));
   return Object.freeze({ ...noeud, evenements });
+}
+
+function nouveauBeneficiaire(e400: number | null): Modifiable<BeneficiaireAc056> {
+  return {
+    e400,
+    e405: null,
+    e410: null,
+    e411: null,
+    e800: null,
+    e485: [],
+    e490: [],
+    e700: [],
+  };
 }
 
 export function construireHierarchie(
@@ -113,16 +132,7 @@ export function construireHierarchie(
       case '400':
         beneficiaire = null;
         if (evenement) {
-          beneficiaire = {
-            e400: i,
-            e405: null,
-            e410: null,
-            e411: null,
-            e800: null,
-            e485: [],
-            e490: [],
-            e700: [],
-          };
+          beneficiaire = nouveauBeneficiaire(i);
           evenement.beneficiaires.push(beneficiaire);
         }
         break;
@@ -132,9 +142,16 @@ export function construireHierarchie(
       case '800':
         if (beneficiaire) beneficiaire[`e${ligne.code}`] = i;
         break;
+      case '700':
+        // Rejet : bénéficiaire implicite (Lazarus : `if not b_entite400_creee`, uac056.pas:740).
+        if (rejet && beneficiaire === null && evenement) {
+          beneficiaire = nouveauBeneficiaire(null);
+          evenement.beneficiaires.push(beneficiaire);
+        }
+        beneficiaire?.e700.push(i);
+        break;
       case '485':
       case '490':
-      case '700':
         beneficiaire?.[`e${ligne.code}`].push(i);
         break;
       case '990':

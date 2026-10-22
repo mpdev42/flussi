@@ -38,6 +38,47 @@ export const LIBELLE_MODIFIE = 'Modifié';
 export const TITRE_AFFICHAGE_IMPOSSIBLE = 'Affichage du fichier impossible';
 export const MESSAGE_AFFICHAGE_IMPOSSIBLE =
   "Une erreur inattendue empêche d'afficher ce fichier. Vos corrections sont conservées : vous pouvez encore les enregistrer.";
+/** Un rejet ne se corrige pas : rien à conserver ni à enregistrer. */
+export const MESSAGE_AFFICHAGE_REJET_IMPOSSIBLE =
+  "Une erreur inattendue empêche d'afficher ce fichier de rejet.";
+
+// Fichier de rejet MSP : message de MSP et explication, par ligne rejetée (item 4 de la v0.3.0)
+
+/** Début du titre de l'encadré d'une ligne, avant « rejetée par MSP ». */
+export const SUJET_LIGNE = 'Ligne';
+/** Suite du titre de l'encadré, après le sujet (« Ligne », « Ligne 10 (990) de l'évènement »). */
+export const TITRE_REJETEE_PAR_MSP = ` rejetée par MSP${NB}· `;
+/** Titre de l'encadré quand le message n'a pas de code `ERRxxx` (divergence 10). */
+export const LIBELLE_CODE_INCONNU = 'code inconnu';
+/** Bénéficiaire implicite : une 700 est arrivée sans sa 400 dans le rejet. */
+export const LIBELLE_BENEFICIAIRE_ABSENT = 'Bénéficiaire absent du rejet';
+export const TITRE_ENTITE_ABSENTE_REJET = 'Entité absente du rejet';
+/** Mention lue par les lecteurs d'écran après le libellé d'un onglet désactivé d'un rejet. */
+export const MENTION_ENTITE_ABSENTE_REJET = '(entité absente du rejet)';
+
+/**
+ * « Message MSP : « … » » (espaces insécables avant « : » et dans les guillemets). Le message est
+ * rogné pour l'affichage seulement : le domaine garde le message brut.
+ */
+export function messageMsp(message: string): string {
+  return `Message MSP${NB}: «${NB}${message.trim()}${NB}»`;
+}
+
+/** « Explication : … » (l'explication d'un code sans texte validé n'est pas affichée). */
+export function explicationMsp(explication: string): string {
+  return `Explication${NB}: ${explication}`;
+}
+
+/** Début de la ligne d'une ligne rejetée hors évènement : « Ligne 14 (995) » (entité illisible : numéro seul). */
+export function designationLigneRejetee(numero: number, code: string | null): string {
+  const ligne = `${SUJET_LIGNE}${NB}${numero}`;
+  return code === null ? ligne : `${ligne} (${code})`;
+}
+
+/** Titre de l'alerte des lignes rejetées hors de tout évènement (000, 001, 995, 999, lignes perdues). */
+export function titreRejetsHorsEvenement(n: number): string {
+  return `${n} ${pluralize(n, 'ligne rejetée', 'lignes rejetées')} hors des évènements`;
+}
 
 /**
  * Alerte de fichier d'un fichier VEOS qui contient des erreurs (même forme que `MESSAGE_AUCUNE_ERREUR`).
